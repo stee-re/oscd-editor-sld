@@ -36,6 +36,7 @@ import {
   removeTerminal,
   reparentElement,
   ResizeEvent,
+  ResizeTLEvent,
   sldNs,
   StartConnectDetail,
   StartConnectEvent,
@@ -128,7 +129,7 @@ export default class Designer extends LitElement {
 
   set editCount(value: number) {
     this.connecting = undefined;
-    if (!this.resizing?.parentElement) this.resizing = undefined;
+    if (!this.resizingBR?.parentElement) this.resizingBR = undefined;
     if (!this.placingLabel?.parentElement) this.placingLabel = undefined;
     this._editCount = value;
   }
@@ -146,7 +147,10 @@ export default class Designer extends LitElement {
   templateElements: Record<string, Element> = {};
 
   @state()
-  resizing?: Element;
+  resizingBR?: Element;
+
+  @state()
+  resizingTL?: Element;
 
   @state()
   placing?: Element;
@@ -170,9 +174,14 @@ export default class Designer extends LitElement {
     if (this.gridSize < 4) this.gridSize = 4;
   }
 
-  startResizing(element: Element | undefined) {
+  startResizingBottomRight(element: Element | undefined) {
     this.reset();
-    this.resizing = element;
+    this.resizingBR = element;
+  }
+
+  startResizingTopLeft(element: Element | undefined) {
+    this.reset();
+    this.resizingTL = element;
   }
 
   startPlacing(element: Element | undefined) {
@@ -191,7 +200,8 @@ export default class Designer extends LitElement {
   }
 
   reset() {
-    this.resizing = undefined;
+    this.resizingBR = undefined;
+    this.resizingTL = undefined;
     this.placing = undefined;
     this.placingLabel = undefined;
     this.connecting = undefined;
@@ -470,7 +480,7 @@ export default class Designer extends LitElement {
       (!element.hasAttributeNS(sldNs, 'w') ||
         !element.hasAttributeNS(sldNs, 'h'))
     )
-      this.startResizing(element);
+      this.startResizingBottomRight(element);
     else this.reset();
   }
 
@@ -622,12 +632,16 @@ export default class Designer extends LitElement {
             .editCount=${this.editCount}
             .substation=${subs}
             .gridSize=${this.gridSize}
-            .resizing=${this.resizing}
+            .resizingBR=${this.resizingBR}
+            .resizingTL=${this.resizingTL}
             .placing=${this.placing}
             .placingLabel=${this.placingLabel}
             .connecting=${this.connecting}
-            @oscd-sld-start-resize=${({ detail }: StartEvent) => {
-              this.startResizing(detail);
+            @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
+              this.startResizingBottomRight(detail);
+            }}
+            @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
+              this.startResizingTopLeft(detail);
             }}
             @oscd-sld-start-place=${({ detail }: StartEvent) => {
               this.startPlacing(detail);
@@ -645,6 +659,30 @@ export default class Designer extends LitElement {
                   attributes: {
                     w: { namespaceURI: sldNs, value: w.toString() },
                     h: { namespaceURI: sldNs, value: h.toString() },
+                  },
+                })
+              );
+              this.reset();
+            }}
+            @oscd-sld-resize-tl=${({
+              detail: { element, x, y, w, h },
+            }: ResizeTLEvent) => {
+              const {
+                pos: [oldX, oldY],
+                label: [oldLX, oldLY],
+              } = attributes(element);
+              const lx = oldLX - oldX + x;
+              const ly = oldLY - oldY + y;
+              this.dispatchEvent(
+                newEditEvent({
+                  element,
+                  attributes: {
+                    x: { namespaceURI: sldNs, value: x.toString() },
+                    y: { namespaceURI: sldNs, value: y.toString() },
+                    w: { namespaceURI: sldNs, value: w.toString() },
+                    h: { namespaceURI: sldNs, value: h.toString() },
+                    lx: { namespaceURI: sldNs, value: lx.toString() },
+                    ly: { namespaceURI: sldNs, value: ly.toString() },
                   },
                 })
               );
@@ -871,7 +909,11 @@ export default class Designer extends LitElement {
           @click=${() => this.zoomOut()}
         >
         </mwc-icon-button
-        >${this.placing || this.resizing || this.connecting || this.placingLabel
+        >${this.placing ||
+        this.resizingBR ||
+        this.resizingTL ||
+        this.connecting ||
+        this.placingLabel
           ? html`<mwc-icon-button
               icon="close"
               label="Cancel action"

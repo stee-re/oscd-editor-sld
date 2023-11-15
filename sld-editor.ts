@@ -22,7 +22,9 @@ import {
   equipmentGraphic,
   movePath,
   oneWindingPTRGraphic,
+  resizeBRPath,
   resizePath,
+  resizeTLPath,
   symbols,
   threeWindingPTRGraphic,
   twoWindingPTRGraphic,
@@ -39,11 +41,13 @@ import {
   newPlaceEvent,
   newPlaceLabelEvent,
   newResizeEvent,
+  newResizeTLEvent,
   newRotateEvent,
   newStartConnectEvent,
   newStartPlaceEvent,
   newStartPlaceLabelEvent,
-  newStartResizeEvent,
+  newStartResizeBREvent,
+  newStartResizeTLEvent,
   Point,
   privType,
   removeNode,
@@ -323,7 +327,10 @@ export class SLDEditor extends LitElement {
   nsp = 'esld';
 
   @property()
-  resizing?: Element;
+  resizingBR?: Element;
+
+  @property()
+  resizingTL?: Element;
 
   @property()
   placing?: Element;
@@ -337,6 +344,17 @@ export class SLDEditor extends LitElement {
     path: Point[];
     fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
   };
+
+  @state()
+  get idle(): boolean {
+    return !(
+      this.placing ||
+      this.resizingBR ||
+      this.resizingTL ||
+      this.placingLabel ||
+      this.connecting
+    );
+  }
 
   @query('#resizeSubstationUI')
   resizeSubstationUI!: Dialog;
@@ -382,13 +400,7 @@ export class SLDEditor extends LitElement {
   }
 
   openMenu(element: Element, e: MouseEvent) {
-    if (
-      !this.placing &&
-      !this.resizing &&
-      !this.placingLabel &&
-      !this.connecting
-    )
-      this.menu = { element, left: e.clientX, top: e.clientY };
+    if (this.idle) this.menu = { element, left: e.clientX, top: e.clientY };
     e.preventDefault();
   }
 
@@ -454,17 +466,35 @@ export class SLDEditor extends LitElement {
     return true;
   }
 
+  canResizeToTL(element: Element, x: number, y: number, w: number, h: number) {
+    if (!this.canPlaceAt(element, x, y, w, h)) return false;
+
+    const lostChild = Array.from(element.children).find(child => {
+      if (!parentTags[child.tagName]?.includes(element.tagName)) return false;
+      const {
+        pos: [cx, cy],
+        dim: [cw, ch],
+      } = attributes(child);
+
+      return !contains([x, y, w, h], [cx, cy, cw, ch]);
+    });
+    if (lostChild) return false;
+
+    return true;
+  }
+
   renderedLabelPosition(element: Element): Point {
     let {
       label: [x, y],
     } = attributes(element);
     if (
-      this.placing &&
-      element.closest(this.placing.tagName) === this.placing
+      (this.placing &&
+        element.closest(this.placing.tagName) === this.placing) ||
+      this.resizingTL === element
     ) {
       const {
         pos: [parentX, parentY],
-      } = attributes(this.placing);
+      } = attributes(this.placing || this.resizingTL!);
       x += this.mouseX - parentX;
       y += this.mouseY - parentY;
     }
@@ -962,10 +992,10 @@ export class SLDEditor extends LitElement {
             height="24"
             viewBox="0 96 960 960"
           >
-            ${resizePath}
+            ${resizeBRPath}
           </svg>
         </mwc-list-item>`,
-        handler: () => this.dispatchEvent(newStartResizeEvent(busBar)),
+        handler: () => this.dispatchEvent(newStartResizeBREvent(busBar)),
       },
       {
         content: html`<mwc-list-item graphic="icon">
@@ -1024,10 +1054,10 @@ export class SLDEditor extends LitElement {
             height="24"
             viewBox="0 96 960 960"
           >
-            ${resizePath}
+            ${resizeBRPath}
           </svg>
         </mwc-list-item>`,
-        handler: () => this.dispatchEvent(newStartResizeEvent(bayOrVL)),
+        handler: () => this.dispatchEvent(newStartResizeBREvent(bayOrVL)),
       },
       {
         content: html`<mwc-list-item graphic="icon">
@@ -1212,6 +1242,7 @@ export class SLDEditor extends LitElement {
     let coordinates = html``;
     let invalid = false;
     let hidden = true;
+
     if (this.placing) {
       const {
         dim: [w0, h0],
@@ -1227,16 +1258,29 @@ export class SLDEditor extends LitElement {
       coordinates = html`${this.mouseX},${this.mouseY}`;
     }
 
-    if (this.resizing && !isBusBar(this.resizing)) {
+    if (this.resizingBR && !isBusBar(this.resizingBR)) {
       const {
         pos: [x, y],
-      } = attributes(this.resizing);
+      } = attributes(this.resizingBR);
       const newW = Math.max(1, this.mouseX - x + 1);
       const newH = Math.max(1, this.mouseY - y + 1);
       hidden = false;
-      invalid = !this.canResizeTo(this.resizing, newW, newH);
+      invalid = !this.canResizeTo(this.resizingBR, newW, newH);
       coordinates = html`${newW}&times;${newH}`;
     }
+
+    if (this.resizingTL) {
+      const {
+        pos: [x, y],
+        dim: [resW, resH],
+      } = attributes(this.resizingTL);
+      const newW = Math.max(1, x + resW - this.mouseX);
+      const newH = Math.max(1, y + resH - this.mouseY);
+      hidden = false;
+      invalid = !this.canResizeTo(this.resizingTL, newW, newH);
+      coordinates = html`${newW}&times;${newH}`;
+    }
+
     const coordinateTooltip = html`<div
       ${ref(this.coordinatesRef)}
       class="${classMap({ coordinates: true, invalid, hidden })}"
@@ -1379,15 +1423,13 @@ export class SLDEditor extends LitElement {
           :focus {
             outline: none;
           }
-          :focus > .handle,
-          :focus-within > .handle {
+          g:hover > .handle {
             opacity: 0.2;
             visibility: visible;
           }
-          .handle:hover,
-          .handle:focus {
+          g:hover > .handle:hover {
             visibility: visible;
-            opacity: 1;
+            opacity: 0.83;
           }
           g.voltagelevel > rect,
           g.bay > rect {
@@ -1397,7 +1439,7 @@ export class SLDEditor extends LitElement {
             visibility: hidden;
           }
           .preview {
-            opacity: 0.83;
+            opacity: 0.75;
           }
         </style>
         ${symbols}
@@ -1540,12 +1582,7 @@ export class SLDEditor extends LitElement {
     const fontSize = element.tagName === 'ConductingEquipment' ? 0.45 : 0.6;
     let events = 'none';
     let handleClick: (() => void) | symbol = nothing;
-    if (
-      !this.placing &&
-      !this.resizing &&
-      !this.connecting &&
-      !this.placingLabel
-    ) {
+    if (this.idle) {
       events = 'all';
       handleClick = () => this.dispatchEvent(newStartPlaceLabelEvent(element));
     }
@@ -1576,18 +1613,23 @@ export class SLDEditor extends LitElement {
     const isVL = bayOrVL.tagName === 'VoltageLevel';
     if (this.placing === bayOrVL && !preview) return svg``;
 
-    const [x, y] = this.renderedPosition(bayOrVL);
+    let [x, y] = this.renderedPosition(bayOrVL);
     let {
       dim: [w, h],
     } = attributes(bayOrVL);
-    let handleClick: ((e: MouseEvent) => void) | undefined;
+    let handleClick = (e: MouseEvent) => {
+      if (this.idle)
+        this.dispatchEvent(
+          newStartPlaceEvent(e.shiftKey ? copy(bayOrVL, this.nsp) : bayOrVL)
+        );
+    };
     let invalid = false;
 
-    if (this.resizing === bayOrVL) {
+    if (this.resizingBR === bayOrVL) {
       w = Math.max(1, this.mouseX - x + 1);
       h = Math.max(1, this.mouseY - y + 1);
       if (this.canResizeTo(bayOrVL, w, h))
-        handleClick = () => {
+        handleClick = () =>
           this.dispatchEvent(
             newResizeEvent({
               w,
@@ -1595,7 +1637,25 @@ export class SLDEditor extends LitElement {
               element: bayOrVL,
             })
           );
-        };
+      else invalid = true;
+    }
+
+    if (this.resizingTL === bayOrVL) {
+      w = Math.max(1, x + w - this.mouseX);
+      h = Math.max(1, y + h - this.mouseY);
+      x = this.mouseX;
+      y = this.mouseY;
+      if (this.canResizeToTL(bayOrVL, x, y, w, h))
+        handleClick = () =>
+          this.dispatchEvent(
+            newResizeTLEvent({
+              x,
+              y,
+              w,
+              h,
+              element: bayOrVL,
+            })
+          );
       else invalid = true;
     }
 
@@ -1607,7 +1667,7 @@ export class SLDEditor extends LitElement {
           this.substation.querySelectorAll(':root > Substation > VoltageLevel')
         ).find(vl => containsRect(vl, x, y, w, h));
       if (parent && this.canPlaceAt(bayOrVL, x, y, w, h))
-        handleClick = () => {
+        handleClick = () =>
           this.dispatchEvent(
             newPlaceEvent({
               x,
@@ -1616,12 +1676,9 @@ export class SLDEditor extends LitElement {
               parent: parent!,
             })
           );
-        };
       else invalid = true;
     }
 
-    let moveHandle = svg``;
-    let resizeHandle = svg``;
     let placingTarget = svg``;
     let resizingTarget = svg``;
     if (
@@ -1629,39 +1686,40 @@ export class SLDEditor extends LitElement {
       (!isVL && this.placing?.tagName === 'ConductingEquipment')
     )
       placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-        @click=${handleClick || nothing} fill="url(#grid)" />`;
+        @click=${handleClick} fill="url(#grid)" />`;
 
     if (
-      this.resizing === bayOrVL ||
-      (this.resizing?.parentElement === bayOrVL && isBusBar(this.resizing))
+      this.resizingBR === bayOrVL ||
+      this.resizingTL === bayOrVL ||
+      (this.resizingBR?.parentElement === bayOrVL && isBusBar(this.resizingBR))
     )
       resizingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
         @click=${handleClick || nothing} fill="url(#grid)" />`;
 
-    if (
-      !this.placing &&
-      !this.resizing &&
-      !this.connecting &&
-      !this.placingLabel
-    ) {
-      moveHandle = svg`<svg class="handle" xmlns="${svgNs}" height="1" width="1"
-          fill="black" opacity="0.83" viewBox="0 96 960 960" 
-          @click=${(e: MouseEvent) =>
-            this.dispatchEvent(
-              newStartPlaceEvent(e.shiftKey ? copy(bayOrVL, this.nsp) : bayOrVL)
-            )}
-          x="${x}" y="${y}">
-        <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-        ${movePath}
-      </svg>`;
-      resizeHandle = svg`<svg class="handle" xmlns="${svgNs}" height="1" width="1"
-          fill="black" opacity="0.83" viewBox="0 96 960 960" 
-          @click=${() => this.dispatchEvent(newStartResizeEvent(bayOrVL))}
-          x="${w + x - 1}" y="${h + y - 1}">
-        <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-        ${resizePath}
-      </svg>`;
-    }
+    const resizeBRHandle = this.idle
+      ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
+          opacity="0.83" class="handle"
+          @click=${() => this.dispatchEvent(newStartResizeBREvent(bayOrVL))}
+          viewBox="0 96 960 960" x="${w + x - 1}" y="${h + y - 1}">
+          <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
+          ${resizeBRPath}
+        </svg>`
+      : nothing;
+    const resizeTLhandle = this.idle
+      ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
+          opacity="0.83" class="handle"
+          @click=${() => this.dispatchEvent(newStartResizeTLEvent(bayOrVL))}
+          viewBox="0 96 960 960" x="${x}" y="${y}">
+          <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
+          ${resizeTLPath}
+        </svg>`
+      : nothing;
+
+    const clickthrough =
+      !this.idle &&
+      this.placing !== bayOrVL &&
+      this.resizingBR !== bayOrVL &&
+      this.resizingTL !== bayOrVL;
 
     return svg`<g id="${
       bayOrVL.closest('Substation') === this.substation
@@ -1671,17 +1729,18 @@ export class SLDEditor extends LitElement {
       voltagelevel: isVL,
       bay: !isVL,
       preview,
-    })} tabindex="0" pointer-events="all" style="outline: none;">
+    })} tabindex="0" pointer-events="${
+      clickthrough ? 'none' : 'all'
+    }" style="outline: none;">
       <rect x="${x}" y="${y}" width="${w}" height="${h}"
         @contextmenu=${(e: MouseEvent) => this.openMenu(bayOrVL, e)}
-        @click=${handleClick || nothing}
+        @click=${handleClick || nothing} @mousedown=${preventDefault}
+        @auxclick=${() => this.dispatchEvent(newStartResizeBREvent(bayOrVL))}
         fill="white" stroke-dasharray="${isVL ? nothing : '0.18'}"
         stroke="${
           // eslint-disable-next-line no-nested-ternary
           invalid ? '#BB1326' : isVL ? '#F5E214' : '#12579B'
         }" />
-      ${moveHandle}
-      ${placingTarget}
       ${Array.from(bayOrVL.children)
         .filter(isBay)
         .map(bay => this.renderContainer(bay))}
@@ -1709,7 +1768,9 @@ export class SLDEditor extends LitElement {
               .map(element => this.renderLabel(element))
           : nothing
       }
-      ${resizeHandle}
+      ${resizeTLhandle}
+      ${resizeBRHandle}
+      ${placingTarget}
       ${resizingTarget}
     </g>`;
   }
@@ -1970,7 +2031,9 @@ export class SLDEditor extends LitElement {
     if (
       !(
         this.connecting ||
-        this.resizing ||
+        this.resizingBR ||
+        this.resizingTL ||
+        this.placingLabel ||
         (this.placing && this.placing !== winding.closest('PowerTransformer'))
       )
     )
@@ -1985,24 +2048,12 @@ export class SLDEditor extends LitElement {
                 if (terminal) return;
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (
-                  this.placing ||
-                  this.connecting ||
-                  this.resizing ||
-                  this.placingLabel
-                )
-                  return;
+                if (!this.idle) return;
                 this.groundTerminal(winding, name as 'T1' | 'T2' | 'N1' | 'N2');
               }}
               @click=${(e: MouseEvent) => {
                 e.stopImmediatePropagation();
-                if (
-                  this.placing ||
-                  this.connecting ||
-                  this.resizing ||
-                  this.placingLabel
-                )
-                  return;
+                if (!this.idle) return;
                 this.dispatchEvent(
                   newStartConnectEvent({
                     from: winding,
@@ -2083,13 +2134,7 @@ export class SLDEditor extends LitElement {
             );
           }
 
-          if (
-            this.placing ||
-            this.connecting ||
-            this.resizing ||
-            this.placingLabel
-          )
-            return;
+          if (!this.idle) return;
 
           let placing = transformer;
           if (e.shiftKey) placing = copy(transformer, this.nsp);
@@ -2164,8 +2209,10 @@ export class SLDEditor extends LitElement {
 
     const topConnector =
       topTerminal ||
-      this.resizing ||
+      this.resizingBR ||
+      this.resizingTL ||
       this.connecting ||
+      this.placingLabel ||
       (this.placing && this.placing !== equipment)
         ? nothing
         : svg`<circle cx="0.5" cy="0" r="0.2" opacity="0.4"
@@ -2206,8 +2253,10 @@ export class SLDEditor extends LitElement {
 
     const bottomConnector =
       bottomTerminal ||
-      this.resizing ||
+      this.resizingBR ||
+      this.resizingTL ||
       this.connecting ||
+      this.placingLabel ||
       (this.placing && this.placing !== equipment) ||
       singleTerminal.has(eqType)
         ? nothing
@@ -2248,6 +2297,8 @@ export class SLDEditor extends LitElement {
                 stroke-width="0.06" marker-start="url(#grounded)" />`
         : nothing;
 
+    const clickthrough = connect || (!this.idle && this.placing !== equipment);
+
     return svg`<g class="${classMap({
       equipment: true,
       preview: this.placing === equipment,
@@ -2269,7 +2320,7 @@ export class SLDEditor extends LitElement {
           : nothing
       }
       <rect width="1" height="1" fill="none" pointer-events="${
-        connect ? 'none' : 'all'
+        clickthrough ? 'none' : 'all'
       }"
         @mousedown=${preventDefault}
         @click=${handleClick}
@@ -2357,7 +2408,9 @@ export class SLDEditor extends LitElement {
     const bay = cNode.closest('Bay');
     const targetSize = 0.5;
     const pointerEvents =
-      !this.resizing || isBusBar(this.resizing) ? 'all' : 'none';
+      !this.resizingBR || (this.resizingBR === bay && isBusBar(this.resizingBR))
+        ? 'all'
+        : 'none';
     sections.forEach(section => {
       const busBar = xmlBoolean(section.getAttribute('bus'));
       const vertices = Array.from(
@@ -2373,11 +2426,11 @@ export class SLDEditor extends LitElement {
         if (busBar && bay) {
           handleClick = () => this.dispatchEvent(newStartPlaceEvent(bay));
           handleAuxClick = ({ button }: MouseEvent) => {
-            if (button === 1) this.dispatchEvent(newStartResizeEvent(bay));
+            if (button === 1) this.dispatchEvent(newStartResizeBREvent(bay));
           };
           handleContextMenu = (e: MouseEvent) => this.openMenu(bay, e);
         }
-        if (busBar && this.resizing === bay) {
+        if (busBar && this.resizingBR === bay) {
           if (section !== sections.find(s => xmlBoolean(s.getAttribute('bus'))))
             return;
           circles.length = 0;
