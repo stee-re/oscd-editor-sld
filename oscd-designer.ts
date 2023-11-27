@@ -185,7 +185,9 @@ export default class Designer extends LitElement {
     this.placingLabel = element;
   }
 
-  startConnecting({ equipment, terminal }: StartConnectDetail) {
+  startConnecting(detail: StartConnectDetail) {
+    if (!('equipment' in detail)) return;
+    const { equipment, terminal } = detail;
     this.reset();
     const { close, far } = connectionStartPoints(equipment)[terminal];
     if (equipment)
