@@ -426,11 +426,11 @@ describe('Designer', () => {
       await sendMouse({ type: 'click', position: [200, 200] });
       expect(element.doc.querySelector('VoltageLevel')).to.have.attribute(
         'smth:lx',
-        '5.5'
+        '5'
       );
       expect(element.doc.querySelector('VoltageLevel')).to.have.attribute(
         'smth:ly',
-        '4'
+        '4.5'
       );
     });
 
@@ -459,11 +459,11 @@ describe('Designer', () => {
       await sendMouse({ type: 'click', position: [200, 200] });
       expect(element.doc.querySelector('VoltageLevel')).to.have.attribute(
         'smth:lx',
-        '5.5'
+        '5'
       );
       expect(element.doc.querySelector('VoltageLevel')).to.have.attribute(
         'smth:ly',
-        '4'
+        '4.5'
       );
     });
 
@@ -789,10 +789,10 @@ describe('Designer', () => {
       await sendMouse({ type: 'click', position: [200, 200] });
       expect(
         element.doc.querySelector('ConductingEquipment')
-      ).to.have.attribute('esld:lx', '5.5');
+      ).to.have.attribute('esld:lx', '5');
       expect(
         element.doc.querySelector('ConductingEquipment')
-      ).to.have.attribute('esld:ly', '4');
+      ).to.have.attribute('esld:ly', '4.5');
     });
 
     it('moves equipment on left mouse button click', async () => {
@@ -1340,13 +1340,13 @@ describe('Designer', () => {
           );
           await sendMouse({ type: 'click', position: [300, 220] });
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(6);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(16);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(15);
           queryUI({ scl: '[type="CBR"]', ui: 'rect' }).dispatchEvent(
             new PointerEvent('auxclick', { button: 1 })
           );
           element.updateComplete;
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(4);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(13);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(12);
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
             ignoreAttributes: ['esld:uuid'],
           });
@@ -1356,15 +1356,15 @@ describe('Designer', () => {
           queryUI({ scl: '[type="NEW"]', ui: 'circle' }).dispatchEvent(
             new PointerEvent('click')
           );
-          await sendMouse({ type: 'click', position: [610, 270] });
+          await sendMouse({ type: 'click', position: [600, 270] });
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(6);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(16);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(15);
           queryUI({ scl: '[type="NEW"]', ui: 'rect' }).dispatchEvent(
             new PointerEvent('auxclick', { button: 1 })
           );
           element.updateComplete;
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(4);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(11);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(10);
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
             ignoreAttributes: ['esld:uuid'],
           });
@@ -1380,12 +1380,12 @@ describe('Designer', () => {
           );
           await sendMouse({ type: 'click', position: [300, 220] });
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(7);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(19);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(18);
           queryUI({ scl: '[type="NEW"]', ui: 'rect' }).dispatchEvent(
             new PointerEvent('auxclick', { button: 1 })
           );
           expect(element.doc.querySelectorAll('Section')).to.have.lengthOf(6);
-          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(16);
+          expect(element.doc.querySelectorAll('Vertex')).to.have.lengthOf(15);
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
             ignoreAttributes: ['esld:uuid'],
           });
@@ -1688,11 +1688,11 @@ describe('Designer', () => {
             await sendMouse({ type: 'click', position: [200, 200] });
             expect(element.doc.querySelector('[name="BB1"]')).to.have.attribute(
               'lx',
-              '5.5'
+              '5'
             );
             expect(element.doc.querySelector('[name="BB1"]')).to.have.attribute(
               'ly',
-              '4'
+              '4.5'
             );
           });
 
