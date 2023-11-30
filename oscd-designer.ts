@@ -15,12 +15,10 @@ import './sld-editor.js';
 import {
   bayIcon,
   equipmentIcon,
-  oneWindingAutoPTRIcon,
-  oneWindingEarthingPTRIcon,
+  oneWindingPTRIcon,
   threeWindingPTRIcon,
-  twoWindingAutoPTRIcon,
-  twoWindingEarthingPTRIcon,
   twoWindingPTRIcon,
+  twoWindingPTRIconHorizontal,
   voltageLevelIcon,
 } from './icons.js';
 import {
@@ -301,6 +299,13 @@ export default class Designer extends LitElement {
       ) {
         lx += 1;
         ly += 1;
+      }
+      if (
+        element.tagName === 'PowerTransformer' &&
+        !element.hasAttributeNS(sldNs, 'lx')
+      ) {
+        lx -= 0.5;
+        ly -= 0.5;
       }
       edits.push({
         element,
@@ -734,45 +739,21 @@ export default class Designer extends LitElement {
         )
           ? html`<mwc-fab
                 mini
-                label="Add Three Winding Transformer"
+                label="Add Single Winding Auto Transformer"
                 @click=${() => {
                   const element =
                     this.templateElements.PowerTransformer!.cloneNode() as Element;
                   element.setAttribute('type', 'PTR');
-                  const windings = [];
-                  for (let i = 1; i <= 3; i += 1) {
-                    const winding =
-                      this.templateElements.TransformerWinding!.cloneNode() as Element;
-                    winding.setAttribute('type', 'PTW');
-                    winding.setAttribute('name', `W${i}`);
-                    windings.push(winding);
-                  }
-                  element.append(...windings);
+                  element.setAttributeNS(sldNs, 'kind', 'auto');
+                  const winding =
+                    this.templateElements.TransformerWinding!.cloneNode() as Element;
+                  winding.setAttribute('type', 'PTW');
+                  winding.setAttribute('name', 'W1');
+                  element.appendChild(winding);
                   this.startPlacing(element);
                 }}
-                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                >${threeWindingPTRIcon}</mwc-fab
-              ><mwc-fab
-                mini
-                label="Add Two Winding Earthing Transformer"
-                @click=${() => {
-                  const element =
-                    this.templateElements.PowerTransformer!.cloneNode() as Element;
-                  element.setAttribute('type', 'PTR');
-                  element.setAttributeNS(sldNs, 'kind', 'earthing');
-                  const windings = [];
-                  for (let i = 1; i <= 2; i += 1) {
-                    const winding =
-                      this.templateElements.TransformerWinding!.cloneNode() as Element;
-                    winding.setAttribute('type', 'PTW');
-                    winding.setAttribute('name', `W${i}`);
-                    windings.push(winding);
-                  }
-                  element.append(...windings);
-                  this.startPlacing(element);
-                }}
-                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                >${twoWindingEarthingPTRIcon}</mwc-fab
+                style="--mdc-theme-secondary: #F5E214; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);"
+                >${oneWindingPTRIcon}</mwc-fab
               ><mwc-fab
                 mini
                 label="Add Two Winding Auto Transformer"
@@ -781,6 +762,7 @@ export default class Designer extends LitElement {
                     this.templateElements.PowerTransformer!.cloneNode() as Element;
                   element.setAttribute('type', 'PTR');
                   element.setAttributeNS(sldNs, 'kind', 'auto');
+                  element.setAttributeNS(sldNs, 'rot', '1');
                   const windings = [];
                   for (let i = 1; i <= 2; i += 1) {
                     const winding =
@@ -792,8 +774,8 @@ export default class Designer extends LitElement {
                   element.append(...windings);
                   this.startPlacing(element);
                 }}
-                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                >${twoWindingAutoPTRIcon}</mwc-fab
+                style="--mdc-theme-secondary: #F5E214; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);"
+                >${twoWindingPTRIconHorizontal}</mwc-fab
               ><mwc-fab
                 mini
                 label="Add Two Winding Transformer"
@@ -816,6 +798,26 @@ export default class Designer extends LitElement {
                 >${twoWindingPTRIcon}</mwc-fab
               ><mwc-fab
                 mini
+                label="Add Three Winding Transformer"
+                @click=${() => {
+                  const element =
+                    this.templateElements.PowerTransformer!.cloneNode() as Element;
+                  element.setAttribute('type', 'PTR');
+                  const windings = [];
+                  for (let i = 1; i <= 3; i += 1) {
+                    const winding =
+                      this.templateElements.TransformerWinding!.cloneNode() as Element;
+                    winding.setAttribute('type', 'PTW');
+                    winding.setAttribute('name', `W${i}`);
+                    windings.push(winding);
+                  }
+                  element.append(...windings);
+                  this.startPlacing(element);
+                }}
+                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
+                >${threeWindingPTRIcon}</mwc-fab
+              ><mwc-fab
+                mini
                 label="Add Single Winding Earthing Transformer"
                 @click=${() => {
                   const element =
@@ -829,25 +831,30 @@ export default class Designer extends LitElement {
                   element.appendChild(winding);
                   this.startPlacing(element);
                 }}
-                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                >${oneWindingEarthingPTRIcon}</mwc-fab
+                style="--mdc-theme-secondary: #12579B;"
+                >${oneWindingPTRIcon}</mwc-fab
               ><mwc-fab
                 mini
-                label="Add Single Winding Auto Transformer"
+                label="Add Two Winding Earthing Transformer"
                 @click=${() => {
                   const element =
                     this.templateElements.PowerTransformer!.cloneNode() as Element;
                   element.setAttribute('type', 'PTR');
-                  element.setAttributeNS(sldNs, 'kind', 'auto');
-                  const winding =
-                    this.templateElements.TransformerWinding!.cloneNode() as Element;
-                  winding.setAttribute('type', 'PTW');
-                  winding.setAttribute('name', 'W1');
-                  element.appendChild(winding);
+                  element.setAttributeNS(sldNs, 'kind', 'earthing');
+                  element.setAttributeNS(sldNs, 'rot', '1');
+                  const windings = [];
+                  for (let i = 1; i <= 2; i += 1) {
+                    const winding =
+                      this.templateElements.TransformerWinding!.cloneNode() as Element;
+                    winding.setAttribute('type', 'PTW');
+                    winding.setAttribute('name', `W${i}`);
+                    windings.push(winding);
+                  }
+                  element.append(...windings);
                   this.startPlacing(element);
                 }}
-                style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                >${oneWindingAutoPTRIcon}</mwc-fab
+                style="--mdc-theme-secondary: #12579B;"
+                >${twoWindingPTRIconHorizontal}</mwc-fab
               >`
           : nothing}<mwc-icon-button
           icon="zoom_in"
