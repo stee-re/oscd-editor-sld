@@ -355,7 +355,7 @@ export function removeTerminal(terminal: Element): Edit[] {
 
   if (
     cNode &&
-    otherTerminals.length &&
+    otherTerminals.length > 1 &&
     otherTerminals.some(t => t.closest('Bay')) &&
     otherTerminals.every(t => t.closest('Bay') !== cNode.closest('Bay')) &&
     !isBusBar(cNode.closest('Bay')!)
@@ -364,6 +364,9 @@ export function removeTerminal(terminal: Element): Edit[] {
       .find(t => t.closest('Bay'))!
       .closest('Bay');
     if (newParent) edits.push(...reparentElement(cNode, newParent));
+  }
+  if (cNode && otherTerminals.length <= 1) {
+    edits.push(...removeNode(cNode));
   }
 
   const priv = cNode?.querySelector(`Private[type="${privType}"]`);
