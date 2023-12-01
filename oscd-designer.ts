@@ -1058,6 +1058,7 @@ export default class Designer extends LitElement {
       max-width: calc(100vw - 32px);
       background: #fffd;
       border-radius: 24px;
+      z-index: 0;
     }
 
     mwc-icon-button,

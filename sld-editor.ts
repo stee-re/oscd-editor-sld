@@ -1490,25 +1490,24 @@ export class SLDEditor extends LitElement {
       });
     }
 
+    const headerHeight =
+      element.hasAttribute('desc') || element.hasAttribute('type') ? 73 : 57;
+
     return html`
       <menu
         id="sld-context-menu"
-        style="position: fixed; top: ${this.menu.top - 73}px; left: ${this.menu
-          .left}px; background: var(--oscd-base3, white); margin: 0px; padding: 0px; box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23); --mdc-list-vertical-padding: 0px; overflow-y: auto;"
+        style="top: ${this.menu.top - headerHeight}px; left: ${this.menu
+          .left}px;"
         ${ref(async (menu?: Element) => {
           if (!(menu instanceof HTMLElement)) return;
-          const nav = (
-            this.parentElement!.getRootNode() as ShadowRoot
-          ).querySelector('nav')!;
-          const navHeight = nav.offsetHeight + 8;
           await this.updateComplete;
           const { bottom, right } = menu.getBoundingClientRect();
-          if (bottom > window.innerHeight - navHeight) {
+          if (bottom > window.innerHeight) {
             menu.style.removeProperty('top');
             // eslint-disable-next-line no-param-reassign
-            menu.style.bottom = `${navHeight}px`;
+            menu.style.bottom = `0px`;
             // eslint-disable-next-line no-param-reassign
-            menu.style.maxHeight = `calc(100vh - ${navHeight + 68}px)`;
+            menu.style.maxHeight = `calc(100vh - 68px)`;
           }
           if (right > window.innerWidth) {
             menu.style.removeProperty('left');
@@ -3014,6 +3013,16 @@ export class SLDEditor extends LitElement {
       color: rgba(0, 0, 0, 0.83);
       --mdc-icon-button-size: 28px;
       --mdc-icon-size: 24px;
+    }
+
+    menu {
+      position: fixed;
+      background: var(--oscd-base3, white);
+      margin: 0px;
+      padding: 0px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+      --mdc-list-vertical-padding: 0px;
+      overflow-y: auto;
     }
 
     .hidden {
