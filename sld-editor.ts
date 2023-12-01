@@ -408,7 +408,8 @@ export class SLDEditor extends LitElement {
     }
 
     const containingParent =
-      element.tagName === 'VoltageLevel'
+      element.tagName === 'VoltageLevel' ||
+      element.tagName === 'PowerTransformer'
         ? containsRect(this.substation, x, y, w, h)
         : Array.from(
             this.substation.querySelectorAll(
@@ -624,6 +625,7 @@ export class SLDEditor extends LitElement {
             'TapChanger'
           );
           node.setAttribute('name', 'LTC');
+          node.setAttribute('type', 'LTC');
           node.setAttribute('name', uniqueName(node, winding));
           this.dispatchEvent(
             newEditEvent({
@@ -2014,11 +2016,19 @@ export class SLDEditor extends LitElement {
                 y,
               })
             );
-          } else {
-            let placing = transformer;
-            if (e.shiftKey) placing = copy(transformer, this.nsp);
-            this.dispatchEvent(newStartPlaceEvent(placing));
           }
+
+          if (
+            this.placing ||
+            this.connecting ||
+            this.resizing ||
+            this.placingLabel
+          )
+            return;
+
+          let placing = transformer;
+          if (e.shiftKey) placing = copy(transformer, this.nsp);
+          this.dispatchEvent(newStartPlaceEvent(placing));
         }}>
         ${windings.map(w => this.renderTransformerWinding(w))}
       </g>
