@@ -667,91 +667,6 @@ export default class Designer extends LitElement {
   render() {
     if (!this.doc) return html`<p>Please open an SCL document</p>`;
     return html`<main>
-      ${Array.from(this.doc.querySelectorAll(':root > Substation')).map(
-        subs =>
-          html`<sld-editor
-            .doc=${this.doc}
-            .editCount=${this.editCount}
-            .substation=${subs}
-            .gridSize=${this.gridSize}
-            .resizingBR=${this.resizingBR}
-            .resizingTL=${this.resizingTL}
-            .placing=${this.placing}
-            .placingOffset=${this.placingOffset}
-            .placingLabel=${this.placingLabel}
-            .connecting=${this.connecting}
-            .showLabels=${this.showLabels}
-            @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
-              this.startResizingBottomRight(detail);
-            }}
-            @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
-              this.startResizingTopLeft(detail);
-            }}
-            @oscd-sld-start-place=${({
-              detail: { element, offset },
-            }: StartPlaceEvent) => {
-              this.startPlacing(element, offset);
-            }}
-            @oscd-sld-start-place-label=${({
-              detail: { element, offset },
-            }: StartPlaceEvent) => {
-              this.startPlacingLabel(element, offset);
-            }}
-            @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
-              this.startConnecting(detail);
-            }}
-            @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-              this.dispatchEvent(
-                newEditEvent({
-                  element,
-                  attributes: {
-                    w: { namespaceURI: sldNs, value: w.toString() },
-                    h: { namespaceURI: sldNs, value: h.toString() },
-                  },
-                })
-              );
-              this.reset();
-            }}
-            @oscd-sld-resize-tl=${({
-              detail: { element, x, y, w, h },
-            }: ResizeTLEvent) => {
-              const {
-                pos: [oldX, oldY],
-                label: [oldLX, oldLY],
-              } = attributes(element);
-              let lx = oldLX;
-              let ly = oldLY;
-              if (lx === oldX && ly === oldY) {
-                lx += x - oldX;
-                ly += y - oldY;
-              }
-              this.dispatchEvent(
-                newEditEvent({
-                  element,
-                  attributes: {
-                    x: { namespaceURI: sldNs, value: x.toString() },
-                    y: { namespaceURI: sldNs, value: y.toString() },
-                    w: { namespaceURI: sldNs, value: w.toString() },
-                    h: { namespaceURI: sldNs, value: h.toString() },
-                    lx: { namespaceURI: sldNs, value: lx.toString() },
-                    ly: { namespaceURI: sldNs, value: ly.toString() },
-                  },
-                })
-              );
-              this.reset();
-            }}
-            @oscd-sld-place=${({
-              detail: { element, parent, x, y },
-            }: PlaceEvent) => this.placeElement(element, parent, x, y)}
-            @oscd-sld-place-label=${({
-              detail: { element, x, y },
-            }: PlaceLabelEvent) => this.placeLabel(element, x, y)}
-            @oscd-sld-connect=${({ detail }: ConnectEvent) =>
-              this.connectEquipment(detail)}
-            @oscd-sld-rotate=${({ detail }: StartEvent) =>
-              this.rotateElement(detail)}
-          ></sld-editor>`
-      )}
       <nav>
         ${
           Array.from(
@@ -1014,6 +929,91 @@ export default class Designer extends LitElement {
               ></mwc-icon-button>`
         }
       </nav>
+      ${Array.from(this.doc.querySelectorAll(':root > Substation')).map(
+        subs =>
+          html`<sld-editor
+            .doc=${this.doc}
+            .editCount=${this.editCount}
+            .substation=${subs}
+            .gridSize=${this.gridSize}
+            .resizingBR=${this.resizingBR}
+            .resizingTL=${this.resizingTL}
+            .placing=${this.placing}
+            .placingOffset=${this.placingOffset}
+            .placingLabel=${this.placingLabel}
+            .connecting=${this.connecting}
+            .showLabels=${this.showLabels}
+            @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
+              this.startResizingBottomRight(detail);
+            }}
+            @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
+              this.startResizingTopLeft(detail);
+            }}
+            @oscd-sld-start-place=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacing(element, offset);
+            }}
+            @oscd-sld-start-place-label=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacingLabel(element, offset);
+            }}
+            @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
+              this.startConnecting(detail);
+            }}
+            @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
+              this.dispatchEvent(
+                newEditEvent({
+                  element,
+                  attributes: {
+                    w: { namespaceURI: sldNs, value: w.toString() },
+                    h: { namespaceURI: sldNs, value: h.toString() },
+                  },
+                })
+              );
+              this.reset();
+            }}
+            @oscd-sld-resize-tl=${({
+              detail: { element, x, y, w, h },
+            }: ResizeTLEvent) => {
+              const {
+                pos: [oldX, oldY],
+                label: [oldLX, oldLY],
+              } = attributes(element);
+              let lx = oldLX;
+              let ly = oldLY;
+              if (lx === oldX && ly === oldY) {
+                lx += x - oldX;
+                ly += y - oldY;
+              }
+              this.dispatchEvent(
+                newEditEvent({
+                  element,
+                  attributes: {
+                    x: { namespaceURI: sldNs, value: x.toString() },
+                    y: { namespaceURI: sldNs, value: y.toString() },
+                    w: { namespaceURI: sldNs, value: w.toString() },
+                    h: { namespaceURI: sldNs, value: h.toString() },
+                    lx: { namespaceURI: sldNs, value: lx.toString() },
+                    ly: { namespaceURI: sldNs, value: ly.toString() },
+                  },
+                })
+              );
+              this.reset();
+            }}
+            @oscd-sld-place=${({
+              detail: { element, parent, x, y },
+            }: PlaceEvent) => this.placeElement(element, parent, x, y)}
+            @oscd-sld-place-label=${({
+              detail: { element, x, y },
+            }: PlaceLabelEvent) => this.placeLabel(element, x, y)}
+            @oscd-sld-connect=${({ detail }: ConnectEvent) =>
+              this.connectEquipment(detail)}
+            @oscd-sld-rotate=${({ detail }: StartEvent) =>
+              this.rotateElement(detail)}
+          ></sld-editor>`
+      )}
     </main>
     ${staticHtml`<mwc-dialog id="about" heading="About">
         <div>${unsafeStatic(aboutContent)}</div>
@@ -1042,6 +1042,7 @@ export default class Designer extends LitElement {
   static styles = css`
     main {
       padding: 16px;
+      width: fit-content;
     }
 
     div {
@@ -1050,9 +1051,11 @@ export default class Designer extends LitElement {
 
     nav {
       user-select: none;
-      position: fixed;
-      bottom: 4px;
-      left: 4px;
+      position: sticky;
+      top: 68px;
+      left: 16px;
+      width: fit-content;
+      max-width: calc(100vw - 32px);
       background: #fffd;
       border-radius: 24px;
     }
