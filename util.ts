@@ -367,6 +367,7 @@ export function removeTerminal(terminal: Element): Edit[] {
   }
   if (cNode && otherTerminals.length <= 1) {
     edits.push(...removeNode(cNode));
+    return edits;
   }
 
   const priv = cNode?.querySelector(`Private[type="${privType}"]`);
