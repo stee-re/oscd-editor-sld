@@ -352,7 +352,7 @@ describe('Designer', () => {
       const sldEditor =
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       const item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(1)'
+        'mwc-list-item:nth-of-type(2)'
       )!;
       item.selected = true;
       await element.updateComplete;
@@ -376,7 +376,7 @@ describe('Designer', () => {
       const sldEditor =
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       const item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(5)'
+        'mwc-list-item:nth-last-of-type(4)'
       )!;
       item.selected = true;
       await element.updateComplete;
@@ -400,7 +400,7 @@ describe('Designer', () => {
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(3)'
+        'mwc-list-item:nth-last-of-type(2)'
       )!.selected = true;
       await sldEditor.updateComplete;
       expect(lastCalledWizard).to.equal(
@@ -417,7 +417,7 @@ describe('Designer', () => {
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(4)'
+        'mwc-list-item:nth-last-of-type(3)'
       )!.selected = true;
       await sldEditor.updateComplete;
       expect(element)
@@ -563,7 +563,7 @@ describe('Designer', () => {
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(3)'
+        'mwc-list-item:nth-last-of-type(2)'
       )!.selected = true;
       await sldEditor.updateComplete;
       expect(lastCalledWizard).to.equal(element.doc.querySelector('Bay'));
@@ -763,7 +763,7 @@ describe('Designer', () => {
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(3)'
+        'mwc-list-item:nth-last-of-type(2)'
       )!.selected = true;
       await sldEditor.updateComplete;
       expect(lastCalledWizard).to.equal(
@@ -780,7 +780,7 @@ describe('Designer', () => {
         element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(4)'
+        'mwc-list-item:nth-last-of-type(3)'
       )!.selected = true;
       await sldEditor.updateComplete;
       expect(element)
@@ -866,7 +866,7 @@ describe('Designer', () => {
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       let item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(5)'
+        'mwc-list-item:nth-of-type(6)'
       )!;
       expect(equipment).to.not.have.attribute('esld:flip');
       item.selected = true;
@@ -879,7 +879,7 @@ describe('Designer', () => {
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(5)'
+        'mwc-list-item:nth-of-type(6)'
       )!;
       item.selected = true;
       await element.updateComplete;
@@ -897,7 +897,7 @@ describe('Designer', () => {
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       const item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(6)'
+        'mwc-list-item:nth-of-type(7)'
       )!;
       expect(equipment).to.have.attribute('esld:rot', '1');
       item.selected = true;
@@ -916,7 +916,7 @@ describe('Designer', () => {
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       const item = sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-last-of-type(5)'
+        'mwc-list-item:nth-last-of-type(4)'
       )!;
       item.selected = true;
       await element.updateComplete;
@@ -969,7 +969,7 @@ describe('Designer', () => {
         equipment.querySelector('Terminal[name="T1"][cNodeName="grounded"]')
       ).to.not.exist;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(2)'
+        'mwc-list-item:nth-of-type(3)'
       )!.selected = true;
       await element.updateComplete;
       expect(
@@ -983,7 +983,7 @@ describe('Designer', () => {
         equipment.querySelector('Terminal[name="T2"][cNodeName="grounded"]')
       ).to.not.exist;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(3)'
+        'mwc-list-item:nth-of-type(4)'
       )!.selected = true;
       await element.updateComplete;
       expect(
@@ -1025,7 +1025,7 @@ describe('Designer', () => {
       );
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(1)'
+        'mwc-list-item:nth-of-type(2)'
       )!.selected = true;
       expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
       let position = middleOf(queryUI({ scl: '[type="VTR"]', ui: 'rect' }));
@@ -1038,7 +1038,7 @@ describe('Designer', () => {
       );
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(2)'
+        'mwc-list-item:nth-of-type(3)'
       )!.selected = true;
       expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[type="NEW"]', ui: 'rect' }));
@@ -1052,7 +1052,7 @@ describe('Designer', () => {
       );
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(1)'
+        'mwc-list-item:nth-of-type(2)'
       )!.selected = true;
       expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[type="CTR"]', ui: 'rect' }));
@@ -1064,7 +1064,7 @@ describe('Designer', () => {
       );
       await element.updateComplete;
       sldEditor.shadowRoot!.querySelector<ListItem>(
-        'mwc-list-item:nth-of-type(2)'
+        'mwc-list-item:nth-of-type(3)'
       )!.selected = true;
       expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[name="DIS2"]', ui: 'rect' }));
@@ -1082,7 +1082,7 @@ describe('Designer', () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const eqClickTarget = sldEditor
         .shadowRoot!.getElementById(<string>identity(equipment))!
-        .querySelector('circle:nth-of-type(2)')!;
+        .querySelector('circle:nth-of-type(1)')!;
       eqClickTarget.dispatchEvent(new PointerEvent('click'));
       await element.updateComplete;
       const eq2ClickTarget = sldEditor.shadowRoot!.getElementById(
@@ -1318,7 +1318,7 @@ describe('Designer', () => {
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.exist;
           sldEditor.shadowRoot!.querySelector<ListItem>(
-            'mwc-list-item:nth-of-type(1)'
+            'mwc-list-item:nth-of-type(2)'
           )!.selected = true;
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
@@ -1328,7 +1328,7 @@ describe('Designer', () => {
           await sldEditor.updateComplete;
           expect(equipment.querySelector('Terminal[name="T2"]')).to.exist;
           sldEditor.shadowRoot!.querySelector<ListItem>(
-            'mwc-list-item:nth-of-type(3)'
+            'mwc-list-item:nth-of-type(4)'
           )!.selected = true;
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
@@ -1472,7 +1472,7 @@ describe('Designer', () => {
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.exist;
           sldEditor.shadowRoot!.querySelector<ListItem>(
-            'mwc-list-item:nth-last-of-type(2)'
+            'mwc-list-item:nth-last-of-type(1)'
           )!.selected = true;
           await element.updateComplete;
           expect(equipment.parentElement).to.not.exist;
@@ -1491,7 +1491,7 @@ describe('Designer', () => {
           await element.updateComplete;
           expect(bay.querySelector('Terminal[name="T1"]')).to.exist;
           sldEditor.shadowRoot!.querySelector<ListItem>(
-            'mwc-list-item:nth-last-of-type(2)'
+            'mwc-list-item:nth-last-of-type(1)'
           )!.selected = true;
           await element.updateComplete;
           expect(bay.parentElement).to.not.exist;
@@ -1510,7 +1510,7 @@ describe('Designer', () => {
           await element.updateComplete;
           expect(bay.querySelector('Terminal[name="T1"]')).to.exist;
           sldEditor.shadowRoot!.querySelector<ListItem>(
-            'mwc-list-item:nth-last-of-type(2)'
+            'mwc-list-item:nth-last-of-type(1)'
           )!.selected = true;
           await element.updateComplete;
           expect(bay.parentElement).to.not.exist;
@@ -1607,7 +1607,7 @@ describe('Designer', () => {
             const sldEditor =
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-of-type(1)'
+              'mwc-list-item:nth-of-type(2)'
             )!.selected = true;
             const bus = element.doc.querySelector('[name="BB1"]');
             expect(bus).to.have.attribute('h', '3');
@@ -1627,7 +1627,7 @@ describe('Designer', () => {
             const sldEditor =
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-last-of-type(6)'
+              'mwc-list-item:nth-last-of-type(5)'
             )!.selected = true;
             expect(
               element.doc.querySelector('ConductingEquipment[*|x="3"][*|y="3"]')
@@ -1659,7 +1659,7 @@ describe('Designer', () => {
             const sldEditor =
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-of-type(2)'
+              'mwc-list-item:nth-of-type(3)'
             )!.selected = true;
             const bus = element.doc.querySelector('[name="BB1"]');
             expect(bus).to.have.attribute('y', '2');
@@ -1679,7 +1679,7 @@ describe('Designer', () => {
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             await element.updateComplete;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-last-of-type(4)'
+              'mwc-list-item:nth-last-of-type(3)'
             )!.selected = true;
             await sldEditor.updateComplete;
             expect(element)
@@ -1705,7 +1705,7 @@ describe('Designer', () => {
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             await element.updateComplete;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-last-of-type(3)'
+              'mwc-list-item:nth-last-of-type(2)'
             )!.selected = true;
             await sldEditor.updateComplete;
             expect(lastCalledWizard).to.equal(
@@ -1723,7 +1723,7 @@ describe('Designer', () => {
             const sldEditor =
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-last-of-type(2)'
+              'mwc-list-item:nth-last-of-type(1)'
             )!.selected = true;
             await sldEditor.updateComplete;
             expect(element.doc.querySelector('[name="BB1"]')).to.not.exist;
@@ -1741,7 +1741,7 @@ describe('Designer', () => {
             const sldEditor =
               element.shadowRoot!.querySelector<SLDEditor>('sld-editor')!;
             sldEditor.shadowRoot!.querySelector<ListItem>(
-              'mwc-list-item:nth-last-of-type(6)'
+              'mwc-list-item:nth-last-of-type(5)'
             )!.selected = true;
             expect(element.doc.querySelector('[name="V1"] [name="B2"]')).not.to
               .exist;
