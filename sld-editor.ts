@@ -584,7 +584,7 @@ export class SLDEditor extends LitElement {
     edits.push({
       parent: equipment,
       node: terminal,
-      reference: getReference(equipment, 'Terminal'),
+      reference: getReference(equipment, tagName),
     });
     this.dispatchEvent(newEditEvent(edits));
   }
