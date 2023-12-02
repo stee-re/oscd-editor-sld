@@ -718,6 +718,7 @@ export default class Designer extends LitElement {
                   eqType => html`<mwc-fab
                     mini
                     label="Add ${eqType}"
+                    title="Add ${eqType}"
                     @click=${() => {
                       const element =
                         this.templateElements.ConductingEquipment!.cloneNode() as Element;
@@ -741,11 +742,13 @@ export default class Designer extends LitElement {
                 this.startPlacing(element);
               }}
               label="Add Bus Bar"
+              title="Add Bus Bar"
             >
             </mwc-fab
             ><mwc-fab
               mini
               label="Add Bay"
+              title="Add Bay"
               @click=${() => {
                 const element =
                   this.templateElements.Bay!.cloneNode() as Element;
@@ -763,6 +766,7 @@ export default class Designer extends LitElement {
         ? html`<mwc-fab
             mini
             label="Add VoltageLevel"
+            title="Add VoltageLevel"
             @click=${() => {
               const element =
                 this.templateElements.VoltageLevel!.cloneNode() as Element;
@@ -779,6 +783,7 @@ export default class Designer extends LitElement {
           @click=${() => this.insertSubstation()}
           label="Add Substation"
           style="--mdc-theme-secondary: #BB1326; --mdc-theme-on-secondary: white;"
+          title="Add Substation"
         >
         </mwc-fab
         >${
@@ -788,6 +793,7 @@ export default class Designer extends LitElement {
             ? html`<mwc-fab
                   mini
                   label="Add Single Winding Auto Transformer"
+                  title="Add Single Winding Auto Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -805,6 +811,7 @@ export default class Designer extends LitElement {
                 ><mwc-fab
                   mini
                   label="Add Two Winding Auto Transformer"
+                  title="Add Two Winding Auto Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -825,6 +832,7 @@ export default class Designer extends LitElement {
                 ><mwc-fab
                   mini
                   label="Add Two Winding Transformer"
+                  title="Add Two Winding Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -844,6 +852,7 @@ export default class Designer extends LitElement {
                 ><mwc-fab
                   mini
                   label="Add Three Winding Transformer"
+                  title="Add Three Winding Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -863,6 +872,7 @@ export default class Designer extends LitElement {
                 ><mwc-fab
                   mini
                   label="Add Single Winding Earthing Transformer"
+                  title="Add Single Winding Earthing Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -883,6 +893,7 @@ export default class Designer extends LitElement {
                 ><mwc-fab
                   mini
                   label="Add Two Winding Earthing Transformer"
+                  title="Add Two Winding Earthing Transformer"
                   @click=${() => {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
@@ -910,6 +921,8 @@ export default class Designer extends LitElement {
       this.doc.querySelector('VoltageLevel, PowerTransformer')
         ? html`<mwc-icon-button-toggle
             id="labels"
+            label="Toggle Labels"
+            title="Toggle Labels"
             on
             onIcon="font_download"
             offIcon="font_download_off"
@@ -921,12 +934,14 @@ export default class Designer extends LitElement {
         ? html`<mwc-icon-button
               icon="zoom_in"
               label="Zoom In"
+              title="Zoom In"
               @click=${() => this.zoomIn()}
             >
             </mwc-icon-button
             ><mwc-icon-button
               icon="zoom_out"
               label="Zoom Out"
+              title="Zoom Out"
               @click=${() => this.zoomOut()}
             ></mwc-icon-button>`
         : nothing
@@ -940,7 +955,8 @@ export default class Designer extends LitElement {
           this.placingLabel
             ? html`<mwc-icon-button
                 icon="close"
-                label="Cancel action"
+                label="Cancel"
+                title="Cancel"
                 @click=${() => this.reset()}
               >
               </mwc-icon-button>`
