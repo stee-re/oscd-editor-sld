@@ -1420,9 +1420,9 @@ export class SLDEditor extends LitElement {
               isBusBar(node.parentElement!)
           )
           .map(cNode => this.renderConnectivityNode(cNode))}
-        ${Array.from(this.substation.querySelectorAll('PowerTransformer')).map(
-          transformer => this.renderPowerTransformer(transformer)
-        )}
+        ${Array.from(
+          this.substation.querySelectorAll(':scope > PowerTransformer')
+        ).map(transformer => this.renderPowerTransformer(transformer))}
         ${Array.from(
           this.substation.querySelectorAll(
             'VoltageLevel, Bay, ConductingEquipment, PowerTransformer'
@@ -1674,6 +1674,9 @@ export class SLDEditor extends LitElement {
       ${Array.from(bayOrVL.children)
         .filter(child => child.tagName === 'ConductingEquipment')
         .map(equipment => this.renderEquipment(equipment))}
+      ${Array.from(bayOrVL.children)
+        .filter(child => child.tagName === 'PowerTransformer')
+        .map(equipment => this.renderPowerTransformer(equipment))}
       ${
         preview
           ? Array.from(bayOrVL.querySelectorAll('ConnectivityNode'))
@@ -1683,7 +1686,11 @@ export class SLDEditor extends LitElement {
       }
       ${
         preview
-          ? Array.from(bayOrVL.querySelectorAll('Bay, ConductingEquipment'))
+          ? Array.from(
+              bayOrVL.querySelectorAll(
+                'Bay, ConductingEquipment, PowerTransformer'
+              )
+            )
               .concat(bayOrVL)
               .map(element => this.renderLabel(element))
           : nothing
