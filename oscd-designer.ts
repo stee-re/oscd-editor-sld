@@ -376,6 +376,12 @@ export default class Designer extends LitElement {
       ).filter(terminal => terminal.getAttribute('cNodeName') === 'grounded');
 
       if (groundedTerminals.length > 0) {
+        const bayName = parent.closest('Bay')?.getAttribute('name');
+        if (!bayName)
+          groundedTerminals.forEach(terminal =>
+            edits.push(...removeTerminal(terminal))
+          );
+
         let newCNode = parent.querySelector(
           `ConnectivityNode[name="grounded"]`
         );
@@ -395,7 +401,6 @@ export default class Designer extends LitElement {
           });
         }
 
-        const bayName = parent.closest('Bay')?.getAttribute('name');
         const voltageLevelName = parent
           .closest('VoltageLevel')
           ?.getAttribute('name');
@@ -404,18 +409,17 @@ export default class Designer extends LitElement {
           .getAttribute('name')!;
         const connectivityNode = newCNode!.getAttribute('pathName');
 
-        if (bayName)
-          groundedTerminals.forEach(terminal => {
-            edits.push({
-              element: terminal,
-              attributes: {
-                connectivityNode,
-                bayName,
-                voltageLevelName,
-                substationName,
-              },
-            });
+        groundedTerminals.forEach(terminal => {
+          edits.push({
+            element: terminal,
+            attributes: {
+              connectivityNode,
+              bayName,
+              voltageLevelName,
+              substationName,
+            },
           });
+        });
       }
     } else if (element.getRootNode() === this.doc) {
       Array.from(element.getElementsByTagName('ConnectivityNode')).forEach(
