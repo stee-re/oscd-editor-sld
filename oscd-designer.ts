@@ -671,8 +671,12 @@ export default class Designer extends LitElement {
                 pos: [oldX, oldY],
                 label: [oldLX, oldLY],
               } = attributes(element);
-              const lx = oldLX - oldX + x;
-              const ly = oldLY - oldY + y;
+              let lx = oldLX;
+              let ly = oldLY;
+              if (lx === oldX && ly === oldY) {
+                lx += x - oldX;
+                ly += y - oldY;
+              }
               this.dispatchEvent(
                 newEditEvent({
                   element,
