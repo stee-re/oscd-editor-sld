@@ -407,7 +407,7 @@ export class SLDEditor extends LitElement {
   svgCoordinates(clientX: number, clientY: number) {
     const p = new DOMPoint(clientX, clientY);
     const { x, y } = p.matrixTransform(this.sld.getScreenCTM()!.inverse());
-    return [x, y].map(coord => Math.max(0, coord));
+    return [x, y].map(coord => Math.max(0, coord)) as Point;
   }
 
   canPlaceAt(element: Element, x: number, y: number, w: number, h: number) {
@@ -1649,9 +1649,9 @@ export class SLDEditor extends LitElement {
       else invalid = true;
     }
 
+    const right = x + w - 1;
+    const bottom = y + h - 1;
     if (this.resizingTL === bayOrVL) {
-      const right = x + w - 1;
-      const bottom = y + h - 1;
       w = Math.max(1, x + w - this.mouseX);
       h = Math.max(1, y + h - this.mouseY);
       x = Math.min(this.mouseX, right);
@@ -1746,7 +1746,12 @@ export class SLDEditor extends LitElement {
       <rect x="${x}" y="${y}" width="${w}" height="${h}"
         @contextmenu=${(e: MouseEvent) => this.openMenu(bayOrVL, e)}
         @click=${handleClick || nothing} @mousedown=${preventDefault}
-        @auxclick=${() => this.dispatchEvent(newStartResizeBREvent(bayOrVL))}
+        @auxclick=${({ clientX, clientY }: MouseEvent) => {
+          const mouse = this.svgCoordinates(clientX, clientY);
+          if (distance(mouse, [x, y]) < distance(mouse, [right, bottom]))
+            this.dispatchEvent(newStartResizeTLEvent(bayOrVL));
+          else this.dispatchEvent(newStartResizeBREvent(bayOrVL));
+        }}
         fill="white" stroke-dasharray="${isVL ? nothing : '0.18'}"
         stroke="${
           // eslint-disable-next-line no-nested-ternary
