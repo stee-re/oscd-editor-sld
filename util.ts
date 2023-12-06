@@ -533,18 +533,26 @@ export function newStartResizeBREvent(detail: Element): StartEvent {
     detail,
   });
 }
-export function newStartPlaceEvent(detail: Element): StartEvent {
-  return new CustomEvent('oscd-sld-start-place', {
-    bubbles: true,
-    composed: true,
-    detail,
-  });
-}
 export function newStartPlaceLabelEvent(detail: Element): StartEvent {
   return new CustomEvent('oscd-sld-start-place-label', {
     bubbles: true,
     composed: true,
     detail,
+  });
+}
+export type StartPlaceDetail = {
+  element: Element;
+  offset: Point;
+};
+export type StartPlaceEvent = CustomEvent<StartPlaceDetail>;
+export function newStartPlaceEvent(
+  element: Element,
+  offset: Point = [0, 0]
+): StartPlaceEvent {
+  return new CustomEvent('oscd-sld-start-place', {
+    bubbles: true,
+    composed: true,
+    detail: { element, offset },
   });
 }
 export type StartConnectDetail = {
@@ -573,7 +581,7 @@ declare global {
     ['oscd-sld-rotate']: StartEvent;
     ['oscd-sld-start-resize-br']: StartEvent;
     ['oscd-sld-start-resize-tl']: StartEvent;
-    ['oscd-sld-start-place']: StartEvent;
+    ['oscd-sld-start-place']: StartPlaceEvent;
     ['oscd-sld-start-place-label']: StartEvent;
     ['oscd-sld-start-connect']: StartConnectEvent;
   }

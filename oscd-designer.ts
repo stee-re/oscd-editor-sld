@@ -37,6 +37,7 @@ import {
   StartConnectDetail,
   StartConnectEvent,
   StartEvent,
+  StartPlaceEvent,
   uuid,
   xmlnsNs,
 } from './util.js';
@@ -156,6 +157,9 @@ export default class Designer extends LitElement {
   placing?: Element;
 
   @state()
+  placingOffset?: Point;
+
+  @state()
   placingLabel?: Element;
 
   @state()
@@ -196,9 +200,10 @@ export default class Designer extends LitElement {
     this.resizingTL = element;
   }
 
-  startPlacing(element: Element | undefined) {
+  startPlacing(element: Element | undefined, offset: Point = [0, 0]) {
     this.reset();
     this.placing = element;
+    this.placingOffset = offset;
   }
 
   startPlacingLabel(element: Element | undefined) {
@@ -671,6 +676,7 @@ export default class Designer extends LitElement {
             .resizingBR=${this.resizingBR}
             .resizingTL=${this.resizingTL}
             .placing=${this.placing}
+            .placingOffset=${this.placingOffset}
             .placingLabel=${this.placingLabel}
             .connecting=${this.connecting}
             .showLabels=${this.showLabels}
@@ -680,8 +686,10 @@ export default class Designer extends LitElement {
             @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
               this.startResizingTopLeft(detail);
             }}
-            @oscd-sld-start-place=${({ detail }: StartEvent) => {
-              this.startPlacing(detail);
+            @oscd-sld-start-place=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacing(element, offset);
             }}
             @oscd-sld-start-place-label=${({ detail }: StartEvent) => {
               this.startPlacingLabel(detail);
