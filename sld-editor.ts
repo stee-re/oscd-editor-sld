@@ -2513,6 +2513,13 @@ export class SLDEditor extends LitElement {
     );
     const [x, y] = this.renderedPosition(transformer);
     const offset: Point = [this.mouseX - x, this.mouseY - y];
+
+    const clickTarget =
+      this.placing === transformer
+        ? svg`<rect width="1" height="1" fill="none"
+              x="${this.mouseX}" y="${this.mouseY}" />`
+        : nothing;
+
     return svg`<g class="${classMap({ transformer: true, preview })}"
         pointer-events="all"
         @mousedown=${preventDefault}
@@ -2552,6 +2559,7 @@ export class SLDEditor extends LitElement {
           this.dispatchEvent(newStartPlaceEvent(placing, offset));
         }}>
         ${windings.map(w => this.renderTransformerWinding(w))}
+        ${clickTarget}
       </g>
       <g class="preview">${
         preview
