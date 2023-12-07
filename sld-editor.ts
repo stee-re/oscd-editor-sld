@@ -124,18 +124,17 @@ function overlapsRect(
 }
 
 function cleanXML(element: Element) {
+  const cl = element.classList;
   if (
-    element.classList.contains('handle') ||
-    element.classList.contains('preview') ||
-    element.classList.contains('port')
+    cl.contains('handle') ||
+    cl.contains('preview') ||
+    cl.contains('port') ||
+    (cl.contains('label') && cl.contains('container'))
   ) {
     element.remove();
     return;
   }
-  if (
-    element.classList.contains('voltagelevel') ||
-    element.classList.contains('bay')
-  )
+  if (cl.contains('voltagelevel') || cl.contains('bay'))
     element.querySelector('rect')?.remove();
   Array.from(element.childNodes).forEach(child => {
     if (child.nodeType === 8) element.removeChild(child);
@@ -1655,7 +1654,13 @@ export class SLDEditor extends LitElement {
       element.closest('Substation') === this.substation
         ? identity(element)
         : nothing;
-    return svg`<g class="label" id="label:${id}">
+    const classes = classMap({
+      label: true,
+      container:
+        (element.tagName === 'Bay' && !isBusBar(element)) ||
+        element.tagName === 'VoltageLevel',
+    });
+    return svg`<g class="${classes}" id="label:${id}">
         <text x="${x + 0.1}" y="${y - 0.2}"
           @mousedown=${preventDefault}
           @auxclick=${(e: MouseEvent) => {
