@@ -819,6 +819,7 @@ export class SLDEditor extends LitElement {
   }
 
   transformerMenuItems(transformer: Element) {
+    const text = transformer.querySelector(':scope > Text');
     const items: MenuItem[] = [
       {
         content: html`<mwc-list-item graphic="icon">
@@ -859,13 +860,21 @@ export class SLDEditor extends LitElement {
         </mwc-list-item>`,
         handler: () => this.dispatchEvent(newStartPlaceLabelEvent(transformer)),
       },
-      {
-        content: html`<mwc-list-item graphic="icon">
-          <span>Add Text</span>
-          <mwc-icon slot="graphic">title</mwc-icon>
-        </mwc-list-item>`,
-        handler: () => this.addTextTo(transformer),
-      },
+      text
+        ? {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Delete Text</span>
+              <mwc-icon slot="graphic">format_strikethrough</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.dispatchEvent(newEditEvent({ node: text })),
+          }
+        : {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Add Text</span>
+              <mwc-icon slot="graphic">title</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.addTextTo(transformer),
+          },
       {
         content: html`<mwc-list-item graphic="icon">
           <span>Edit</span>
@@ -906,6 +915,7 @@ export class SLDEditor extends LitElement {
   }
 
   equipmentMenuItems(equipment: Element) {
+    const textElement = equipment.querySelector(':scope > Text');
     const items: MenuItem[] = [
       {
         content: html`<mwc-list-item graphic="icon">
@@ -953,13 +963,23 @@ export class SLDEditor extends LitElement {
         </mwc-list-item>`,
         handler: () => this.dispatchEvent(newStartPlaceLabelEvent(equipment)),
       },
-      {
-        content: html`<mwc-list-item graphic="icon">
-          <span>Add Text</span>
-          <mwc-icon slot="graphic">title</mwc-icon>
-        </mwc-list-item>`,
-        handler: () => this.addTextTo(equipment),
-      },
+      textElement
+        ? {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Remove Text</span>
+              <mwc-icon slot="graphic">format_strikethrough</mwc-icon>
+            </mwc-list-item>`,
+            handler: () =>
+              this.dispatchEvent(newEditEvent({ node: textElement })),
+          }
+        : {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Add Text</span>
+              <mwc-icon slot="graphic">title</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.addTextTo(equipment),
+          },
+
       {
         content: html`<mwc-list-item graphic="icon">
           <span>Edit</span>
@@ -1075,6 +1095,7 @@ export class SLDEditor extends LitElement {
   }
 
   busBarMenuItems(busBar: Element) {
+    const text = busBar.querySelector(':scope > Text');
     const items: MenuItem[] = [
       {
         content: html`<mwc-list-item graphic="icon">
@@ -1113,13 +1134,22 @@ export class SLDEditor extends LitElement {
         </mwc-list-item>`,
         handler: () => this.dispatchEvent(newStartPlaceLabelEvent(busBar)),
       },
-      {
-        content: html`<mwc-list-item graphic="icon">
-          <span>Add Text</span>
-          <mwc-icon slot="graphic">title</mwc-icon>
-        </mwc-list-item>`,
-        handler: () => this.addTextTo(busBar),
-      },
+      text
+        ? {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Remove Text</span>
+              <mwc-icon slot="graphic">format_strikethrough</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.dispatchEvent(newEditEvent({ node: text })),
+          }
+        : {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Add Text</span>
+              <mwc-icon slot="graphic">title</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.addTextTo(busBar),
+          },
+
       {
         content: html`<mwc-list-item graphic="icon">
           <span>Edit</span>
@@ -1144,6 +1174,7 @@ export class SLDEditor extends LitElement {
   }
 
   containerMenuItems(bayOrVL: Element) {
+    const text = bayOrVL.querySelector(':scope > Text');
     const items: MenuItem[] = [
       {
         content: html`<mwc-list-item graphic="icon">
@@ -1190,13 +1221,22 @@ export class SLDEditor extends LitElement {
         </mwc-list-item>`,
         handler: () => this.dispatchEvent(newStartPlaceLabelEvent(bayOrVL)),
       },
-      {
-        content: html`<mwc-list-item graphic="icon">
-          <span>Add Text</span>
-          <mwc-icon slot="graphic">title</mwc-icon>
-        </mwc-list-item>`,
-        handler: () => this.addTextTo(bayOrVL),
-      },
+      text
+        ? {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Remove Text</span>
+              <mwc-icon slot="graphic">format_strikethrough</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.dispatchEvent(newEditEvent({ node: text })),
+          }
+        : {
+            content: html`<mwc-list-item graphic="icon">
+              <span>Add Text</span>
+              <mwc-icon slot="graphic">title</mwc-icon>
+            </mwc-list-item>`,
+            handler: () => this.addTextTo(bayOrVL),
+          },
+
       {
         content: html`<mwc-list-item graphic="icon">
           <span>Edit</span>
