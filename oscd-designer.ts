@@ -14,15 +14,7 @@ import '@material/mwc-icon';
 
 import './sld-editor.js';
 
-import {
-  bayIcon,
-  equipmentIcon,
-  oneWindingPTRIcon,
-  threeWindingPTRIcon,
-  twoWindingPTRIcon,
-  twoWindingPTRIconHorizontal,
-  voltageLevelIcon,
-} from './icons.js';
+import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from './icons.js';
 import {
   attributes,
   ConnectDetail,
@@ -732,7 +724,6 @@ export default class Designer extends LitElement {
                       element.setAttribute('type', eqType);
                       this.startPlacing(element);
                     }}
-                    style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
                     >${equipmentIcon(eqType)}</mwc-fab
                   >`
                 )
@@ -750,7 +741,6 @@ export default class Designer extends LitElement {
                 this.startPlacing(element);
               }}
               label="Add Bus Bar"
-              style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
             >
             </mwc-fab
             ><mwc-fab
@@ -761,7 +751,7 @@ export default class Designer extends LitElement {
                   this.templateElements.Bay!.cloneNode() as Element;
                 this.startPlacing(element);
               }}
-              style="--mdc-theme-secondary: #12579B;"
+              style="--mdc-theme-secondary: #12579B; --mdc-theme-on-secondary: white;"
             >
               ${bayIcon}
             </mwc-fab>`
@@ -778,7 +768,7 @@ export default class Designer extends LitElement {
                 this.templateElements.VoltageLevel!.cloneNode() as Element;
               this.startPlacing(element);
             }}
-            style="--mdc-theme-secondary: #F5E214; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);"
+            style="--mdc-theme-secondary: #F5E214;"
           >
             ${voltageLevelIcon}
           </mwc-fab>`
@@ -788,7 +778,7 @@ export default class Designer extends LitElement {
           icon="margin"
           @click=${() => this.insertSubstation()}
           label="Add Substation"
-          style="--mdc-theme-secondary: #BB1326;"
+          style="--mdc-theme-secondary: #BB1326; --mdc-theme-on-secondary: white;"
         >
         </mwc-fab
         >${
@@ -802,7 +792,8 @@ export default class Designer extends LitElement {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
                     element.setAttribute('type', 'PTR');
-                    element.setAttributeNS(sldNs, 'kind', 'auto');
+                    element.setAttributeNS(sldNs, `${this.nsp}:kind`, 'auto');
+                    element.setAttributeNS(sldNs, `${this.nsp}:rot`, '3');
                     const winding =
                       this.templateElements.TransformerWinding!.cloneNode() as Element;
                     winding.setAttribute('type', 'PTW');
@@ -810,8 +801,7 @@ export default class Designer extends LitElement {
                     element.appendChild(winding);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #F5E214; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);"
-                  >${oneWindingPTRIcon}</mwc-fab
+                  >${ptrIcon(1, { kind: 'auto' })}</mwc-fab
                 ><mwc-fab
                   mini
                   label="Add Two Winding Auto Transformer"
@@ -819,8 +809,7 @@ export default class Designer extends LitElement {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
                     element.setAttribute('type', 'PTR');
-                    element.setAttributeNS(sldNs, 'kind', 'auto');
-                    element.setAttributeNS(sldNs, 'rot', '1');
+                    element.setAttributeNS(sldNs, `${this.nsp}:kind`, 'auto');
                     const windings = [];
                     for (let i = 1; i <= 2; i += 1) {
                       const winding =
@@ -832,8 +821,7 @@ export default class Designer extends LitElement {
                     element.append(...windings);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #F5E214; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);"
-                  >${twoWindingPTRIconHorizontal}</mwc-fab
+                  >${ptrIcon(2, { kind: 'auto' })}</mwc-fab
                 ><mwc-fab
                   mini
                   label="Add Two Winding Transformer"
@@ -852,8 +840,7 @@ export default class Designer extends LitElement {
                     element.append(...windings);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                  >${twoWindingPTRIcon}</mwc-fab
+                  >${ptrIcon(2)}</mwc-fab
                 ><mwc-fab
                   mini
                   label="Add Three Winding Transformer"
@@ -872,8 +859,7 @@ export default class Designer extends LitElement {
                     element.append(...windings);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #fff; --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83)"
-                  >${threeWindingPTRIcon}</mwc-fab
+                  >${ptrIcon(3)}</mwc-fab
                 ><mwc-fab
                   mini
                   label="Add Single Winding Earthing Transformer"
@@ -881,7 +867,11 @@ export default class Designer extends LitElement {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
                     element.setAttribute('type', 'PTR');
-                    element.setAttributeNS(sldNs, 'kind', 'earthing');
+                    element.setAttributeNS(
+                      sldNs,
+                      `${this.nsp}:kind`,
+                      'earthing'
+                    );
                     const winding =
                       this.templateElements.TransformerWinding!.cloneNode() as Element;
                     winding.setAttribute('type', 'PTW');
@@ -889,8 +879,7 @@ export default class Designer extends LitElement {
                     element.appendChild(winding);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #12579B;"
-                  >${oneWindingPTRIcon}</mwc-fab
+                  >${ptrIcon(1, { kind: 'earthing' })}</mwc-fab
                 ><mwc-fab
                   mini
                   label="Add Two Winding Earthing Transformer"
@@ -898,8 +887,11 @@ export default class Designer extends LitElement {
                     const element =
                       this.templateElements.PowerTransformer!.cloneNode() as Element;
                     element.setAttribute('type', 'PTR');
-                    element.setAttributeNS(sldNs, 'kind', 'earthing');
-                    element.setAttributeNS(sldNs, 'rot', '1');
+                    element.setAttributeNS(
+                      sldNs,
+                      `${this.nsp}:kind`,
+                      'earthing'
+                    );
                     const windings = [];
                     for (let i = 1; i <= 2; i += 1) {
                       const winding =
@@ -911,8 +903,7 @@ export default class Designer extends LitElement {
                     element.append(...windings);
                     this.startPlacing(element);
                   }}
-                  style="--mdc-theme-secondary: #12579B;"
-                  >${twoWindingPTRIconHorizontal}</mwc-fab
+                  >${ptrIcon(2, { kind: 'earthing' })}</mwc-fab
                 >`
             : nothing
         }${
@@ -991,6 +982,11 @@ export default class Designer extends LitElement {
       left: 4px;
       background: #fffd;
       border-radius: 24px;
+    }
+
+    mwc-fab {
+      --mdc-theme-secondary: #fff;
+      --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);
     }
   `;
 }

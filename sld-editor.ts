@@ -21,15 +21,14 @@ import {
   eqRingPath,
   equipmentGraphic,
   movePath,
-  oneWindingPTRGraphic,
+  ptrIcon,
   resizeBRPath,
   resizePath,
   resizeTLPath,
   symbols,
-  threeWindingPTRGraphic,
-  twoWindingPTRGraphic,
-  twoWindingPTRGraphicHorizontal,
   voltageLevelGraphic,
+  zigZag2WTransform,
+  zigZagPath,
 } from './icons.js';
 import {
   attributes,
@@ -296,18 +295,16 @@ function renderMenuHeader(element: Element) {
   let footerGraphic = equipmentGraphic(null);
   if (element.tagName === 'PowerTransformer') {
     const windings = element.querySelectorAll('TransformerWinding').length;
-    const kind = element.getAttributeNS(sldNs, 'kind');
+    const { kind } = attributes(element);
     if (windings === 3) {
-      footerGraphic = threeWindingPTRGraphic;
+      footerGraphic = ptrIcon(3, { slot: 'graphic' });
     } else if (windings === 2) {
-      footerGraphic = ['auto', 'earthing'].includes(kind ?? 'default')
-        ? twoWindingPTRGraphicHorizontal
-        : twoWindingPTRGraphic;
+      footerGraphic = ptrIcon(2, { slot: 'graphic', kind });
     } else {
-      footerGraphic = oneWindingPTRGraphic;
+      footerGraphic = ptrIcon(1, { slot: 'graphic', kind });
     }
   } else if (element.tagName === 'TransformerWinding')
-    footerGraphic = oneWindingPTRGraphic;
+    footerGraphic = ptrIcon(1, { slot: 'graphic' });
   else if (element.tagName === 'ConductingEquipment')
     footerGraphic = equipmentGraphic(type);
   else if (element.tagName === 'Bay' && isBusBar(element))
@@ -1869,6 +1866,7 @@ export class SLDEditor extends LitElement {
       to: Point;
       toCtl: Point;
     };
+    zigZagTransform?: string;
   } {
     const transformer = winding.parentElement!;
     const windings = Array.from(transformer.children).filter(
@@ -1887,6 +1885,7 @@ export class SLDEditor extends LitElement {
           toCtl: Point;
         }
       | undefined;
+    let zigZagTransform: string | undefined;
     const terminalElements = Array.from(winding.children).filter(
       c => c.tagName === 'Terminal'
     );
@@ -1909,6 +1908,7 @@ export class SLDEditor extends LitElement {
     }
     if (windings.length === 1) {
       if (kind === 'earthing') {
+        zigZagTransform = '';
         const n1 = shift(center, 1, size);
         if (!neutral) {
           terminals.N1 = n1;
@@ -1999,6 +1999,7 @@ export class SLDEditor extends LitElement {
             terminals.T1 = shift(center, 1, size);
           }
         } else {
+          zigZagTransform = zigZag2WTransform;
           const sgn = flip ? -1 : 1;
           if (!terminal1 && !terminal2)
             terminals.T1 = shift(center, 0, -size * sgn);
@@ -2094,7 +2095,7 @@ export class SLDEditor extends LitElement {
         }
       }
     }
-    return { center, size, terminals, grounded, arc };
+    return { center, size, terminals, grounded, arc, zigZagTransform };
   }
 
   renderTransformerWinding(winding: Element): TemplateResult<2> {
@@ -2104,6 +2105,7 @@ export class SLDEditor extends LitElement {
       terminals,
       grounded,
       arc,
+      zigZagTransform,
     } = this.windingMeasures(winding);
     const ports: TemplateResult<2>[] = [];
     Object.entries(grounded).forEach(([_, [[x1, y1], [x2, y2]]]) => {
@@ -2152,6 +2154,7 @@ export class SLDEditor extends LitElement {
       });
     let longArrow = false;
     let arcPath = svg``;
+    const { flip, rot } = attributes(winding.parentElement!);
     if (arc) {
       const {
         from: [xf, yf],
@@ -2159,7 +2162,6 @@ export class SLDEditor extends LitElement {
         to: [xt, yt],
         toCtl: [xtc, ytc],
       } = arc;
-      const { flip } = attributes(winding.parentElement!);
       if (!flip && yfc < yf) longArrow = true;
       if (flip && xfc > xf) longArrow = true;
       arcPath = svg`<path d="M ${xf} ${yf} C ${xfc} ${yfc}, ${xtc} ${ytc}, ${xt} ${yt}" stroke="black" stroke-width="0.06" />`;
@@ -2171,9 +2173,17 @@ export class SLDEditor extends LitElement {
         }"
               stroke="black" stroke-width="0.06" marker-end="url(#arrow)" />`
       : nothing;
+    const zigZag =
+      zigZagTransform === undefined
+        ? nothing
+        : svg`<g stroke="black" transform="rotate(${
+            rot * 90
+          } ${cx} ${cy}) translate(${cx - 1.5} ${
+            cy - 1.5
+          }) ${zigZagTransform}">${zigZagPath}</g>`;
     return svg`<g class="winding"
         @contextmenu=${(e: MouseEvent) => this.openMenu(winding, e)}
-    ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${ltcArrow}${ports}</g>`;
+    ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
   }
 
   renderPowerTransformer(
