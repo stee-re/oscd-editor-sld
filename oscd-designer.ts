@@ -1,10 +1,12 @@
 import { LitElement, html, css, nothing } from 'lit';
+import { html as staticHtml, unsafeStatic } from 'lit/static-html.js';
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 import { property, query, state } from 'lit/decorators.js';
 
 import { Edit, newEditEvent, Update } from '@openscd/open-scd-core';
 import { getReference } from '@openscd/oscd-scl';
 
+import type { Dialog } from '@material/mwc-dialog';
 import type { IconButtonToggle } from '@material/mwc-icon-button-toggle';
 import '@material/mwc-button';
 import '@material/mwc-fab';
@@ -38,6 +40,10 @@ import {
   uuid,
   xmlnsNs,
 } from './util.js';
+
+const aboutContent = await fetch(new URL('about.html', import.meta.url)).then(
+  res => res.text()
+);
 
 function makeBusBar(doc: XMLDocument, nsp: string) {
   const busBar = doc.createElementNS(doc.documentElement.namespaceURI, 'Bay');
@@ -167,6 +173,9 @@ export default class Designer extends LitElement {
 
   @query('#labels')
   labelToggle?: IconButtonToggle;
+
+  @query('#about')
+  about?: Dialog;
 
   zoomIn(step = 4) {
     this.gridSize += step;
@@ -982,12 +991,22 @@ export default class Designer extends LitElement {
                 label="Cancel"
                 title="Cancel"
                 @click=${() => this.reset()}
-              >
-              </mwc-icon-button>`
-            : nothing
+              ></mwc-icon-button>`
+            : html`<mwc-icon-button
+                icon="info"
+                label="About"
+                title="About"
+                @click=${() => this.about?.show()}
+              ></mwc-icon-button>`
         }
       </nav>
-    </main>`;
+    </main>
+    ${staticHtml`<mwc-dialog id="about" heading="About">
+        <div>${unsafeStatic(aboutContent)}</div>
+        <mwc-button dialogAction="close" slot="primaryAction">
+          close
+        </mwc-button>
+      </mwc-dialog>`}`;
   }
 
   insertSubstation() {
