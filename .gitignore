@@ -19,6 +19,7 @@
 /.rollup.cache/
 /dist/*
 !/dist/__snapshots__/
+about.html
 
 storybook-static
 custom-elements.json
