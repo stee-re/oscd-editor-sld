@@ -157,7 +157,7 @@ export default class Designer extends LitElement {
   placing?: Element;
 
   @state()
-  placingOffset?: Point;
+  placingOffset: Point = [0, 0];
 
   @state()
   placingLabel?: Element;
@@ -206,9 +206,10 @@ export default class Designer extends LitElement {
     this.placingOffset = offset;
   }
 
-  startPlacingLabel(element: Element | undefined) {
+  startPlacingLabel(element: Element | undefined, offset: Point = [0, 0]) {
     this.reset();
     this.placingLabel = element;
+    this.placingOffset = offset;
   }
 
   startConnecting(detail: StartConnectDetail) {
@@ -691,8 +692,10 @@ export default class Designer extends LitElement {
             }: StartPlaceEvent) => {
               this.startPlacing(element, offset);
             }}
-            @oscd-sld-start-place-label=${({ detail }: StartEvent) => {
-              this.startPlacingLabel(detail);
+            @oscd-sld-start-place-label=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacingLabel(element, offset);
             }}
             @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
               this.startConnecting(detail);

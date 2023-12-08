@@ -520,6 +520,7 @@ export class SLDEditor extends LitElement {
     let {
       label: [x, y],
     } = attributes(element);
+    const [offsetX, offsetY] = this.placingOffset;
     if (
       this.placing &&
       element.closest(this.placing.tagName) === this.placing
@@ -527,9 +528,12 @@ export class SLDEditor extends LitElement {
       const {
         pos: [parentX, parentY],
       } = attributes(this.placing);
-      const [offsetX, offsetY] = this.placingOffset;
       x += this.mouseX - parentX - offsetX;
       y += this.mouseY - parentY - offsetY;
+    }
+    if (this.placingLabel === element) {
+      x = this.mouseX2 - 0.5 - offsetX;
+      y = this.mouseY2 + 0.5 - offsetY;
     }
     if (this.resizingTL === element) {
       const {
@@ -540,10 +544,6 @@ export class SLDEditor extends LitElement {
         x += Math.min(this.mouseX, resX + resW - 1) - resX;
         y += Math.min(this.mouseY, resY + resH - 1) - resY;
       }
-    }
-    if (this.placingLabel === element) {
-      x = this.mouseX2 - 0.5;
-      y = this.mouseY2 + 0.5;
     }
     return [x, y];
   }
@@ -1957,7 +1957,9 @@ export class SLDEditor extends LitElement {
     let handleClick: (() => void) | symbol = nothing;
     if (this.idle) {
       events = 'all';
-      handleClick = () => this.dispatchEvent(newStartPlaceLabelEvent(element));
+      const offset = [this.mouseX2 - x - 0.5, this.mouseY2 - y + 0.5] as Point;
+      handleClick = () =>
+        this.dispatchEvent(newStartPlaceLabelEvent(element, offset));
     }
     const id =
       element.closest('Substation') === this.substation &&
