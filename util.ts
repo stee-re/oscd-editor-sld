@@ -587,13 +587,17 @@ const prettifyXSLT = new DOMParser().parseFromString(
   ].join('\n'),
   'application/xml'
 );
-const xsltProcessor = new XSLTProcessor();
-xsltProcessor.importStylesheet(prettifyXSLT);
+let xsltProcessor: XSLTProcessor;
+if (!navigator.userAgent.toLowerCase().includes('firefox')) {
+  xsltProcessor = new XSLTProcessor();
+  xsltProcessor.importStylesheet(prettifyXSLT);
+}
 
 export function prettyPrint(xmlDoc: XMLDocument | Element): string {
-  return new XMLSerializer().serializeToString(
-    xsltProcessor.transformToDocument(xmlDoc)
-  );
+  const doc = xsltProcessor
+    ? xsltProcessor.transformToDocument(xmlDoc)
+    : xmlDoc;
+  return new XMLSerializer().serializeToString(doc);
 }
 
 export const robotoDataURL =
