@@ -177,13 +177,13 @@ export default class Designer extends LitElement {
   @query('#about')
   about?: Dialog;
 
-  zoomIn(step = 4) {
-    this.gridSize += step;
+  zoomIn() {
+    this.gridSize += 3;
   }
 
-  zoomOut(step = 4) {
-    this.gridSize -= step;
-    if (this.gridSize < 4) this.gridSize = 4;
+  zoomOut() {
+    this.gridSize -= 3;
+    if (this.gridSize < 2) this.gridSize = 2;
   }
 
   startResizingBottomRight(element: Element | undefined) {
@@ -967,16 +967,20 @@ export default class Designer extends LitElement {
         ? html`<mwc-icon-button
               icon="zoom_in"
               label="Zoom In"
-              title="Zoom In"
+              title="Zoom In (${Math.round((100 * (this.gridSize + 3)) / 32)}%)"
               @click=${() => this.zoomIn()}
             >
             </mwc-icon-button
-            ><mwc-icon-button
-              icon="zoom_out"
-              label="Zoom Out"
-              title="Zoom Out"
-              @click=${() => this.zoomOut()}
-            ></mwc-icon-button>`
+            >${this.gridSize > 3
+              ? html`<mwc-icon-button
+                  icon="zoom_out"
+                  label="Zoom Out"
+                  title="Zoom Out (${Math.round(
+                    (100 * (this.gridSize - 3)) / 32
+                  )}%)"
+                  @click=${() => this.zoomOut()}
+                ></mwc-icon-button>`
+              : nothing}`
         : nothing
     }
         </mwc-icon-button
