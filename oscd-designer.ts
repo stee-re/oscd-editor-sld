@@ -971,16 +971,15 @@ export default class Designer extends LitElement {
               @click=${() => this.zoomIn()}
             >
             </mwc-icon-button
-            >${this.gridSize > 3
-              ? html`<mwc-icon-button
-                  icon="zoom_out"
-                  label="Zoom Out"
-                  title="Zoom Out (${Math.round(
-                    (100 * (this.gridSize - 3)) / 32
-                  )}%)"
-                  @click=${() => this.zoomOut()}
-                ></mwc-icon-button>`
-              : nothing}`
+            ><mwc-icon-button
+              icon="zoom_out"
+              label="Zoom Out"
+              ?disabled=${this.gridSize < 4}
+              title="Zoom Out (${Math.round(
+                (100 * (this.gridSize - 3)) / 32
+              )}%)"
+              @click=${() => this.zoomOut()}
+            ></mwc-icon-button>`
         : nothing
     }
         </mwc-icon-button
@@ -1047,6 +1046,11 @@ export default class Designer extends LitElement {
       border-radius: 24px;
     }
 
+    mwc-icon-button,
+    mwc-icon-button-toggle {
+      --mdc-theme-text-disabled-on-light: #aaa;
+      color: rgb(0, 0, 0 / 0.83);
+    }
     mwc-fab {
       --mdc-theme-secondary: #fff;
       --mdc-theme-on-secondary: rgb(0, 0, 0 / 0.83);
