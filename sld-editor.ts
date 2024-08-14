@@ -22,12 +22,15 @@ import {
   bayGraphic,
   eqRingPath,
   equipmentGraphic,
+  incomplete,
+  mapped,
   movePath,
   ptrIcon,
   resizeBRPath,
   resizePath,
   resizeTLPath,
   symbols,
+  unmapped,
   voltageLevelGraphic,
   zigZag2WTransform,
   zigZagPath,
@@ -64,6 +67,7 @@ import {
   xlinkNs,
   xmlBoolean,
 } from './util.js';
+import { mappingStatus } from './oscd-designer.js';
 
 const parentTags: Partial<Record<string, string[]>> = {
   ConductingEquipment: ['Bay'],
@@ -331,6 +335,12 @@ function renderMenuHeader(element: Element) {
     ${footerGraphic}
   </mwc-list-item>`;
 }
+
+const mappingIcon: Record<string, TemplateResult> = {
+  mapped,
+  incomplete,
+  unmapped,
+};
 
 @customElement('sld-editor')
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
@@ -1264,7 +1274,9 @@ export class SLDEditor extends LitElement {
           <span>Edit</span>
           <mwc-icon slot="graphic">edit</mwc-icon>
         </mwc-list-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(bayOrVL)),
+        handler: () => {
+          this.dispatchEvent(newEditWizardEvent(bayOrVL));
+        },
       },
       {
         content: html`<mwc-list-item graphic="icon">
@@ -1786,6 +1798,12 @@ export class SLDEditor extends LitElement {
           .preview {
             opacity: 0.75;
           }
+          .mapping {
+            opacity: 0.2;
+          }
+          .mapping:hover {
+            opacity: 0.83;
+          }
         </style>
         ${symbols}
         <rect width="100%" height="100%" fill="white" />
@@ -2108,6 +2126,20 @@ export class SLDEditor extends LitElement {
           ${resizeTLPath}
         </svg>`
       : nothing;
+    const testMapIcon =
+      bayOrVL.tagName === 'Bay' && !this.placing
+        ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
+          opacity="0.83" class="mapping"
+          viewBox="0 -960 960 960" x="${x + w - 1}" y="${y}" @click="${() =>
+            this.dispatchEvent(
+              new CustomEvent('template-map', {
+                detail: { toBeMapped: bayOrVL, type: mappingStatus(bayOrVL) },
+              })
+            )}">
+          <rect class="mapping rect" fill="white" width="902.4" height="902.4" />
+          ${mappingIcon[mappingStatus(bayOrVL)]}
+        </svg>`
+        : nothing;
 
     const clickthrough =
       !this.idle &&
@@ -2170,6 +2202,7 @@ export class SLDEditor extends LitElement {
       }
       ${resizeTLhandle}
       ${resizeBRHandle}
+      ${testMapIcon}
       ${placingTarget}
       ${resizingTarget}
     </g>`;

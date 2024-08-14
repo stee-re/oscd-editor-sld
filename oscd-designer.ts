@@ -1,4 +1,4 @@
-import { LitElement, html, css, nothing } from 'lit';
+import { LitElement, html, css, nothing, TemplateResult } from 'lit';
 import { html as staticHtml, unsafeStatic } from 'lit/static-html.js';
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 import { property, query, state } from 'lit/decorators.js';
@@ -13,6 +13,12 @@ import '@material/mwc-fab';
 import '@material/mwc-icon-button';
 import '@material/mwc-icon-button-toggle';
 import '@material/mwc-icon';
+import '@material/mwc-dialog';
+import '@material/mwc-list';
+import '@material/mwc-list/mwc-list-item';
+
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { insertIed } from '@openenergytools/scl-lib';
 
 import './sld-editor.js';
 
@@ -41,6 +47,7 @@ import {
   uuid,
   xmlnsNs,
 } from './util.js';
+import { addDataTypeTemplates, updateSourceRef } from './foundation.js';
 
 const aboutContent = await fetch(new URL('about.html', import.meta.url)).then(
   res => res.text()
@@ -119,6 +126,65 @@ function cutSectionAt(
   return edits;
 }
 
+function isMapped(element: Element): boolean {
+  return !!element.querySelector(':scope Function, :scope EqFunction');
+}
+
+export function mappingStatus(
+  element: Element
+): 'mapped' | 'incomplete' | 'unmapped' {
+  const equipmentAndBay = [
+    element,
+    ...Array.from(element.querySelectorAll('ConductingEquipment')),
+  ];
+
+  const mappedElement = equipmentAndBay.filter(isMapped);
+
+  if (!mappedElement.length) return 'unmapped';
+  if (mappedElement.length < equipmentAndBay.length) return 'incomplete';
+
+  return 'mapped';
+}
+
+function funcQuery(element: Element, root: Element): string {
+  if (element === root) return `:scope`;
+
+  const thisquery = `${element.tagName}[name="${element.getAttribute(
+    'name'
+  )}"]`;
+  const parent = element.parentElement;
+  if (parent) return `${funcQuery(parent, root)} > ${thisquery}`;
+  return `${thisquery}`;
+}
+
+function updatedFunc(newFunc: Element, toBeMapped: Element): Element {
+  const subStName = `${toBeMapped.closest('Substation')?.getAttribute('name')}`;
+  const voltLvName = `${toBeMapped
+    .closest('VoltageLevel')
+    ?.getAttribute('name')}`;
+  const bayName = `${toBeMapped.closest('Bay')?.getAttribute('name')}`;
+
+  const newPath =
+    toBeMapped.tagName === 'Bay'
+      ? `${subStName}/${voltLvName}/${bayName}`
+      : `${subStName}/${voltLvName}`;
+
+  const oldPath =
+    toBeMapped.tagName === 'Bay'
+      ? `TEMPLATE/TEMPLATE/TEMPLATE`
+      : `TEMPLATE/TEMPLATE`;
+
+  const copyFunc = newFunc.cloneNode(true) as Element;
+
+  Array.from(copyFunc.querySelectorAll('SourceRef')).forEach(srcRef => {
+    const source = srcRef.getAttribute('source');
+    if (!source) return;
+    srcRef.setAttribute('source', source.replace(oldPath, newPath));
+  });
+
+  return copyFunc;
+}
+
 export default class Designer extends LitElement {
   @property()
   doc!: XMLDocument;
@@ -157,6 +223,12 @@ export default class Designer extends LitElement {
   placing?: Element;
 
   @state()
+  placingTemplate?: Element;
+
+  @state()
+  placingVendorTemplate?: Element;
+
+  @state()
   placingOffset: Point = [0, 0];
 
   @state()
@@ -175,11 +247,14 @@ export default class Designer extends LitElement {
     return true;
   }
 
-  @query('#labels')
-  labelToggle?: IconButtonToggle;
+  @state()
+  toBeMapped?: Element;
 
-  @query('#about')
-  about?: Dialog;
+  @query('#labels') labelToggle?: IconButtonToggle;
+
+  @query('#about') about?: Dialog;
+
+  @query('#mappingdiag') mappingdiag?: Dialog;
 
   zoomIn() {
     this.gridSize += 3;
@@ -516,6 +591,23 @@ export default class Designer extends LitElement {
       }
     }
 
+    if (this.placingTemplate && this.placing) {
+      edits.push(...addDataTypeTemplates(this.placing, this.doc));
+      const bayName = `Q0${parent.querySelectorAll('Bay').length}`;
+      element.setAttribute('name', bayName);
+      edits.push(...updateSourceRef(parent, element, bayName));
+      this.placingTemplate = undefined;
+    } else if (this.placingVendorTemplate && this.placing) {
+      const scl = this.doc.querySelector('SCL')!;
+      const ieds = this.placing.ownerDocument.querySelectorAll(':root > IED');
+
+      ieds.forEach(ied => {
+        this.dispatchEvent(newEditEvent(insertIed(scl, ied)));
+      });
+
+      this.placingVendorTemplate = undefined;
+    }
+
     this.dispatchEvent(newEditEvent(edits));
     if (
       ['Bay', 'VoltageLevel'].includes(element.tagName) &&
@@ -664,6 +756,127 @@ export default class Designer extends LitElement {
     this.dispatchEvent(newEditEvent(edits));
   }
 
+  /** Loads the file `event.target.files[0]` into [[`src`]] as a `blob:...`. */
+  async importVendorTemplate(event: Event): Promise<void> {
+    const file = (<HTMLInputElement | null>event.target)?.files?.item(0);
+    if (!file) return;
+
+    const templateBlob = await file.text();
+
+    const bayTemplate = new DOMParser()
+      .parseFromString(templateBlob, 'application/xml')
+      .querySelector('Bay');
+
+    if (bayTemplate) {
+      this.startPlacing(bayTemplate);
+      this.placingVendorTemplate = bayTemplate;
+    }
+  }
+
+  /** Loads the file `event.target.files[0]` into [[`src`]] as a `blob:...`. */
+  async importTemplate(event: Event): Promise<void> {
+    const file = (<HTMLInputElement | null>event.target)?.files?.item(0);
+    if (!file) return;
+
+    const templateBlob = await file.text();
+
+    const ptrTemplate = new DOMParser()
+      .parseFromString(templateBlob, 'application/xml')
+      .querySelector('PowerTransformer');
+
+    const bayTemplate = new DOMParser()
+      .parseFromString(templateBlob, 'application/xml')
+      .querySelector('Bay');
+
+    if (bayTemplate) {
+      this.startPlacing(bayTemplate);
+      this.placingTemplate = bayTemplate;
+    } else if (ptrTemplate) {
+      this.startPlacing(ptrTemplate);
+      this.placingVendorTemplate = ptrTemplate;
+    }
+  }
+
+  /** Loads the file `event.target.files[0]` into [[`src`]] as a `blob:...`. */
+  async mapTemplate(event: Event): Promise<void> {
+    const file = (<HTMLInputElement | null>event.target)?.files?.item(0);
+    if (!file) return;
+
+    const templateBlob = await file.text();
+
+    if (!this.toBeMapped) return;
+
+    const template =
+      this.toBeMapped.tagName === 'PowerTransformer'
+        ? new DOMParser()
+            .parseFromString(templateBlob, 'application/xml')
+            .querySelector('VoltageLevel > PowerTransformer')
+        : new DOMParser()
+            .parseFromString(templateBlob, 'application/xml')
+            .querySelector('Bay');
+
+    if (!template) {
+      window.alert(`No ${this.toBeMapped.tagName} in the file.`);
+      return;
+    }
+    const funcs: Record<string, Element> = {};
+    Array.from(template.querySelectorAll('Function,EqFunction')).forEach(
+      func => {
+        const id = funcQuery(func, template);
+        funcs[id] = func;
+      }
+    );
+
+    const edits: Edit[] = [];
+    // eslint-disable-next-line array-callback-return
+    Object.entries(funcs).map(([id, func]) => {
+      const ancestor = id.split('>');
+      ancestor.pop();
+      const parentId = ancestor.join('>');
+
+      const parent = this.toBeMapped!.querySelector(parentId);
+      const node = this.toBeMapped!.querySelector(id);
+      if (parent && !node)
+        edits.push({
+          parent,
+          node: updatedFunc(func, this.toBeMapped!),
+          reference: getReference(parent, func.tagName),
+        });
+    });
+
+    // Update SourceRef.source
+
+    this.dispatchEvent(newEditEvent(edits));
+    this.toBeMapped = undefined;
+  }
+
+  private renderMappingList(): TemplateResult {
+    const icons: Record<string, string> = {
+      mapped: 'sync',
+      unmapped: 'sync_disabled',
+      incomplete: 'sync_problem',
+    };
+
+    const condEqs = Array.from(
+      this.toBeMapped?.querySelectorAll(':scope, :scope ConductingEquipment') ??
+        []
+    );
+
+    return html`<mwc-dialog id="mappingdiag" heading="Template Child Mapping"
+      ><mwc-list
+        >${condEqs.map(
+          process =>
+            html`<mwc-list-item hasMeta>
+              <span>${process.getAttribute('name')}</span>
+              <mwc-icon slot="meta"
+                >${icons[mappingStatus(process)]}</mwc-icon
+              ></mwc-list-item
+            >`
+        )}</mwc-list
+      ></mwc-dialog
+    >`;
+  }
+
   render() {
     if (!this.doc) return html`<p>Please open an SCL document</p>`;
     return html`<main>
@@ -723,18 +936,48 @@ export default class Designer extends LitElement {
         c => c.tagName === 'Substation'
       )
         ? html`<mwc-fab
-            mini
-            label="Add VoltageLevel"
-            title="Add VoltageLevel"
-            @click=${() => {
-              const element =
-                this.templateElements.VoltageLevel!.cloneNode() as Element;
-              this.startPlacing(element);
-            }}
-            style="--mdc-theme-secondary: #F5E214;"
-          >
-            ${voltageLevelIcon}
-          </mwc-fab>`
+              mini
+              label="Add VoltageLevel"
+              title="Add VoltageLevel"
+              @click=${() => {
+                const element =
+                  this.templateElements.VoltageLevel!.cloneNode() as Element;
+                this.startPlacing(element);
+              }}
+              style="--mdc-theme-secondary: #F5E214;"
+            >
+              ${voltageLevelIcon}
+            </mwc-fab>
+            <mwc-fab
+              icon="copy_all"
+              mini
+              label="Add Template"
+              title="Add Template"
+              @click=${(evt: Event) => {
+                const input = (evt.target as HTMLElement).querySelector(
+                  ':scope > input'
+                ) as HTMLElement;
+
+                input.click();
+              }}
+            >
+              <input type="file" @change="${this.importTemplate}" />
+            </mwc-fab>
+            <mwc-fab
+              icon="developer_board"
+              mini
+              label="Add Vendor IED"
+              title="Add Vendor IED"
+              @click=${(evt: Event) => {
+                const input = (evt.target as HTMLElement).querySelector(
+                  ':scope > input'
+                ) as HTMLElement;
+
+                input.click();
+              }}
+            >
+              <input type="file" @change="${this.importVendorTemplate}" />
+            </mwc-fab>`
         : nothing
     }<mwc-fab
           mini
@@ -1012,7 +1255,23 @@ export default class Designer extends LitElement {
               this.connectEquipment(detail)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
-          ></sld-editor>`
+            @template-map=${(evt: CustomEvent) => {
+              const input = (evt.target as HTMLElement).querySelector(
+                ':scope > input'
+              ) as HTMLElement;
+
+              this.toBeMapped = evt.detail.toBeMapped;
+
+              if (evt.detail.type === 'unmapped') {
+                input.click();
+                return;
+              }
+
+              this.mappingdiag?.show();
+            }}
+          >
+            <input type="file" @change="${this.mapTemplate}" />
+          </sld-editor>`
       )}
     </main>
     ${staticHtml`<mwc-dialog id="about" heading="About">
@@ -1020,7 +1279,7 @@ export default class Designer extends LitElement {
         <mwc-button dialogAction="close" slot="primaryAction">
           close
         </mwc-button>
-      </mwc-dialog>`}`;
+      </mwc-dialog>`}${this.renderMappingList()}`;
   }
 
   insertSubstation() {

@@ -51,6 +51,24 @@
       "src": "/dist/oscd-designer.js"
     },
     {
+      "name": "Communication Mapping",
+      "translations": {
+        "de": "Designer"
+      },
+      "icon": "link",
+      "active": true,
+      "src": "https://openenergytools.github.io/scl-communication-editor/scl-communication-editor.js"
+    },
+    {
+      "name": "IED Editor",
+      "translations": {
+        "de": "IED"
+      },
+      "icon": "developer_board",
+      "active": true,
+      "src": "https://openenergytools.github.io/scl-ied-editor/scl-ied-editor.js"
+    },
+    {
       "name": "Publisher",
       "icon": "publish",
       "active": true,
