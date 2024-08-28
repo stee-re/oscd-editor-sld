@@ -3,7 +3,7 @@ import { html as staticHtml, unsafeStatic } from 'lit/static-html.js';
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 import { property, query, state } from 'lit/decorators.js';
 
-import { Edit, newEditEvent, Update } from '@openscd/open-scd-core';
+import { Edit, Insert, newEditEvent, Update } from '@openscd/open-scd-core';
 import { getReference } from '@openscd/oscd-scl';
 
 import type { Dialog } from '@material/mwc-dialog';
@@ -18,7 +18,7 @@ import '@material/mwc-list';
 import '@material/mwc-list/mwc-list-item';
 
 // eslint-disable-next-line import/no-extraneous-dependencies
-import { insertIed } from '@openenergytools/scl-lib';
+import { insertIed, updateIED } from '@openenergytools/scl-lib';
 
 import './sld-editor.js';
 
@@ -844,9 +844,48 @@ export default class Designer extends LitElement {
         });
     });
 
-    // Update SourceRef.source
+    // add IEDs if linked
+    const iedEditsDupl: Edit[] = [];
+    const iedEdits: Edit[] = [];
+    const ieds = Array.from(
+      template.ownerDocument.querySelectorAll(':root > IED')
+    );
+    ieds.forEach(ied =>
+      iedEditsDupl.push(...insertIed(this.doc.documentElement, ied))
+    );
+    // filter duplicate dataTypeImports
+    const dubl: Set<string> = new Set();
+    iedEditsDupl.forEach(imp => {
+      const id = ((imp as Insert).node as Element).getAttribute('id');
 
-    this.dispatchEvent(newEditEvent(edits));
+      if (!id || (id && !dubl.has(id))) {
+        iedEdits.push(imp);
+        if (id) dubl.add(id);
+      }
+    });
+
+    this.dispatchEvent(newEditEvent([...edits, ...iedEdits])); // Update SourceRef.source
+
+    await setTimeout(() => {}, 1000); // for for edits to be done
+
+    const iedPrefix = `${
+      this.toBeMapped.closest('Substation')?.getAttribute('name') ?? ''
+    }${this.toBeMapped.closest('VoltageLevel')?.getAttribute('name') ?? ''}${
+      this.toBeMapped.closest('Bay')?.getAttribute('name') ?? ''
+    }`;
+
+    const updateIedNames: Edit[] = [];
+    ieds.forEach(ied => {
+      const iedName = ied.getAttribute('name');
+
+      const newName = `${iedPrefix}${iedName}`;
+
+      updateIedNames.push(
+        ...updateIED({ element: ied, attributes: { name: newName } })
+      );
+    });
+
+    this.dispatchEvent(newEditEvent(updateIedNames));
     this.toBeMapped = undefined;
   }
 
