@@ -440,10 +440,11 @@ export class SLDEditor extends LitElement {
   svgCoordinates(clientX: number, clientY: number) {
     const p = new DOMPoint(clientX, clientY);
     const { x, y } = p.matrixTransform(this.sld.getScreenCTM()!.inverse());
-    return [x, y].map(coord => Math.max(0, coord)) as Point;
+    const result = [x, y].map(coord => Math.max(0, coord)) as Point;
+    return result;
   }
 
-  canPlaceAt(element: Element, x: number, y: number, w: number, h: number) {
+  canPlaceAt(element: Element, x: number, y: number, w: number, h: number) {    
     if (element.tagName === 'Substation') return true;
 
     const overlappingSibling = Array.from(
