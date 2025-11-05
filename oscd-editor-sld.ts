@@ -119,7 +119,7 @@ function cutSectionAt(
   return edits;
 }
 
-export default class Designer extends LitElement {
+export default class OscdEditorSld extends LitElement {
   @property()
   doc!: XMLDocument;
 

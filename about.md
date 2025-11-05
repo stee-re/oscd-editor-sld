@@ -99,9 +99,9 @@ The tool currently supports a subset of possible transformers:
 
 ## Issues and Limitations
 
-Feel free to [file an issue](https://github.com/OMICRONEnergy/oscd-designer/issues) if you would like to see a feature developed or discuss a problem that you've identified.
+Feel free to [file an issue](https://github.com/OMICRONEnergyOSS/oscd-editor-sld/issues) if you would like to see a feature developed or discuss a problem that you've identified.
 
-If you have a question about using the plugin or want to discuss potential for improvement, [start a discussion](https://github.com/OMICRONEnergy/oscd-designer/discussions) on our GitHub repository!
+If you have a question about using the plugin or want to discuss potential for improvement, [start a discussion](https://github.com/OMICRONEnergyOSS/oscd-editor-sld/discussions) on our GitHub repository!
 
 Current limitations are:
 

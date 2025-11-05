@@ -42,13 +42,13 @@
   ],
   "editor": [
     {
-      "name": "Designer",
+      "name": "SLD",
       "translations": {
-        "de": "Designer"
+        "de": "SLD"
       },
       "icon": "add_box",
       "active": true,
-      "src": "/dist/oscd-designer.js"
+      "src": "/dist/oscd-editor-sld.js"
     },
     {
       "name": "Publisher",

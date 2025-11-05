@@ -10,7 +10,7 @@ import { IconButton } from '@material/mwc-icon-button';
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { identity } from '@openscd/oscd-scl';
 import { ListItem } from '@material/mwc-list/mwc-list-item.js';
-import Designer from './oscd-designer.js';
+import OscdEditorSld from './oscd-editor-sld.js';
 import { SLDEditor } from './sld-editor.js';
 
 function middleOf(element: Element): [number, number] {
@@ -22,7 +22,7 @@ function middleOf(element: Element): [number, number] {
   ];
 }
 
-customElements.define('oscd-designer', Designer);
+customElements.define('oscd-editor-sld', OscdEditorSld);
 
 export const emptyDocString = `<?xml version="1.0" encoding="UTF-8"?>
 <SCL version="2007" revision="B" xmlns="http://www.iec.ch/61850/2003/SCL">
@@ -76,8 +76,8 @@ export const equipmentDocString = `<?xml version="1.0" encoding="UTF-8"?>
 </SCL>
 `;
 
-describe('Designer', () => {
-  let element: Designer;
+describe('SLD Editor', () => {
+  let element: OscdEditorSld;
   let lastCalledWizard: Element | undefined;
 
   function queryUI({
@@ -108,7 +108,7 @@ describe('Designer', () => {
       'application/xml'
     );
     element = await fixture(
-      html`<oscd-designer
+      html`<oscd-editor-sld
         docName="testDoc"
         .doc=${doc}
         @oscd-edit=${({ detail }: EditEvent) => {
@@ -120,7 +120,7 @@ describe('Designer', () => {
         }: CustomEvent<{ element: Element }>) => {
           lastCalledWizard = e;
         }}
-      ></oscd-designer>`
+      ></oscd-editor-sld>`
     );
   });
 
@@ -131,7 +131,7 @@ describe('Designer', () => {
   });
 
   it('shows a placeholder message while no document is loaded', async () => {
-    element = await fixture(html`<oscd-designer></oscd-designer>`);
+    element = await fixture(html`<oscd-editor-sld></oscd-editor-sld>`);
     expect(element.shadowRoot?.querySelector('p')).to.contain.text('SCL');
   });
 

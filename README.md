@@ -1,4 +1,4 @@
-# OpenSCD Substation Designer
+# OpenSCD Substation SLD Editor
 
 This repository contains a work in progress.
 

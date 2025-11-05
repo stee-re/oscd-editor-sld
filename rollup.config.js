@@ -1,3 +1,4 @@
+import path from 'path';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import typescript from '@rollup/plugin-typescript';
@@ -6,10 +7,9 @@ import { importMetaAssets } from '@web/rollup-plugin-import-meta-assets';
 import { terser } from 'rollup-plugin-terser';
 import { generateSW } from 'rollup-plugin-workbox';
 
-import path from 'path';
 
 export default {
-  input: 'oscd-designer.ts',
+  input: 'oscd-editor-sld.ts',
   output: {
     sourcemap: true,
     format: 'es',
