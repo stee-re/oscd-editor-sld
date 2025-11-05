@@ -3,7 +3,8 @@ import { html as staticHtml, unsafeStatic } from 'lit/static-html.js';
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 import { property, query, state } from 'lit/decorators.js';
 
-import { Edit, newEditEvent, Update } from '@openscd/open-scd-core';
+import { EditV2, SetAttributes } from '@openscd/oscd-api';
+import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import { getReference } from '@openscd/oscd-scl';
 
 import type { Dialog } from '@material/mwc-dialog';
@@ -78,9 +79,9 @@ function cutSectionAt(
   index: number,
   [x, y]: Point,
   nsPrefix: string
-): Edit[] {
+): EditV2[] {
   const parent = section.parentElement!;
-  const edits = [] as Edit[];
+  const edits = [] as EditV2[];
   const vertices = Array.from(section.getElementsByTagNameNS(sldNs, 'Vertex'));
   const vertexAtXY = vertices.find(
     ve =>
@@ -124,19 +125,19 @@ export default class OscdEditorSld extends LitElement {
   doc!: XMLDocument;
 
   @property()
-  get editCount(): number {
-    return this._editCount;
+  get docVersion(): number {
+    return this._docVersion;
   }
 
-  set editCount(value: number) {
+  set docVersion(value: number) {
     this.connecting = undefined;
     if (!this.resizingBR?.parentElement) this.resizingBR = undefined;
     if (!this.placingLabel?.parentElement) this.placingLabel = undefined;
-    this._editCount = value;
+    this._docVersion = value;
   }
 
   @state()
-  private _editCount = -1;
+  private _docVersion = -1;
 
   @state()
   gridSize = 32;
@@ -270,14 +271,19 @@ export default class OscdEditorSld extends LitElement {
     const edits = [
       {
         element,
-        attributes: {
-          [`${this.nsp}:rot`]: {
-            namespaceURI: sldNs,
-            value: ((rot + 1) % 4).toString(),
+        // attributes: {
+        //   [`${this.nsp}:rot`]: {
+        //     namespaceURI: sldNs,
+        //     value: ((rot + 1) % 4).toString(),
+        //   },
+        // },
+        attributesNS: {
+          [sldNs]: {
+            [`${this.nsp}:rot`]: ((rot + 1) % 4).toString(),
           },
         },
       },
-    ] as Edit[];
+    ] as EditV2[];
     if (
       element.tagName === 'ConductingEquipment' ||
       element.tagName === 'PowerTransformer'
@@ -286,16 +292,22 @@ export default class OscdEditorSld extends LitElement {
         .filter(terminal => terminal.getAttribute('cNodeName') !== 'grounded')
         .forEach(terminal => edits.push(...removeTerminal(terminal)));
     }
-    this.dispatchEvent(newEditEvent(edits));
+    this.dispatchEvent(newEditEventV2(edits));
   }
 
   placeLabel(element: Element, x: number, y: number) {
     this.dispatchEvent(
-      newEditEvent({
+      newEditEventV2({
         element,
-        attributes: {
-          lx: { namespaceURI: sldNs, value: x.toString() },
-          ly: { namespaceURI: sldNs, value: y.toString() },
+        // attributes: {
+        //   lx: { namespaceURI: sldNs, value: x.toString() },
+        //   ly: { namespaceURI: sldNs, value: y.toString() },
+        // },
+        attributesNS: {
+          [sldNs]: {
+            lx: x.toString(),
+            ly: y.toString(),
+          },
         },
       })
     );
@@ -303,7 +315,7 @@ export default class OscdEditorSld extends LitElement {
   }
 
   placeElement(element: Element, parent: Element, x: number, y: number) {
-    const edits: Edit[] = [];
+    const edits: EditV2[] = [];
     if (element.parentElement !== parent) {
       edits.push(...reparentElement(element, parent));
     }
@@ -340,11 +352,19 @@ export default class OscdEditorSld extends LitElement {
       }
       edits.push({
         element,
-        attributes: {
-          x: { namespaceURI: sldNs, value: x.toString() },
-          y: { namespaceURI: sldNs, value: y.toString() },
-          lx: { namespaceURI: sldNs, value: (lx + dx).toString() },
-          ly: { namespaceURI: sldNs, value: (ly + dy).toString() },
+        // attributes: {
+        //   x: { namespaceURI: sldNs, value: x.toString() },
+        //   y: { namespaceURI: sldNs, value: y.toString() },
+        //   lx: { namespaceURI: sldNs, value: (lx + dx).toString() },
+        //   ly: { namespaceURI: sldNs, value: (ly + dy).toString() },
+        // },
+        attributesNS: {
+          [sldNs]: {
+            x: x.toString(),
+            y: y.toString(),
+            lx: (lx + dx).toString(),
+            ly: (ly + dy).toString(),
+          },
         },
       });
     }
@@ -353,19 +373,25 @@ export default class OscdEditorSld extends LitElement {
       const {
         label: [textLX, textLY],
       } = attributes(text);
-      const newAttributes = {
-        lx: {
-          namespaceURI: sldNs,
-          value: (textLX + dx).toString(),
-        },
-        ly: {
-          namespaceURI: sldNs,
-          value: (textLY + dy).toString(),
-        },
-      };
+      // const newAttributes = {
+      //   lx: {
+      //     namespaceURI: sldNs,
+      //     value: (textLX + dx).toString(),
+      //   },
+      //   ly: {
+      //     namespaceURI: sldNs,
+      //     value: (textLY + dy).toString(),
+      //   },
+      // };
       edits.push({
         element: text,
-        attributes: newAttributes,
+        // attributes: newAttributes,
+        attributesNS: {
+          [sldNs]: {
+            lx: (textLX + dx).toString(),
+            ly: (textLY + dy).toString(),
+          },
+        },
       });
     });
 
@@ -378,23 +404,30 @@ export default class OscdEditorSld extends LitElement {
         pos: [descX, descY],
         label: [descLX, descLY],
       } = attributes(descendant);
-      const newAttributes: Update['attributes'] = {
-        x: { namespaceURI: sldNs, value: (descX + dx).toString() },
-        y: { namespaceURI: sldNs, value: (descY + dy).toString() },
+      const newAttributes: SetAttributes['attributesNS'] = {
+        [sldNs]: {
+          x: (descX + dx).toString(),
+          y: (descY + dy).toString(),
+        },
+        // x: { namespaceURI: sldNs, value: (descX + dx).toString() },
+        // y: { namespaceURI: sldNs, value: (descY + dy).toString() },
       };
       if (descendant.localName !== 'Vertex') {
-        newAttributes.lx = {
-          namespaceURI: sldNs,
-          value: (descLX + dx).toString(),
-        };
-        newAttributes.ly = {
-          namespaceURI: sldNs,
-          value: (descLY + dy).toString(),
-        };
+        // newAttributes.lx = {
+        //   namespaceURI: sldNs,
+        //   value: (descLX + dx).toString(),
+        // };
+        // newAttributes.ly = {
+        //   namespaceURI: sldNs,
+        //   value: (descLY + dy).toString(),
+        // };
+
+        newAttributes[sldNs]!.lx = (descLX + dx).toString();
+        newAttributes[sldNs]!.ly = (descLY + dy).toString();
       }
       edits.push({
         element: descendant,
-        attributes: newAttributes,
+        attributesNS: newAttributes,
       });
     });
 
@@ -501,22 +534,34 @@ export default class OscdEditorSld extends LitElement {
         edits.push(...removeNode(section.closest('ConnectivityNode')!));
         edits.push({
           element: lastVertex,
-          attributes: {
-            x: { namespaceURI: sldNs, value: x.toString() },
-            y: { namespaceURI: sldNs, value: y.toString() },
+          // attributes: {
+          //   x: { namespaceURI: sldNs, value: x.toString() },
+          //   y: { namespaceURI: sldNs, value: y.toString() },
+          // },
+          attributesNS: {
+            [sldNs]: {
+              x: x.toString(),
+              y: y.toString(),
+            },
           },
         });
         edits.push({
           element: bay,
-          attributes: {
-            w: { namespaceURI: sldNs, value: w.toString() },
-            h: { namespaceURI: sldNs, value: h.toString() },
+          // attributes: {
+          //   w: { namespaceURI: sldNs, value: w.toString() },
+          //   h: { namespaceURI: sldNs, value: h.toString() },
+          // },
+          attributesNS: {
+            [sldNs]: {
+              w: w.toString(),
+              h: h.toString(),
+            },
           },
         });
       }
     }
 
-    this.dispatchEvent(newEditEvent(edits));
+    this.dispatchEvent(newEditEventV2(edits));
     if (
       ['Bay', 'VoltageLevel'].includes(element.tagName) &&
       (!element.hasAttributeNS(sldNs, 'w') ||
@@ -538,7 +583,7 @@ export default class OscdEditorSld extends LitElement {
       to.tagName === 'TransformerWinding'
     )
       return;
-    const edits = [] as Edit[];
+    const edits = [] as EditV2[];
     let cNode: Element;
     let connectivityNode: string;
     let cNodeName: string;
@@ -551,15 +596,17 @@ export default class OscdEditorSld extends LitElement {
       cNode.setAttribute('name', 'L1');
       const bay = from.closest('Bay') || to.closest('Bay')!;
       edits.push(...reparentElement(cNode, bay));
-      connectivityNode = (edits.find(
-        e => 'attributes' in e && 'pathName' in e.attributes
-      ) as Update | undefined)!.attributes.pathName as string;
+      connectivityNode = (
+        edits.find(
+          e => 'attributes' in e && 'pathName' in e.attributes!
+        ) as SetAttributes
+      ).attributes!.pathName as string;
       cNodeName =
         ((
-          edits.find(e => 'attributes' in e && 'name' in e.attributes) as
-            | Update
-            | undefined
-        )?.attributes.name as string | undefined) ??
+          edits.find(
+            e => 'attributes' in e && 'name' in e.attributes!
+          ) as SetAttributes
+        )?.attributes!.name as string | undefined) ??
         cNode.getAttribute('name')!;
       priv = this.doc.createElementNS(
         this.doc.documentElement.namespaceURI,
@@ -661,7 +708,7 @@ export default class OscdEditorSld extends LitElement {
       });
     }
     this.reset();
-    this.dispatchEvent(newEditEvent(edits));
+    this.dispatchEvent(newEditEventV2(edits));
   }
 
   render() {
@@ -933,7 +980,7 @@ export default class OscdEditorSld extends LitElement {
         subs =>
           html`<sld-editor
             .doc=${this.doc}
-            .editCount=${this.editCount}
+            .docVersion=${this.docVersion}
             .substation=${subs}
             .gridSize=${this.gridSize}
             .resizingBR=${this.resizingBR}
@@ -964,11 +1011,17 @@ export default class OscdEditorSld extends LitElement {
             }}
             @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
               this.dispatchEvent(
-                newEditEvent({
+                newEditEventV2({
                   element,
-                  attributes: {
-                    w: { namespaceURI: sldNs, value: w.toString() },
-                    h: { namespaceURI: sldNs, value: h.toString() },
+                  // attributes: {
+                  //   w: { namespaceURI: sldNs, value: w.toString() },
+                  //   h: { namespaceURI: sldNs, value: h.toString() },
+                  // },
+                  attributesNS: {
+                    [sldNs]: {
+                      w: w.toString(),
+                      h: h.toString(),
+                    },
                   },
                 })
               );
@@ -988,15 +1041,25 @@ export default class OscdEditorSld extends LitElement {
                 ly += y - oldY;
               }
               this.dispatchEvent(
-                newEditEvent({
+                newEditEventV2({
                   element,
-                  attributes: {
-                    x: { namespaceURI: sldNs, value: x.toString() },
-                    y: { namespaceURI: sldNs, value: y.toString() },
-                    w: { namespaceURI: sldNs, value: w.toString() },
-                    h: { namespaceURI: sldNs, value: h.toString() },
-                    lx: { namespaceURI: sldNs, value: lx.toString() },
-                    ly: { namespaceURI: sldNs, value: ly.toString() },
+                  // attributes: {
+                  //   x: { namespaceURI: sldNs, value: x.toString() },
+                  //   y: { namespaceURI: sldNs, value: y.toString() },
+                  //   w: { namespaceURI: sldNs, value: w.toString() },
+                  //   h: { namespaceURI: sldNs, value: h.toString() },
+                  //   lx: { namespaceURI: sldNs, value: lx.toString() },
+                  //   ly: { namespaceURI: sldNs, value: ly.toString() },
+                  // },
+                  attributesNS: {
+                    [sldNs]: {
+                      x: x.toString(),
+                      y: y.toString(),
+                      w: w.toString(),
+                      h: h.toString(),
+                      lx: lx.toString(),
+                      ly: ly.toString(),
+                    },
                   },
                 })
               );
@@ -1036,7 +1099,7 @@ export default class OscdEditorSld extends LitElement {
     node.setAttribute('name', `S${index}`);
     node.setAttributeNS(sldNs, `${this.nsp}:w`, '50');
     node.setAttributeNS(sldNs, `${this.nsp}:h`, '25');
-    this.dispatchEvent(newEditEvent({ parent, node, reference }));
+    this.dispatchEvent(newEditEventV2({ parent, node, reference }));
   }
 
   static styles = css`

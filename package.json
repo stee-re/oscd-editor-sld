@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "author": "oscd-editor-sld",
   "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "prepare": "npm run build",
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
@@ -29,13 +30,19 @@
     "@material/mwc-menu": "^0.27.0",
     "@material/mwc-snackbar": "^0.27.0",
     "@material/mwc-textfield": "^0.27.0",
-    "@openscd/open-scd-core": "^0.0.2",
+    "@omicronenergy/oscd-background-editv1": "^0.0.6",
+    "@omicronenergy/oscd-background-wizard-events": "^0.0.1",
+    "@omicronenergy/oscd-menu-open": "^0.0.6",
+    "@omicronenergy/oscd-menu-save": "^0.0.2",
+    "@omicronenergy/oscd-shell": "^0.0.9",
+    "@openscd/oscd-api": "^0.1.5",
     "@openscd/oscd-scl": "^0.0.2",
     "lit": "^2.0.2"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.16.4",
     "@custom-elements-manifest/analyzer": "^0.4.17",
+    "@omicronenergy/oscd-editor": "^1.5.0",
     "@open-wc/building-rollup": "^2.0.2",
     "@open-wc/eslint-config": "^8.0.2",
     "@open-wc/testing": "^3.1.6",

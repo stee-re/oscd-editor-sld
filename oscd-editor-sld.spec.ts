@@ -4,12 +4,12 @@ import { fixture, expect } from '@open-wc/testing';
 
 import type { Button } from '@material/mwc-button';
 
-import { EditEvent, handleEdit } from '@openscd/open-scd-core';
-
 import { IconButton } from '@material/mwc-icon-button';
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { identity } from '@openscd/oscd-scl';
 import { ListItem } from '@material/mwc-list/mwc-list-item.js';
+import { XMLEditor } from '@omicronenergy/oscd-editor';
+import { EditEventV2 } from '@openscd/oscd-api';
 import OscdEditorSld from './oscd-editor-sld.js';
 import { SLDEditor } from './sld-editor.js';
 
@@ -78,6 +78,7 @@ export const equipmentDocString = `<?xml version="1.0" encoding="UTF-8"?>
 
 describe('SLD Editor', () => {
   let element: OscdEditorSld;
+  let xmlEditor: XMLEditor;
   let lastCalledWizard: Element | undefined;
 
   function queryUI({
@@ -107,13 +108,15 @@ describe('SLD Editor', () => {
       emptyDocString,
       'application/xml'
     );
+    // Use the actual editor here so that tests depending on a sequence of changes, still makes sense.
+    xmlEditor = new XMLEditor();
     element = await fixture(
       html`<oscd-editor-sld
         docName="testDoc"
         .doc=${doc}
-        @oscd-edit=${({ detail }: EditEvent) => {
-          handleEdit(detail);
-          element.editCount += 1;
+        @oscd-edit-v2=${(event: EditEventV2) => {
+          xmlEditor.commit(event.detail.edit);
+          element.docVersion += 1;
         }}
         @oscd-edit-wizard-request=${({
           detail: { element: e },
@@ -203,7 +206,7 @@ describe('SLD Editor', () => {
       sldEditor.shadowRoot
         ?.querySelector<Button>('mwc-button[slot="primaryAction"]')
         ?.click();
-      expect(element).to.have.property('editCount', 0);
+      expect(element).to.have.property('docVersion', 0);
       sldEditor.substationWidthUI.value = '1337';
       sldEditor.substationHeightUI.value = '42';
       sldEditor.shadowRoot
@@ -626,8 +629,8 @@ describe('SLD Editor', () => {
 
     it('moves bays on move handle click', async () => {
       const bayElement = element.doc.querySelector('Bay')!;
-      const currentX = parseInt(bayElement.getAttribute('esld:x')!);
-      const currentY = parseInt(bayElement.getAttribute('esld:y')!);
+      const currentX = parseInt(bayElement.getAttribute('esld:x')!, 10);
+      const currentY = parseInt(bayElement.getAttribute('esld:y')!, 10);
 
       // Move mouse to bay position to establish offset
       await sendMouse({
@@ -661,8 +664,8 @@ describe('SLD Editor', () => {
 
     it('renames reparented bays if necessary', async () => {
       const bayElement = element.doc.querySelector('Bay')!;
-      const currentX = parseInt(bayElement.getAttribute('esld:x')!);
-      const currentY = parseInt(bayElement.getAttribute('esld:y')!);
+      const currentX = parseInt(bayElement.getAttribute('esld:x')!, 10);
+      const currentY = parseInt(bayElement.getAttribute('esld:y')!, 10);
 
       // Move mouse to bay position to establish offset
       await sendMouse({
@@ -695,8 +698,8 @@ describe('SLD Editor', () => {
 
     it("updates reparented bays' connectivity node paths", async () => {
       const bayElement = element.doc.querySelector('Bay')!;
-      const currentX = parseInt(bayElement.getAttribute('esld:x')!);
-      const currentY = parseInt(bayElement.getAttribute('esld:y')!);
+      const currentX = parseInt(bayElement.getAttribute('esld:x')!, 10);
+      const currentY = parseInt(bayElement.getAttribute('esld:y')!, 10);
 
       // Move mouse to bay position to establish offset
       await sendMouse({
@@ -720,7 +723,7 @@ describe('SLD Editor', () => {
     });
 
     it('moves a bay when its parent voltage level is moved', async () => {
-      const voltageLevel = element.doc.querySelector('VoltageLevel')!;
+      // const voltageLevel = element.doc.querySelector('VoltageLevel')!;
       await sendMouse({
         type: 'click',
         position: [70, 250],
@@ -783,8 +786,8 @@ describe('SLD Editor', () => {
         expect(bus).to.have.attribute('x', '5');
 
         // Move mouse to current bus position to establish offset
-        const currentX = parseInt(bus!.getAttribute('x')!);
-        const currentY = parseInt(bus!.getAttribute('y')!);
+        const currentX = parseInt(bus!.getAttribute('x')!, 10);
+        const currentY = parseInt(bus!.getAttribute('y')!, 10);
         await sendMouse({
           type: 'move',
           position: [(currentX - 1) * 32 + 64, (currentY - 1) * 32 + 228],
@@ -810,8 +813,8 @@ describe('SLD Editor', () => {
 
       it('resizes the bus bar on middle mouse button click', async () => {
         const bus = element.doc.querySelector('[name="BB1"]');
-        const currentX = parseInt(bus!.getAttribute('x')!);
-        const currentY = parseInt(bus!.getAttribute('y')!);
+        const currentX = parseInt(bus!.getAttribute('x')!, 10);
+        const currentY = parseInt(bus!.getAttribute('y')!, 10);
 
         // Move mouse to bus bar position to establish offset
         await sendMouse({
@@ -1719,8 +1722,8 @@ describe('SLD Editor', () => {
 
           it('resizes the bus bar on resize menu item select', async () => {
             const bus = element.doc.querySelector('[name="BB1"]');
-            const currentX = parseInt(bus!.getAttribute('x')!);
-            const currentY = parseInt(bus!.getAttribute('y')!);
+            const currentX = parseInt(bus!.getAttribute('x')!, 10);
+            const currentY = parseInt(bus!.getAttribute('y')!, 10);
 
             // Move mouse to bus bar position to establish offset
             await sendMouse({
@@ -1802,8 +1805,8 @@ describe('SLD Editor', () => {
 
             // Move mouse to bus bar position at current x,y
             // Using equipment formula: screenX = (gridX - 1) * 32 + 64, screenY = (gridY - 1) * 32 + 228
-            const currentY = parseInt(initialY);
-            const currentX = parseInt(initialX);
+            const currentY = parseInt(initialY, 10);
+            const currentX = parseInt(initialX, 10);
             await sendMouse({
               type: 'move',
               position: [(currentX - 1) * 32 + 64, (currentY - 1) * 32 + 228],
