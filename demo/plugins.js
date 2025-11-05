@@ -1,13 +1,25 @@
-{
-  "menu": [
+import OscdMenuOpen from '@omicronenergy/oscd-menu-open';
+import OscdMenuSave from '@omicronenergy/oscd-menu-save';
+import OscdBackgroundEditV1 from '@omicronenergy/oscd-background-editv1';
+import OscdBackgroundWizardEvents from "@omicronenergy/oscd-background-wizard-events/oscd-background-wizard-events.js";
+
+customElements.define('oscd-menu-open', OscdMenuOpen);
+customElements.define('oscd-menu-save', OscdMenuSave);
+customElements.define('oscd-background-editv1', OscdBackgroundEditV1);
+customElements.define('oscd-background-wizard-events', OscdBackgroundWizardEvents);
+
+import OscdEditorSld from '../dist/oscd-editor-sld.js';
+customElements.define('oscd-editor-sld', OscdEditorSld);
+
+export const plugins = {
+  menu: [
     {
       "name": "Open project",
       "translation": {
         "de": "Project öffnen"
       },
       "icon": "folder_open",
-      "active": true,
-      "src": "https://openenergytools.github.io/scl-editor/plugins/oscd-open/oscd-open.js"
+      "tagName": "oscd-menu-open"
     },
     {
       "name": "Save project",
@@ -15,9 +27,8 @@
         "de": "Projekt speichern"
       },
       "icon": "save",
-      "active": true,
       "requireDoc": true,
-      "src": "https://openenergytools.github.io/scl-editor/plugins/oscd-save/oscd-save.js"
+      "tagName": "oscd-menu-save"
     },
     {
       "name": "Import IED",
@@ -28,19 +39,9 @@
       "active": true,
       "requireDoc": true,
       "src": "https://openenergytools.github.io/scl-editor/plugins/scl-import-ied/scl-import-ied.js"
-    },
-    {
-      "name": "Wizards",
-      "translation": {
-        "de": "Wizards"
-      },
-      "icon": "edit",
-      "active": true,
-      "requireDoc": true,
-      "src": "https://openenergytools.github.io/scl-editor/plugins/scl-wizarding/scl-wizarding.js"
     }
   ],
-  "editor": [
+  editor: [
     {
       "name": "SLD",
       "translations": {
@@ -48,7 +49,7 @@
       },
       "icon": "add_box",
       "active": true,
-      "src": "/dist/oscd-editor-sld.js"
+      "tagName": "oscd-editor-sld"
     },
     {
       "name": "Publisher",
@@ -72,7 +73,7 @@
       "icon": "settings_ethernet",
       "active": true,
       "requireDoc": true,
-      "src": "https://openenergytools.github.io/scl-editor/plugins/oscd-communication/oscd-communication.js"
+      "src": "https://openenergytools.github.io/scl-editor/plugins/oscd-communication/scl-communication.js"
     },
     {
       "name": "Substation",
@@ -104,5 +105,19 @@
       "active": true,
       "src": "https://openenergytools.github.io/scl-editor/plugins/scl-editor-landing/scl-editor-landing.js"
     }
-  ]
-}
+  ],
+  background: [
+    {
+      name: 'EditV1 Events Listener',
+      icon: 'none',
+      requireDoc: true,
+      tagName: 'oscd-background-editv1',
+    },
+    {
+      name: 'Wizard dialog Events Listener',
+      icon: 'none',
+      requireDoc: true,
+      tagName: 'oscd-background-wizard-events',
+    },
+  ],
+};
