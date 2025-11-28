@@ -42,6 +42,16 @@ export const singleTerminal = new Set([
   'VTR',
 ]);
 
+export type Style = {
+  // Fill and Stroke
+  fill?: string;
+  fillOpacity?: number | string;
+  stroke?: string;
+  strokeWidth?: number | string;
+  strokeOpacity?: number | string;
+  rx?: string | number;
+};
+
 /* eslint-disable no-bitwise */
 export function uuid() {
   const digits = new Array(36);

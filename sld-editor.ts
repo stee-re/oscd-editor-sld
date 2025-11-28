@@ -30,6 +30,7 @@ import {
   StartConnectEvent,
   StartEvent,
   StartPlaceEvent,
+  Style,
   updateSLDAttributes,
   uuid,
   xmlnsNs,
@@ -103,6 +104,8 @@ export class SldEditor extends LitElement {
   @property({ type: Boolean }) disabled = false;
 
   @property() selectable: string[] = [];
+
+  @property() highlight: { id: string; style: Style }[] = [];
 
   @state() gridSize = 32;
 
@@ -601,6 +604,7 @@ export class SldEditor extends LitElement {
           .showLabels=${this.showLabels}
           .disabled=${this.disabled}
           .selectable=${this.selectable}
+          .highlight=${this.highlight}
           @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
             this.startResizingBottomRight(detail);
           }}
