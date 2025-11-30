@@ -1,5 +1,5 @@
 import { EditV2 } from '@openscd/oscd-api';
-import { getReference } from '@openscd/oscd-scl';
+import { getReference } from '@openscd/scl-lib';
 
 export const privType = 'OpenSCD-SLD-Layout';
 export const sldNs = 'https://openscd.org/SCL/SSD/SLD/v0';

@@ -18,7 +18,7 @@ import '@material/mwc-list/mwc-list-item.js';
 import '@material/mwc-snackbar';
 import '@material/mwc-textfield';
 
-import { getReference, identity } from '@openscd/oscd-scl';
+import { getReference, identity } from '@openscd/scl-lib';
 import {
   bayGraphic,
   eqRingPath,

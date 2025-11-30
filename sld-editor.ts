@@ -3,7 +3,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import { EditV2, SetAttributes } from '@openscd/oscd-api';
-import { getReference } from '@openscd/oscd-scl';
+import { getReference } from '@openscd/scl-lib';
 
 import './sld-substation-editor.js';
 

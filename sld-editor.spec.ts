@@ -6,7 +6,7 @@ import type { Button } from '@material/mwc-button';
 
 import { IconButton } from '@material/mwc-icon-button';
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
-import { identity } from '@openscd/oscd-scl';
+import { identity } from '@openscd/scl-lib';
 import { ListItem } from '@material/mwc-list/mwc-list-item.js';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import { EditEventV2 } from '@openscd/oscd-api';
