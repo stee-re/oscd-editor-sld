@@ -21,11 +21,11 @@
     editor.setAttribute(name, value);
   }
 
-  const sample = await fetch('sample.scd').then(r => r.text());
-  editor.docs = {
-    'sample.scd': new DOMParser().parseFromString(sample, 'application/xml'),
-  };
-  editor.docName = 'sample.scd';
+  // const sample = await fetch('sample.scd').then(r => r.text());
+  // editor.docs = {
+  //   'sample.scd': new DOMParser().parseFromString(sample, 'application/xml'),
+  // };
+  // editor.docName = 'sample.scd';
 </script>
 
 <style>

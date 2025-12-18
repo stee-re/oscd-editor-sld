@@ -1,18 +1,27 @@
+import OscdMenuNew from "@omicronenergy/oscd-menu-commons/oscd-menu-new.js";
 import OscdMenuOpen from '@omicronenergy/oscd-menu-open';
 import OscdMenuSave from '@omicronenergy/oscd-menu-save';
 import OscdBackgroundEditV1 from '@omicronenergy/oscd-background-editv1';
 import OscdBackgroundWizardEvents from "@omicronenergy/oscd-background-wizard-events/oscd-background-wizard-events.js";
 
+import OscdEditorSld from '../dist/oscd-editor-sld.js';
+
+customElements.define("oscd-menu-new", OscdMenuNew);
 customElements.define('oscd-menu-open', OscdMenuOpen);
 customElements.define('oscd-menu-save', OscdMenuSave);
 customElements.define('oscd-background-editv1', OscdBackgroundEditV1);
 customElements.define('oscd-background-wizard-events', OscdBackgroundWizardEvents);
-
-import OscdEditorSld from '../dist/oscd-editor-sld.js';
 customElements.define('oscd-editor-sld', OscdEditorSld);
 
 export const plugins = {
   menu: [
+    {
+      name: "New File",
+      translations: { de: "Neu Datei" },
+      icon: "create_new_folder",
+      requireDoc: false,
+      tagName: "oscd-menu-new",
+    },
     {
       "name": "Open project",
       "translation": {
@@ -39,7 +48,16 @@ export const plugins = {
       "active": true,
       "requireDoc": true,
       "src": "https://openenergytools.github.io/scl-editor/plugins/scl-import-ied/scl-import-ied.js"
-    }
+    },
+        {
+      name: "Validating",
+      translation: {
+        de: "Validieren",
+      },
+      icon: "rule_folder",
+      requireDoc: true,
+      src: "../plugins/scl-validating/scl-validating.js",
+    },
   ],
   editor: [
     {

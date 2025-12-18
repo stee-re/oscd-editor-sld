@@ -1,14 +1,21 @@
 import path from 'path';
+import fs from 'fs';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import typescript from '@rollup/plugin-typescript';
-// import { copy } from '@web/rollup-plugin-copy';
 import { importMetaAssets } from '@web/rollup-plugin-import-meta-assets';
 import { terser } from 'rollup-plugin-terser';
 import { generateSW } from 'rollup-plugin-workbox';
+import { rollupPluginHTML as html } from '@web/rollup-plugin-html';
+import copy from 'rollup-plugin-copy';
 
+const tsconfig = JSON.parse(fs.readFileSync('./tsconfig.json', 'utf8'));
+const demoTsconfig = {
+  ...tsconfig,
+  compilerOptions: { ...tsconfig.compilerOptions, outDir: 'dist/demo' },
+};
 
-export default {
+export default [{
   input: 'oscd-editor-sld.ts',
   output: {
     sourcemap: true,
@@ -75,4 +82,36 @@ export default {
       runtimeCaching: [{ urlPattern: 'polyfills/*.js', handler: 'CacheFirst' }],
     }),
   ],
-};
+},
+
+{
+    input: 'demo/index.html',
+    plugins: [
+      html({
+        input: 'demo/index.html',
+        minify: true,
+      }),
+      /** Resolve bare module imports */
+      nodeResolve(),
+
+      typescript(demoTsconfig),
+
+      /** Bundle assets references via import.meta.url */
+      importMetaAssets(),
+      copy({
+        targets: [
+          { src: 'demo/sample.scd', dest: 'dist/demo' },
+          { src: 'demo/*.js', dest: 'dist/demo' },
+          // Add more patterns if you have more assets
+        ],
+        verbose: true,
+        flatten: false,
+      }),
+    ],
+    output: {
+      dir: 'dist/demo',
+      format: 'es',
+      sourcemap: true,
+    },
+  },
+];

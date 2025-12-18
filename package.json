@@ -5,7 +5,12 @@
   "author": "oscd-editor-sld",
   "version": "0.0.0",
   "type": "module",
+  "exports": {
+    ".": "./dist/oscd-editor-sld.js",
+    "./oscd-editor-diff.js": "./dist/oscd-editor-sld.js"
+  },
   "scripts": {
+    "preinstall": "git submodule update --init --recursive --remote",
     "prepare": "npm run build",
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
     "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore",
@@ -32,6 +37,7 @@
     "@material/mwc-textfield": "^0.27.0",
     "@omicronenergy/oscd-background-editv1": "^0.0.6",
     "@omicronenergy/oscd-background-wizard-events": "^0.0.1",
+    "@omicronenergy/oscd-menu-commons": "^0.0.1",
     "@omicronenergy/oscd-menu-open": "^0.0.6",
     "@omicronenergy/oscd-menu-save": "^0.0.2",
     "@omicronenergy/oscd-shell": "^0.0.9",
@@ -52,7 +58,7 @@
     "@typescript-eslint/eslint-plugin": "^4.33.0",
     "@typescript-eslint/parser": "^4.33.0",
     "@web/dev-server": "^0.1.34",
-    "@web/rollup-plugin-copy": "^0.4.0",
+    "@web/rollup-plugin-html": "^2.4.1",
     "@web/rollup-plugin-import-meta-assets": "^1.0.7",
     "@web/test-runner": "^0.14.0",
     "@web/test-runner-commands": "^0.8.1",
@@ -69,6 +75,7 @@
     "prettier": "^2.4.1",
     "rimraf": "^3.0.2",
     "rollup": "^2.60.0",
+    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-workbox": "^6.2.0",
     "sinon": "^15.2.0",
