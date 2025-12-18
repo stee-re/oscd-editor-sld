@@ -1,5 +1,6 @@
 import { EditV2 } from '@openscd/oscd-api';
 import { getReference } from '@openscd/scl-lib';
+import { createElement } from '@openscd/scl-lib/dist/foundation/utils.js';
 
 export const privType = 'OpenSCD-SLD-Layout';
 export const sldNs = 'https://openscd.org/SCL/SSD/SLD/v0';
@@ -105,10 +106,9 @@ function sldAttributes(element: Element, nsPrefix?: string): Element | null {
   if (sldAttrs) return sldAttrs;
   if (!nsPrefix) return null;
 
-  const priv = element.ownerDocument.createElement('Private');
-  priv.setAttribute('type', privType);
-  element.insertBefore(priv, getReference(element, 'Private'));
-
+  const priv = createElement(element.ownerDocument!, 'Private', {
+    type: privType,
+  });
   const sldAttrsNew = element.ownerDocument.createElementNS(
     sldNs,
     `${nsPrefix}:SLDAttributes`
