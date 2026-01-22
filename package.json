@@ -17,7 +17,7 @@
     "start:build": "web-dev-server --root-dir dist --app-index index.html --open",
     "analyze": "cem analyze --litelement",
     "start": "npm run compile && concurrently -k -r \"tsc --watch --preserveWatchOutput\" \"wds\"",
-    "deploy": "npm run build && gh-pages --dist 'dist'"
+    "deploy": "npm run build && gh-pages --dist 'dist' -b deploy"
   },
   "dependencies": {
     "@material/mwc-button": "^0.27.0",
@@ -69,6 +69,7 @@
     "prettier": "^2.4.1",
     "rimraf": "^3.0.2",
     "rollup": "^2.60.0",
+    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-workbox": "^6.2.0",
     "sinon": "^15.2.0",
