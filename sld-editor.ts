@@ -67,7 +67,7 @@ import {
   xlinkNs,
   xmlBoolean,
 } from './util.js';
-import { mappingStatus } from './oscd-designer.js';
+import { mappingStatus } from './oscd-editor-sld.js';
 
 const parentTags: Partial<Record<string, string[]>> = {
   ConductingEquipment: ['Bay'],

@@ -1350,7 +1350,7 @@ export default class Designer extends LitElement {
     nav {
       user-select: none;
       position: sticky;
-      top: 68px;
+      /* top: 68px; */
       left: 16px;
       width: fit-content;
       max-width: calc(100vw - 32px);

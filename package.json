@@ -1,8 +1,8 @@
 {
-  "name": "@openscd/oscd-designer",
+  "name": "@openscd/oscd-editor-sld",
   "description": "OpenSCD plugin for designing single line diagrams",
   "license": "Apache-2.0",
-  "author": "oscd-designer",
+  "author": "oscd-editor-sld",
   "version": "0.0.0",
   "scripts": {
     "prepare": "npm run build",

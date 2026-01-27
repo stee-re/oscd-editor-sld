@@ -1,15 +1,14 @@
+import path from 'path';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import typescript from '@rollup/plugin-typescript';
-// import { copy } from '@web/rollup-plugin-copy';
+import { copy } from '@web/rollup-plugin-copy';
 import { importMetaAssets } from '@web/rollup-plugin-import-meta-assets';
 import { terser } from 'rollup-plugin-terser';
 import { generateSW } from 'rollup-plugin-workbox';
 
-import path from 'path';
-
 export default {
-  input: 'oscd-designer.ts',
+  input: 'oscd-editor-sld.ts',
   output: {
     sourcemap: true,
     format: 'es',
@@ -25,6 +24,7 @@ export default {
     /** Bundle assets references via import.meta.url */
     importMetaAssets(),
     /** Compile JS to a lower language target */
+    copy({ patterns: ['index.html', 'plugins.json'] }),
     babel({
       babelHelpers: 'bundled',
       presets: [
