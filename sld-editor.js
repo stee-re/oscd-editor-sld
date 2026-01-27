@@ -13,7 +13,7 @@ import '@material/mwc-textfield';
 import { getReference, identity } from '@openscd/oscd-scl';
 import { bayGraphic, eqRingPath, equipmentGraphic, incomplete, mapped, movePath, ptrIcon, resizeBRPath, resizePath, resizeTLPath, symbols, unmapped, voltageLevelGraphic, zigZag2WTransform, zigZagPath, } from './icons.js';
 import { attributes, connectionStartPoints, elementPath, isBusBar, isEqType, newConnectEvent, newPlaceEvent, newPlaceLabelEvent, newResizeEvent, newResizeTLEvent, newRotateEvent, newStartConnectEvent, newStartPlaceEvent, newStartPlaceLabelEvent, newStartResizeBREvent, newStartResizeTLEvent, prettyPrint, privType, removeNode, removeTerminal, ringedEqTypes, robotoDataURL, singleTerminal, sldNs, svgNs, uniqueName, uuid, xlinkNs, xmlBoolean, } from './util.js';
-import { mappingStatus } from './oscd-designer.js';
+import { mappingStatus } from './oscd-editor-sld.js';
 const parentTags = {
     ConductingEquipment: ['Bay'],
     Bay: ['VoltageLevel'],

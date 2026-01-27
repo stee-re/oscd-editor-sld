@@ -4,7 +4,7 @@ import { fixture, expect } from '@open-wc/testing';
 import { handleEdit } from '@openscd/open-scd-core';
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { identity } from '@openscd/oscd-scl';
-import Designer from './oscd-designer.js';
+import Designer from './oscd-editor-sld.js';
 function middleOf(element) {
     const { x, y, width, height } = element.getBoundingClientRect();
     return [
@@ -12,7 +12,7 @@ function middleOf(element) {
         Math.floor(y + window.pageYOffset + height / 2),
     ];
 }
-customElements.define('oscd-designer', Designer);
+customElements.define('oscd-editor-sld', Designer);
 export const emptyDocString = `<?xml version="1.0" encoding="UTF-8"?>
 <SCL version="2007" revision="B" xmlns="http://www.iec.ch/61850/2003/SCL">
 </SCL>`;
@@ -78,7 +78,7 @@ describe('Designer', () => {
     }
     beforeEach(async () => {
         const doc = new DOMParser().parseFromString(emptyDocString, 'application/xml');
-        element = await fixture(html `<oscd-designer
+        element = await fixture(html `<oscd-editor-sld
         docName="testDoc"
         .doc=${doc}
         @oscd-edit=${({ detail }) => {
@@ -88,7 +88,7 @@ describe('Designer', () => {
         @oscd-edit-wizard-request=${({ detail: { element: e }, }) => {
             lastCalledWizard = e;
         }}
-      ></oscd-designer>`);
+      ></oscd-editor-sld>`);
     });
     afterEach(async () => {
         lastCalledWizard = undefined;
@@ -97,7 +97,7 @@ describe('Designer', () => {
     });
     it('shows a placeholder message while no document is loaded', async () => {
         var _a;
-        element = await fixture(html `<oscd-designer></oscd-designer>`);
+        element = await fixture(html `<oscd-editor-sld></oscd-editor-sld>`);
         expect((_a = element.shadowRoot) === null || _a === void 0 ? void 0 : _a.querySelector('p')).to.contain.text('SCL');
     });
     it('adds the SLD XML namespace if doc lacks it', async () => {
@@ -1307,4 +1307,4 @@ describe('Designer', () => {
         });
     });
 });
-//# sourceMappingURL=oscd-designer.spec.js.map
+//# sourceMappingURL=oscd-editor-sld.spec.js.map
