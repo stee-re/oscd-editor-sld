@@ -1,0 +1,34 @@
+import { LitElement } from 'lit';
+import type { Dialog } from '@material/mwc-dialog';
+import type { IconButtonToggle } from '@material/mwc-icon-button-toggle';
+import '@material/mwc-button';
+import '@material/mwc-fab';
+import '@material/mwc-icon-button';
+import '@material/mwc-icon-button-toggle';
+import '@material/mwc-icon';
+import './sld-editor.js';
+import type { SldEditor } from './sld-editor.js';
+export default class OscdEditorSld extends LitElement {
+    doc: XMLDocument;
+    docVersion: number;
+    gridSize: number;
+    nsp: string;
+    templateElements: Record<string, Element>;
+    inAction: boolean;
+    get showLabels(): boolean;
+    labelToggle?: IconButtonToggle;
+    about?: Dialog;
+    sldEditor?: SldEditor;
+    zoomIn(): void;
+    zoomOut(): void;
+    startPlacing(element: Element | undefined): void;
+    reset(): void;
+    handleKeydown: ({ key }: KeyboardEvent) => void;
+    connectedCallback(): void;
+    disconnectedCallback(): void;
+    updated(changedProperties: Map<string, any>): void;
+    convertLsdAttributes(): void;
+    render(): import("lit-html").TemplateResult<1>;
+    insertSubstation(): void;
+    static styles: import("lit").CSSResult;
+}

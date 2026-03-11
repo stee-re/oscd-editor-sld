@@ -1,6 +1,6 @@
-import { getReference } from '@openscd/oscd-scl';
-export const privType = 'Transpower-SLD-Vertices';
-export const sldNs = 'https://transpower.co.nz/SCL/SSD/SLD/v0';
+import { getReference } from '@openscd/scl-lib';
+export const privType = 'OpenSCD-SLD-Layout';
+export const sldNs = 'https://openscd.org/SCL/SSD/SLD/v0';
 export const xmlnsNs = 'http://www.w3.org/2000/xmlns/';
 export const svgNs = 'http://www.w3.org/2000/svg';
 export const xlinkNs = 'http://www.w3.org/1999/xlink';
@@ -57,16 +57,89 @@ export function isTransformerKind(kind) {
     return transformerKinds.includes(kind);
 }
 export function xmlBoolean(value) {
-    var _a;
-    return ['true', '1'].includes((_a = value === null || value === void 0 ? void 0 : value.trim()) !== null && _a !== void 0 ? _a : 'false');
+    return ['true', '1'].includes(value?.trim() ?? 'false');
+}
+function sections(element) {
+    return Array.from(element.querySelectorAll(`:scope Private[type="${privType}"] > Section`));
+}
+function sldAttributes(element, nsPrefix) {
+    const sldAttrs = element.querySelector(`:scope > Private[type="${privType}"] > SLDAttributes`);
+    if (sldAttrs)
+        return sldAttrs;
+    if (!nsPrefix)
+        return null;
+    const doc = element.ownerDocument;
+    const priv = doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+    priv.setAttribute('type', privType);
+    element.insertBefore(priv, getReference(element, 'Private'));
+    const sldAttrsNew = doc.createElementNS(sldNs, `${nsPrefix}:SLDAttributes`);
+    priv.insertBefore(sldAttrsNew, null);
+    return sldAttrsNew;
+}
+export function setSLDAttributes(element, nsPrefix, values) {
+    const isSectionOrVertex = ['Section', 'Vertex'].includes(element.localName);
+    if (isSectionOrVertex) {
+        Object.entries(values).forEach(([key, value]) => {
+            element.setAttributeNS(sldNs, `${nsPrefix}:${key}`, value);
+        });
+    }
+    else {
+        Object.entries(values).forEach(([key, value]) => sldAttributes(element, nsPrefix)?.setAttributeNS(sldNs, `${nsPrefix}:${key}`, value));
+    }
+}
+export function updateSLDAttributes(element, nsPrefix, values) {
+    const isSecOrVert = ['Section', 'Vertex'].includes(element.localName);
+    const toBeUpdated = isSecOrVert ? element : sldAttributes(element, nsPrefix);
+    return {
+        element: toBeUpdated,
+        attributesNS: {
+            [sldNs]: Object.fromEntries(Object.entries(values).map(([key, value]) => [
+                `${nsPrefix}:${key}`,
+                value,
+            ])),
+        },
+    };
+}
+export function getSLDAttributes(element, key) {
+    const isSecOrVert = ['Section', 'Vertex'].includes(element.localName);
+    if (isSecOrVert)
+        return element.getAttributeNS(sldNs, key);
+    return sldAttributes(element)?.getAttributeNS(sldNs, key) ?? null;
+}
+export function busSections(element) {
+    return sections(element).filter(section => getSLDAttributes(section, 'bus') === 'true');
+}
+export function nonBusSections(element) {
+    return sections(element).filter(section => !getSLDAttributes(section, 'bus'));
+}
+function containsBusSection(element) {
+    return busSections(element).length > 0;
 }
 export function isBusBar(element) {
-    var _a;
-    return (element.tagName === 'Bay' &&
-        xmlBoolean((_a = element.querySelector('Section[bus]')) === null || _a === void 0 ? void 0 : _a.getAttribute('bus')));
+    return element.tagName === 'Bay' && containsBusSection(element);
+}
+export function makeBusBar(doc, nsp) {
+    const busBar = doc.createElementNS(doc.documentElement.namespaceURI, 'Bay');
+    busBar.setAttribute('name', 'BB1');
+    setSLDAttributes(busBar, nsp, { w: '2' });
+    const cNode = doc.createElementNS(doc.documentElement.namespaceURI, 'ConnectivityNode');
+    cNode.setAttribute('name', 'L');
+    const priv = doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+    priv.setAttribute('type', privType);
+    const section = doc.createElementNS(sldNs, `${nsp}:Section`);
+    setSLDAttributes(section, nsp, { bus: 'true' });
+    const v1 = doc.createElementNS(sldNs, `${nsp}:Vertex`);
+    setSLDAttributes(v1, nsp, { x: '0.5', y: '0.5' });
+    section.appendChild(v1);
+    const v2 = doc.createElementNS(sldNs, `${nsp}:Vertex`);
+    setSLDAttributes(v2, nsp, { x: '1.5', y: '0.5' });
+    section.appendChild(v2);
+    priv.appendChild(section);
+    cNode.appendChild(priv);
+    busBar.appendChild(cNode);
+    return busBar;
 }
 export function attributes(element) {
-    var _a;
     const [x, y, w, h, rotVal, labelX, labelY] = [
         'x',
         'y',
@@ -75,16 +148,16 @@ export function attributes(element) {
         'rot',
         'lx',
         'ly',
-    ].map(name => { var _a; return parseFloat((_a = element.getAttributeNS(sldNs, name)) !== null && _a !== void 0 ? _a : '0'); });
-    const weight = parseInt((_a = element.getAttributeNS(sldNs, 'weight')) !== null && _a !== void 0 ? _a : '300', 10);
+    ].map(name => parseFloat(getSLDAttributes(element, name) ?? '0'));
+    const weight = parseInt(getSLDAttributes(element, 'weight') ?? '300', 10);
     const pos = [x, y].map(d => Math.max(0, d));
     const dim = [w, h].map(d => Math.max(1, d));
     const label = [labelX, labelY].map(d => Math.max(0, d));
-    const bus = xmlBoolean(element.getAttribute('bus'));
-    const flip = xmlBoolean(element.getAttributeNS(sldNs, 'flip'));
-    const kindVal = element.getAttributeNS(sldNs, 'kind');
+    const bus = xmlBoolean(getSLDAttributes(element, 'bus'));
+    const flip = xmlBoolean(getSLDAttributes(element, 'flip'));
+    const kindVal = getSLDAttributes(element, 'kind');
     const kind = isTransformerKind(kindVal) ? kindVal : 'default';
-    const color = element.getAttributeNS(sldNs, 'color') || '#000';
+    const color = getSLDAttributes(element, 'color') || '#000';
     const rot = (((rotVal % 4) + 4) % 4);
     return { pos, dim, label, flip, rot, bus, weight, color, kind };
 }
@@ -101,15 +174,15 @@ export function elementPath(element, ...rest) {
     return pathString(...pedigree, ...rest);
 }
 function collinear(v0, v1, v2) {
-    const [[x0, y0], [x1, y1], [x2, y2]] = [v0, v1, v2].map(vertex => ['x', 'y'].map(name => vertex.getAttributeNS(sldNs, name)));
+    const [[x0, y0], [x1, y1], [x2, y2]] = [v0, v1, v2].map(vertex => ['x', 'y'].map(name => getSLDAttributes(vertex, name)));
     return (x0 === x1 && x1 === x2) || (y0 === y1 && y1 === y2);
 }
 export function removeNode(node) {
-    var _a;
     const edits = [];
-    if (xmlBoolean((_a = node.querySelector(`Section[bus]`)) === null || _a === void 0 ? void 0 : _a.getAttribute('bus'))) {
-        Array.from(node.querySelectorAll('Section:not([bus])')).forEach(section => edits.push({ node: section }));
-        const sections = Array.from(node.querySelectorAll('Section[bus]'));
+    if (containsBusSection(node)) {
+        nonBusSections(node).forEach(section => edits.push({ node: section }));
+        // eslint-disable-next-line no-shadow
+        const sections = busSections(node);
         const busSection = sections[0];
         Array.from(busSection.children)
             .slice(1)
@@ -132,10 +205,10 @@ function reverseSection(section) {
     return edits;
 }
 function healSectionCut(cut) {
-    const [x, y] = ['x', 'y'].map(name => cut.getAttributeNS(sldNs, name));
+    const [x, y] = ['x', 'y'].map(name => getSLDAttributes(cut, name));
     const isCut = (vertex) => vertex !== cut &&
-        vertex.getAttributeNS(sldNs, 'x') === x &&
-        vertex.getAttributeNS(sldNs, 'y') === y;
+        getSLDAttributes(vertex, 'x') === x &&
+        getSLDAttributes(vertex, 'y') === y;
     const cutVertices = Array.from(cut.closest('Private').getElementsByTagNameNS(sldNs, 'Section')).flatMap(section => Array.from(section.children).filter(isCut));
     const cutSections = cutVertices.map(v => v.parentElement);
     if (cutSections.length > 2)
@@ -190,21 +263,19 @@ function updateTerminals(parent, cNode, substationName, voltageLevelName, bayNam
     return updates;
 }
 function updateConnectivityNodes(element, parent, name) {
-    var _a;
     const updates = [];
     const cNodes = Array.from(element.getElementsByTagName('ConnectivityNode'));
     if (element.tagName === 'ConnectivityNode')
         cNodes.push(element);
     const substationName = parent.closest('Substation').getAttribute('name');
-    let voltageLevelName = (_a = parent.closest('VoltageLevel')) === null || _a === void 0 ? void 0 : _a.getAttribute('name');
+    let voltageLevelName = parent.closest('VoltageLevel')?.getAttribute('name');
     if (element.tagName === 'VoltageLevel')
         voltageLevelName = name;
     cNodes.forEach(cNode => {
-        var _a, _b;
         let cNodeName = cNode.getAttribute('name');
         if (element === cNode)
             cNodeName = name;
-        let bayName = (_b = (_a = cNode.parentElement) === null || _a === void 0 ? void 0 : _a.getAttribute('name')) !== null && _b !== void 0 ? _b : '';
+        let bayName = cNode.parentElement?.getAttribute('name') ?? '';
         if (element.tagName === 'Bay')
             bayName = name;
         if (parent.tagName === 'Bay' && parent.hasAttribute('name'))
@@ -224,13 +295,14 @@ function updateConnectivityNodes(element, parent, name) {
     return updates;
 }
 export function uniqueName(element, parent) {
-    var _a, _b, _c;
     const children = Array.from(parent.children);
     const oldName = element.getAttribute('name');
     if (oldName &&
         !children.find(child => child.getAttribute('name') === oldName))
         return oldName;
-    const baseName = (_c = (_b = (_a = element.getAttribute('name')) === null || _a === void 0 ? void 0 : _a.replace(/[0-9]*$/, '')) !== null && _b !== void 0 ? _b : element.getAttribute('type')) !== null && _c !== void 0 ? _c : element.tagName.charAt(0);
+    const baseName = element.getAttribute('name')?.replace(/[0-9]*$/, '') ??
+        element.getAttribute('type') ??
+        element.tagName.charAt(0);
     let index = 1;
     function hasName(child) {
         return child.getAttribute('name') === baseName + index.toString();
@@ -275,9 +347,9 @@ export function removeTerminal(terminal) {
         edits.push(...removeNode(cNode));
         return edits;
     }
-    const priv = cNode === null || cNode === void 0 ? void 0 : cNode.querySelector(`Private[type="${privType}"]`);
-    const vertex = priv === null || priv === void 0 ? void 0 : priv.querySelector(`Vertex[*|uuid="${terminal.getAttributeNS(sldNs, 'uuid')}"]`);
-    const section = vertex === null || vertex === void 0 ? void 0 : vertex.parentElement;
+    const priv = cNode?.querySelector(`Private[type="${privType}"]`);
+    const vertex = priv?.querySelector(`Vertex[*|uuid="${getSLDAttributes(terminal, 'uuid')}"]`);
+    const section = vertex?.parentElement;
     if (!section)
         return edits;
     edits.push({ node: section });
@@ -395,6 +467,13 @@ export function newStartConnectEvent(detail) {
         bubbles: true,
         composed: true,
         detail,
+    });
+}
+export function newSelectEvent(element) {
+    return new CustomEvent('oscd-sld-selected', {
+        bubbles: true,
+        composed: true,
+        detail: { element },
     });
 }
 const prettifyXSLT = new DOMParser().parseFromString([
