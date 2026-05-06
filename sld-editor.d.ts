@@ -35,7 +35,7 @@ export declare class SldEditor extends SldEditor_base {
     handleKeydown: ({ key }: KeyboardEvent) => void;
     connectedCallback(): void;
     disconnectedCallback(): void;
-    updated(changedProperties: Map<string, any>): void;
+    updated(changedProperties: Map<string, unknown>): void;
     reset(): void;
     resetWithOffset(): void;
     startResizingBottomRight(element: Element | undefined): void;

@@ -1,13 +1,15 @@
 import { nothing, LitElement, PropertyValues, TemplateResult, SVGTemplateResult } from 'lit';
 import { Ref } from 'lit/directives/ref.js';
-import { Button } from '@material/mwc-button';
-import { Dialog } from '@material/mwc-dialog';
-import { Icon } from '@material/mwc-icon';
-import { IconButton } from '@material/mwc-icon-button';
-import { List } from '@material/mwc-list';
-import { ListItem } from '@material/mwc-list/mwc-list-item.js';
-import { Snackbar } from '@material/mwc-snackbar';
-import { TextField } from '@material/mwc-textfield';
+import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
+import { OscdDialog } from '@omicronenergy/oscd-ui/dialog/OscdDialog.js';
+import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
+import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
+import { OscdList } from '@omicronenergy/oscd-ui/list/OscdList.js';
+import { OscdListItem } from '@omicronenergy/oscd-ui/list/OscdListItem.js';
+import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
+import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
+import { SldSnackbar } from './sld-snackbar.js';
+import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 import { Point, Style } from './util.js';
 type MenuItem = {
@@ -18,14 +20,16 @@ declare const SldSubstationEditor_base: typeof LitElement & import("@open-wc/sco
 /** An editor [[`plugin`]] for editing the `Substation` section. */
 export declare class SldSubstationEditor extends SldSubstationEditor_base {
     static scopedElements: {
-        'mwc-button': typeof Button;
-        'mwc-dialog': typeof Dialog;
-        'mwc-icon': typeof Icon;
-        'mwc-icon-button': typeof IconButton;
-        'mwc-list': typeof List;
-        'mwc-list-item': typeof ListItem;
-        'mwc-snackbar': typeof Snackbar;
-        'mwc-textfield': typeof TextField;
+        'oscd-text-button': typeof OscdTextButton;
+        'oscd-dialog': typeof OscdDialog;
+        'oscd-icon': typeof OscdIcon;
+        'oscd-icon-button': typeof OscdIconButton;
+        'oscd-list': typeof OscdList;
+        'oscd-list-item': typeof OscdListItem;
+        'oscd-menu': typeof OscdMenu;
+        'oscd-menu-item': typeof OscdMenuItem;
+        'sld-snackbar': typeof SldSnackbar;
+        'oscd-outlined-text-field': typeof OscdOutlinedTextField;
         'oscd-scl-dialogs': typeof OscdSclDialogs;
     };
     doc: XMLDocument;
@@ -52,11 +56,11 @@ export declare class SldSubstationEditor extends SldSubstationEditor_base {
         style: Style;
     }[];
     get idle(): boolean;
-    resizeSubstationUI: Dialog;
-    substationWidthUI: TextField;
-    substationHeightUI: TextField;
+    resizeSubstationUI: OscdDialog;
+    substationWidthUI: OscdOutlinedTextField;
+    substationHeightUI: OscdOutlinedTextField;
     sld: SVGGraphicsElement;
-    groundHint: Snackbar;
+    groundHint: SldSnackbar;
     sclDialogs: OscdSclDialogs;
     mouseX: number;
     mouseY: number;
@@ -87,6 +91,7 @@ export declare class SldSubstationEditor extends SldSubstationEditor_base {
     handleClick: (e: MouseEvent) => void;
     connectedCallback(): void;
     disconnectedCallback(): void;
+    private handleEditWizardRequest;
     saveSVG(): void;
     nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
     groundTerminal(equipment: Element, name: 'T1' | 'T2' | 'N1' | 'N2'): void;
