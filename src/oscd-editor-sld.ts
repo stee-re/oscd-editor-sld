@@ -30,7 +30,7 @@ import {
   setSLDAttributes,
   sldNs,
   xmlnsNs,
-} from './util.js';
+} from './foundations.js';
 import { convertSldLayout, hasOldNamespace } from './converter.js';
 
 const aboutContent = await fetch(new URL('about.html', import.meta.url)).then(

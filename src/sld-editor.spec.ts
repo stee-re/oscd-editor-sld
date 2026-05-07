@@ -70,7 +70,7 @@ import {
   resolveIed,
   setSLDAttributes,
   sldNs,
-} from './util.js';
+} from './foundations.js';
 
 import { SldEditor } from './sld-editor.js';
 import {
