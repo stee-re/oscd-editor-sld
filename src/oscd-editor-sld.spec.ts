@@ -15,7 +15,12 @@ import { identity } from '@openscd/scl-lib';
 import OscdEditorSld from './oscd-editor-sld.js';
 import { SldSubstationEditor } from './sld-substation-editor.js';
 import { SldEditor } from './sld-editor.js';
-import { getSLDAttributes, iedReferences, resolveIed, sldNs } from './util.js';
+import {
+  getSLDAttributes,
+  iedReferences,
+  resolveIed,
+  sldNs,
+} from './foundations.js';
 import {
   findSubstationSvgRoot,
   gridPosToViewportCoords,

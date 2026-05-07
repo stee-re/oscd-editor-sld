@@ -36,7 +36,7 @@ import {
   updateSLDAttributes,
   uuid,
   xmlnsNs,
-} from './util.js';
+} from './foundations.js';
 
 function cutSectionAt(
   section: Element,

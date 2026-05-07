@@ -84,7 +84,7 @@ import {
   xlinkNs,
   xmlBoolean,
   resolveIed,
-} from './util.js';
+} from './foundations.js';
 
 const parentTags: Partial<Record<string, string[]>> = {
   ConductingEquipment: ['Bay'],
