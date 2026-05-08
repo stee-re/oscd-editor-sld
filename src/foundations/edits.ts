@@ -6,13 +6,14 @@ import {
   removeNode,
   removeTerminal,
 } from './connectivity.js';
+import { iedReferences } from './ied.js';
 import {
-  getSLDAttributes,
   attributes,
+  getSLDAttributes,
   setSLDAttributes,
   updateSLDAttributes,
 } from './sld-attributes.js';
-import { iedReferences, uuid } from '../foundations.js';
+import { uuid } from '../foundations.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
 
