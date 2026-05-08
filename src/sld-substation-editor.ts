@@ -97,8 +97,8 @@ import {
   newStartResizeBREvent,
   newStartResizeTLEvent,
 } from './foundations/events.js';
+import { exportSVG } from './foundations/export.js';
 import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
-import { prettyPrint, robotoDataURL } from './foundations.js';
 
 import type { Point, Style } from './foundations/types.js';
 
@@ -148,25 +148,6 @@ function overlapsRect(
     dim: [w, h],
   } = attributes(element);
   return overlaps([x, y, w, h], [x0, y0, w0, h0]);
-}
-
-function cleanXML(element: Element) {
-  const cl = element.classList;
-  if (
-    cl.contains('handle') ||
-    cl.contains('preview') ||
-    cl.contains('port') ||
-    (cl.contains('label') && cl.contains('container'))
-  ) {
-    element.remove();
-    return;
-  }
-  if (cl.contains('voltagelevel') || cl.contains('bay'))
-    element.querySelector('rect')?.remove();
-  Array.from(element.childNodes).forEach(child => {
-    if (child.nodeType === 8) element.removeChild(child);
-    if (child.nodeType === 1) cleanXML(child as Element);
-  });
 }
 
 function isBay(element: Element) {
@@ -623,24 +604,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     this.sclDialogs.edit(detail);
   };
 
-  saveSVG() {
-    const sld = this.sld.cloneNode(true) as Element;
-    cleanXML(sld);
-    const blob = new Blob([prettyPrint(sld)], {
-      type: 'application/xml',
+  handleExport() {
+    exportSVG({
+      svg: this.sld,
+      filename: `${this.substation.getAttribute('name')}.svg`,
     });
-
-    const a = document.createElement('a');
-    a.download = `${this.substation.getAttribute('name')}.svg`;
-    a.href = URL.createObjectURL(blob);
-    a.dataset.downloadurl = ['application/xml', a.download, a.href].join(':');
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-    }, 5000);
   }
 
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined {
@@ -1782,7 +1750,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         <oscd-icon-button
           label="Export Single Line Diagram SVG"
           title="Export Single Line Diagram SVG"
-          @click=${() => this.saveSVG()}
+          @click=${() => this.handleExport()}
         >
           <oscd-icon>file_download</oscd-icon>
         </oscd-icon-button>
@@ -1810,12 +1778,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         }}
       >
         <style>
-          @font-face {
-            font-family: 'Roboto';
-            font-style: normal;
-            font-weight: 400;
-            src: url(${robotoDataURL}) format('woff');
-          }
           .handle {
             visibility: hidden;
           }
@@ -2643,7 +2605,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       topTerminal ||
       this.disabled
         ? nothing
-        : svg`<polygon points="0.3,0 0.7,0 0.5,0.4" 
+        : svg`<polygon points="0.3,0 0.7,0 0.5,0.4"
                 fill="#BB1326" opacity="0.4" />`;
 
     const topGrounded =
@@ -2691,7 +2653,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       singleTerminal.has(eqType) ||
       this.disabled
         ? nothing
-        : svg`<polygon points="0.3,1 0.7,1 0.5,0.6" 
+        : svg`<polygon points="0.3,1 0.7,1 0.5,0.6"
                 fill="#BB1326" opacity="0.4" />`;
 
     const bottomGrounded =
@@ -2859,7 +2821,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let placingTarget = svg``;
     placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-          pointer-events="all" fill="none" 
+          pointer-events="all" fill="none"
           @click=${handleClick}
         />`;
 
@@ -3024,7 +2986,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         lines.push(
           svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
                 pointer-events="${pointerEvents}"
-                stroke-width="${busBar ? 0.12 : nothing}" stroke="black" 
+                stroke-width="${busBar ? 0.12 : nothing}" stroke="black"
                 stroke-linecap="${busBar ? 'round' : 'square'}" />`,
         );
         lines.push(
