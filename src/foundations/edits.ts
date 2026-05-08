@@ -2,7 +2,7 @@ import { getReference } from '@openscd/scl-lib';
 
 import {
   attributes,
-  elementPath,
+  connectivityPath,
   getSLDAttributes,
   iedReferences,
   isBusBar,
@@ -124,7 +124,7 @@ export function createGroundTerminalEdits(
   );
   let pathName = grounded?.getAttribute('pathName');
   if (!pathName) {
-    pathName = elementPath(bay, 'grounded');
+    pathName = connectivityPath(bay, 'grounded');
     grounded = equipment.ownerDocument.createElementNS(
       equipment.ownerDocument.documentElement.namespaceURI,
       'ConnectivityNode',
