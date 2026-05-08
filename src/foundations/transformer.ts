@@ -1,6 +1,6 @@
 import type { Attrs, Point } from './types.js';
 
-export const transformerKinds = ['default', 'auto', 'earthing'] as const;
+const transformerKinds = ['default', 'auto', 'earthing'] as const;
 
 export type TransformerKind = (typeof transformerKinds)[number];
 
