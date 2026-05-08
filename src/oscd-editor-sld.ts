@@ -21,17 +21,13 @@ import { SldEditor } from './sld-editor.js';
 
 import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from './icons.js';
 import { isBusBar, makeBusBar } from './foundations/connectivity.js';
+import { eqTypes } from './foundations/equipment.js';
+import { iedReferences, resolveIed } from './foundations/ied.js';
+import { sldNs, xmlnsNs } from './foundations/namespaces.js';
 import {
   getSLDAttributes,
   setSLDAttributes,
 } from './foundations/sld-attributes.js';
-import {
-  eqTypes,
-  iedReferences,
-  resolveIed,
-  sldNs,
-  xmlnsNs,
-} from './foundations.js';
 import { convertSldLayout, hasOldNamespace } from './converter.js';
 
 const aboutContent = await fetch(new URL('about.html', import.meta.url)).then(

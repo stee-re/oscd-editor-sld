@@ -74,9 +74,16 @@ import {
 } from './foundations/sld-attributes.js';
 import { transformerWindingMeasures } from './foundations/transformer.js';
 import {
+  isEqType,
+  ringedEqTypes,
+  singleTerminal,
+} from './foundations/equipment.js';
+import {
   iedReferences,
   isIedReferenceElement,
-  isEqType,
+  resolveIed,
+} from './foundations/ied.js';
+import {
   newConnectEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
@@ -89,18 +96,11 @@ import {
   newStartPlaceLabelEvent,
   newStartResizeBREvent,
   newStartResizeTLEvent,
-  Point,
-  prettyPrint,
-  privType,
-  ringedEqTypes,
-  robotoDataURL,
-  singleTerminal,
-  sldNs,
-  Style,
-  svgNs,
-  xlinkNs,
-  resolveIed,
-} from './foundations.js';
+} from './foundations/events.js';
+import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
+import { prettyPrint, robotoDataURL } from './foundations.js';
+
+import type { Point, Style } from './foundations/types.js';
 
 const parentTags: Partial<Record<string, string[]>> = {
   ConductingEquipment: ['Bay'],

@@ -20,27 +20,24 @@ import {
   setSLDAttributes,
   updateSLDAttributes,
 } from './foundations/sld-attributes.js';
+import { iedReferences, isIedReferenceElement } from './foundations/ied.js';
+import { privType, sldNs, xmlnsNs } from './foundations/namespaces.js';
 
-import {
+import { uuid } from './foundations.js';
+
+import type {
   ConnectDetail,
   ConnectEvent,
-  iedReferences,
-  isIedReferenceElement,
   PlaceEvent,
   PlaceLabelEvent,
-  Point,
-  privType,
   ResizeEvent,
   ResizeTLEvent,
-  sldNs,
   StartConnectDetail,
   StartConnectEvent,
   StartEvent,
   StartPlaceEvent,
-  Style,
-  uuid,
-  xmlnsNs,
-} from './foundations.js';
+} from './foundations/events.js';
+import type { Point, Style } from './foundations/types.js';
 
 function cutSectionAt(
   section: Element,
