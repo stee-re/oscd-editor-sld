@@ -22,7 +22,11 @@ import { SldEditor } from './sld-editor.js';
 import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from './icons.js';
 import { isBusBar, makeBusBar } from './foundations/connectivity.js';
 import { eqTypes } from './foundations/equipment.js';
-import { iedReferences, resolveIed } from './foundations/ied.js';
+import {
+  createRemoveIedReferenceEdit,
+  iedReferences,
+  unresolvedIedReferences,
+} from './foundations/ied.js';
 import { sldNs, xmlnsNs } from './foundations/namespaces.js';
 import {
   getSLDAttributes,
@@ -189,16 +193,19 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       >`;
 
     const ieds = Array.from(this.doc.querySelectorAll(':root > IED'));
-    const iedRefs = Array.from(
+    const substations = Array.from(
       this.doc.querySelectorAll(':root > Substation'),
-    ).flatMap(sub => iedReferences(sub));
+    );
+    const iedRefs = substations.flatMap(sub => iedReferences(sub));
 
     const refForIed = (ied: Element) =>
       iedRefs.find(ref => ref.getAttributeNS(sldNs, 'id') === identity(ied));
 
     const unusedIeds = ieds.filter(ied => !refForIed(ied));
 
-    const unusedIedRefs = iedRefs.filter(iedRef => !resolveIed(iedRef));
+    const unusedIedRefs = substations.flatMap(sub =>
+      unresolvedIedReferences(sub),
+    );
 
     const usedIedRefs = Array.from(ieds)
       .sort((a, b) => {
@@ -324,23 +331,13 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                               style="color: #BB1326;"
                               @click=${() => {
                                 const edits: EditV2[] = [];
-                                iedRefs
-                                  .filter(
-                                    referencedIed => !resolveIed(referencedIed),
-                                  )
-                                  .forEach(unusedReferencedIed => {
-                                    const parent =
-                                      unusedReferencedIed.parentElement;
-                                    if (
-                                      parent?.tagName === 'Private' &&
-                                      parent.getAttribute('type') ===
-                                        'OpenSCD-SLD-Layout' &&
-                                      parent.childElementCount === 1
-                                    )
-                                      edits.push({ node: parent });
-                                    else
-                                      edits.push({ node: unusedReferencedIed });
-                                  });
+                                unusedIedRefs.forEach(unusedReferencedIed =>
+                                  edits.push(
+                                    createRemoveIedReferenceEdit(
+                                      unusedReferencedIed,
+                                    ),
+                                  ),
+                                );
 
                                 this.dispatchEvent(newEditEventV2(edits));
                                 if (this.iedMenu) this.iedMenu.open = false;
