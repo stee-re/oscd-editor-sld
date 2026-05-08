@@ -12,7 +12,7 @@ import {
   busSections,
   ConnectDetail,
   ConnectEvent,
-  elementPath,
+  connectivityPath,
   getSLDAttributes,
   iedReferences,
   isBusBar,
@@ -376,7 +376,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             'ConnectivityNode',
           );
           newCNode.setAttribute('name', 'grounded');
-          newCNode.setAttribute('pathName', elementPath(parent, 'grounded'));
+          newCNode.setAttribute(
+            'pathName',
+            connectivityPath(parent, 'grounded'),
+          );
 
           edits.push({
             node: newCNode,
