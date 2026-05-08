@@ -79,6 +79,7 @@ import {
   singleTerminal,
 } from './foundations/equipment.js';
 import {
+  createRemoveIedReferenceEdit,
   iedReferences,
   isIedReferenceElement,
   resolveIed,
@@ -1076,15 +1077,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             <oscd-icon slot="start">delete</oscd-icon>
           </oscd-menu-item>`,
           handler: () => {
-            const edits: EditV2[] = [];
-            const sldLayoutPrivate = referencedIed.parentElement;
-            if (
-              sldLayoutPrivate?.tagName === 'Private' &&
-              sldLayoutPrivate.getAttribute('type') === 'OpenSCD-SLD-Layout' &&
-              sldLayoutPrivate.childElementCount === 1
-            )
-              edits.push({ node: sldLayoutPrivate });
-            else edits.push({ node: referencedIed });
+            const edits: EditV2[] = [
+              createRemoveIedReferenceEdit(referencedIed),
+            ];
             edits.push(...removeIED({ node: sclIed }));
             this.dispatchEvent(
               newEditEventV2(edits, { title: 'Deleted IED', squash: false }),
@@ -1099,17 +1094,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         <oscd-icon slot="start">location_off</oscd-icon>
       </oscd-menu-item>`,
       handler: () => {
-        const edits: EditV2[] = [];
-        const sldLayoutPrivate = referencedIed.parentElement;
-        if (
-          sldLayoutPrivate?.tagName === 'Private' &&
-          sldLayoutPrivate.getAttribute('type') === 'OpenSCD-SLD-Layout' &&
-          sldLayoutPrivate.childElementCount === 1
-        )
-          edits.push({ node: sldLayoutPrivate });
-        else edits.push({ node: referencedIed });
         this.dispatchEvent(
-          newEditEventV2(edits, { title: 'Removed from SLD', squash: false }),
+          newEditEventV2(createRemoveIedReferenceEdit(referencedIed), {
+            title: 'Removed from SLD',
+            squash: false,
+          }),
         );
       },
     });
