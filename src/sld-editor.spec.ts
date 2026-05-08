@@ -62,11 +62,10 @@ import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import type { EditEventV2 } from '@openscd/oscd-api';
 import { SldSubstationEditor } from './sld-substation-editor.js';
+import { busSections, makeBusBar } from './foundations/connectivity.js';
 import {
-  busSections,
   getSLDAttributes,
   iedReferences,
-  makeBusBar,
   resolveIed,
   setSLDAttributes,
   sldNs,

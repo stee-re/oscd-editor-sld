@@ -6,24 +6,26 @@ import { EditV2, SetAttributes } from '@openscd/oscd-api';
 import { getReference, insertIed } from '@openscd/scl-lib';
 
 import { SldSubstationEditor } from './sld-substation-editor.js';
+import {
+  busSections,
+  connectivityPath,
+  isBusBar,
+  removeNode,
+  removeTerminal,
+  reparentElement,
+} from './foundations/connectivity.js';
 
 import {
   attributes,
-  busSections,
   ConnectDetail,
   ConnectEvent,
-  connectivityPath,
   getSLDAttributes,
   iedReferences,
-  isBusBar,
   isIedReferenceElement,
   PlaceEvent,
   PlaceLabelEvent,
   Point,
   privType,
-  removeNode,
-  removeTerminal,
-  reparentElement,
   ResizeEvent,
   ResizeTLEvent,
   setSLDAttributes,

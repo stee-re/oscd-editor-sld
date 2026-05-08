@@ -1,13 +1,15 @@
 import { getReference } from '@openscd/scl-lib';
 
 import {
-  attributes,
   connectivityPath,
-  getSLDAttributes,
-  iedReferences,
   isBusBar,
   removeNode,
   removeTerminal,
+} from './connectivity.js';
+import {
+  attributes,
+  getSLDAttributes,
+  iedReferences,
   setSLDAttributes,
   updateSLDAttributes,
   uuid,

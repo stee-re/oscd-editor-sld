@@ -60,14 +60,18 @@ import {
   createFlipElementEdits,
   createGroundTerminalEdits,
 } from './foundations/edits.js';
+import {
+  connectionStartPoints,
+  isBusBar,
+  removeTerminal,
+  uniqueName,
+} from './foundations/connectivity.js';
 import { transformerWindingMeasures } from './foundations/transformer.js';
 import {
   attributes,
-  connectionStartPoints,
   getSLDAttributes,
   iedReferences,
   isIedReferenceElement,
-  isBusBar,
   isEqType,
   newConnectEvent,
   newPlaceEvent,
@@ -84,14 +88,12 @@ import {
   Point,
   prettyPrint,
   privType,
-  removeTerminal,
   ringedEqTypes,
   robotoDataURL,
   singleTerminal,
   sldNs,
   Style,
   svgNs,
-  uniqueName,
   updateSLDAttributes,
   xlinkNs,
   xmlBoolean,
