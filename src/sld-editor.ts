@@ -14,12 +14,16 @@ import {
   removeTerminal,
   reparentElement,
 } from './foundations/connectivity.js';
-
 import {
   attributes,
+  getSLDAttributes,
+  setSLDAttributes,
+  updateSLDAttributes,
+} from './foundations/sld-attributes.js';
+
+import {
   ConnectDetail,
   ConnectEvent,
-  getSLDAttributes,
   iedReferences,
   isIedReferenceElement,
   PlaceEvent,
@@ -28,14 +32,12 @@ import {
   privType,
   ResizeEvent,
   ResizeTLEvent,
-  setSLDAttributes,
   sldNs,
   StartConnectDetail,
   StartConnectEvent,
   StartEvent,
   StartPlaceEvent,
   Style,
-  updateSLDAttributes,
   uuid,
   xmlnsNs,
 } from './foundations.js';

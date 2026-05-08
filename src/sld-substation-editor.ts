@@ -66,10 +66,14 @@ import {
   removeTerminal,
   uniqueName,
 } from './foundations/connectivity.js';
-import { transformerWindingMeasures } from './foundations/transformer.js';
 import {
   attributes,
   getSLDAttributes,
+  updateSLDAttributes,
+  xmlBoolean,
+} from './foundations/sld-attributes.js';
+import { transformerWindingMeasures } from './foundations/transformer.js';
+import {
   iedReferences,
   isIedReferenceElement,
   isEqType,
@@ -94,9 +98,7 @@ import {
   sldNs,
   Style,
   svgNs,
-  updateSLDAttributes,
   xlinkNs,
-  xmlBoolean,
   resolveIed,
 } from './foundations.js';
 

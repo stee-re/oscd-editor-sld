@@ -7,13 +7,12 @@ import {
   removeTerminal,
 } from './connectivity.js';
 import {
-  attributes,
   getSLDAttributes,
-  iedReferences,
+  attributes,
   setSLDAttributes,
   updateSLDAttributes,
-  uuid,
-} from '../foundations.js';
+} from './sld-attributes.js';
+import { iedReferences, uuid } from '../foundations.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
 
