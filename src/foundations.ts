@@ -32,7 +32,6 @@ export {
   uniqueName,
 } from './foundations/connectivity.js';
 export {
-  iedIdentity,
   iedReferences,
   isIedReferenceElement,
   resolveIed,
