@@ -60,6 +60,7 @@ import {
   createFlipElementEdits,
   createGroundTerminalEdits,
 } from './foundations/edits.js';
+import { transformerWindingMeasures } from './foundations/transformer.js';
 import {
   attributes,
   connectionStartPoints,
@@ -2329,249 +2330,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     </g>`;
   }
 
-  windingMeasures(winding: Element): {
-    center: Point;
-    size: number;
-    terminals: Partial<Record<'T1' | 'T2' | 'N1' | 'N2', Point>>;
-    grounded: Partial<Record<'N1' | 'N2', [Point, Point]>>;
-    arc?: {
-      from: Point;
-      fromCtl: Point;
-      to: Point;
-      toCtl: Point;
-    };
-    zigZagTransform?: string;
-  } {
-    const transformer = winding.parentElement!;
-    const windings = Array.from(transformer.children).filter(
-      c => c.tagName === 'TransformerWinding',
-    );
-    const [x, y] = this.renderedPosition(transformer).map(c => c + 0.5);
-    let center = [x, y] as Point;
-    const size = 0.7;
-    const grounded: Partial<Record<'N1' | 'N2', [Point, Point]>> = {};
-    const terminals: Partial<Record<'T1' | 'T2' | 'N1' | 'N2', Point>> = {};
-    let arc:
-      | {
-          from: Point;
-          fromCtl: Point;
-          to: Point;
-          toCtl: Point;
-        }
-      | undefined;
-    let zigZagTransform: string | undefined;
-    const terminalElements = Array.from(winding.children).filter(
-      c => c.tagName === 'Terminal',
-    );
-    const terminal1 = terminalElements.find(
-      t => t.getAttribute('name') === 'T1',
-    );
-    const terminal2 = terminalElements.find(
-      t => t.getAttribute('name') !== 'T1',
-    );
-    const neutral = Array.from(winding.children).find(
-      c => c.tagName === 'NeutralPoint',
-    );
-    const windingIndex = windings.indexOf(winding);
-    const { rot, kind, flip } = attributes(transformer);
-    function shift(point: Point, coord: 0 | 1, amount: number) {
-      const shifted = point.slice() as Point;
-      if (coord === 0) shifted[rot % 2] += rot < 2 ? amount : -amount;
-      else shifted[(rot + 1) % 2] += rot > 0 && rot < 3 ? -amount : amount;
-      return shifted;
-    }
-    if (windings.length === 1) {
-      if (kind === 'earthing') {
-        zigZagTransform = '';
-        const n1 = shift(center, 1, size);
-        if (!neutral) {
-          terminals.N1 = n1;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          const n1p = shift(n1, 1, 0.2);
-          grounded.N1 = [n1p, n1];
-        }
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 1, -size);
-        }
-      } else {
-        const sgn = flip ? -1 : 1;
-        const n1 = shift(center, 0, -size);
-        const n2 = shift(center, 0, size);
-        const t1 = shift(center, 1, (-size - 0.5) * sgn);
-        const t2 = shift(center, 1, size * sgn);
-        if (!neutral) {
-          terminals.N1 = n1;
-          terminals.N2 = n2;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          if (neutral.getAttribute('name') === 'N1') {
-            const n1p = shift(n1, 0, -0.2);
-            grounded.N1 = [n1p, n1];
-          } else {
-            const n2p = shift(n2, 0, 0.2);
-            grounded.N2 = [n2p, n2];
-          }
-        }
-        arc = {
-          from: n2,
-          fromCtl: shift(n2, 1, -sgn),
-          to: t1,
-          toCtl: shift(shift(t1, 0, 0.2), 1, 0.1 * sgn),
-        };
-        if (!terminal1) {
-          terminals.T1 = t1;
-        }
-        if (!terminal2) {
-          terminals.T2 = t2;
-        }
-      }
-    } else if (windings.length === 2) {
-      if (windingIndex === 1) {
-        center = shift(center, 1, 1);
-      }
-      if (kind === 'auto') {
-        if (windingIndex === 1) {
-          const n1 = shift(center, 0, -size);
-          const n2 = shift(center, 0, size);
-          if (!neutral) {
-            terminals.N1 = n1;
-            terminals.N2 = n2;
-          } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-            if (neutral.getAttribute('name') === 'N1') {
-              const n1p = shift(n1, 0, -0.2);
-              grounded.N1 = [n1p, n1];
-            } else {
-              const n2p = shift(n2, 0, 0.2);
-              grounded.N2 = [n2p, n2];
-            }
-          }
-          if (!terminal1 && !terminal2) {
-            terminals.T1 = shift(center, 1, size);
-          }
-        } else {
-          const sgn = flip ? -1 : 1;
-          const t1 = shift(center, 0, size * sgn);
-          const t2 = shift(center, 0, (-size - 0.5) * sgn);
-          const n1 = shift(center, 1, -size);
-          arc = {
-            from: n1,
-            fromCtl: shift(n1, 0, -sgn),
-            to: t2,
-            toCtl: shift(shift(t2, 1, -0.2), 0, 0.1 * sgn),
-          };
-          if (!terminal1) terminals.T1 = t1;
-          if (!terminal2) terminals.T2 = t2;
-          if (!neutral) {
-            terminals.N1 = n1;
-          } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-            const n1p = shift(n1, 1, -0.2);
-            grounded.N1 = [n1p, n1];
-          }
-        }
-      } else if (kind === 'earthing') {
-        if (windingIndex === 1) {
-          if (!terminal1 && !terminal2) {
-            terminals.T1 = shift(center, 1, size);
-          }
-        } else {
-          zigZagTransform = zigZag2WTransform;
-          const sgn = flip ? -1 : 1;
-          if (!terminal1 && !terminal2)
-            terminals.T1 = shift(center, 0, -size * sgn);
-          const n1 = shift(center, 0, size * sgn);
-          if (!neutral) {
-            terminals.N1 = n1;
-          } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-            const n1p = shift(n1, 0, 0.2 * sgn);
-            grounded.N1 = [n1p, n1];
-          }
-        }
-      } else if (windingIndex === 1) {
-        const n1 = shift(center, 0, -size);
-        const n2 = shift(center, 0, +size);
-
-        if (!neutral) {
-          terminals.N1 = n1;
-          terminals.N2 = n2;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          if (neutral.getAttribute('name') === 'N1') {
-            const n1p = shift(n1, 0, -0.2);
-            grounded.N1 = [n1p, n1];
-          } else {
-            const n2p = shift(n2, 0, 0.2);
-            grounded.N2 = [n2p, n2];
-          }
-        }
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 1, +size);
-        }
-      } else {
-        const n1 = shift(center, 0, -size);
-        const n2 = shift(center, 0, +size);
-
-        if (!neutral) {
-          terminals.N1 = n1;
-          terminals.N2 = n2;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          if (neutral.getAttribute('name') === 'N1') {
-            const n1p = shift(n1, 0, -0.2);
-            grounded.N1 = [n1p, n1];
-          } else {
-            const n2p = shift(n2, 0, 0.2);
-            grounded.N2 = [n2p, n2];
-          }
-        }
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 1, -size);
-        }
-      }
-    } else if (windings.length === 3) {
-      if (windingIndex === 0) {
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 1, -size);
-        }
-        const n1 = shift(center, 0, -size);
-        const n2 = shift(center, 0, +size);
-        if (!neutral) {
-          terminals.N1 = n1;
-          terminals.N2 = n2;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          if (neutral.getAttribute('name') === 'N1') {
-            const n1p = shift(n1, 0, -0.2);
-            grounded.N1 = [n1p, n1];
-          } else {
-            const n2p = shift(n2, 0, 0.2);
-            grounded.N2 = [n2p, n2];
-          }
-        }
-      } else if (windingIndex === 1) {
-        center = shift(shift(center, 0, 0.5), 1, 1);
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 0, size);
-        }
-        const n1 = shift(center, 1, size);
-        if (!neutral) {
-          terminals.N1 = n1;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          const n1p = shift(n1, 1, 0.2);
-          grounded.N1 = [n1p, n1];
-        }
-      } else if (windingIndex === 2) {
-        center = shift(shift(center, 0, -0.5), 1, 1);
-        if (!terminal1 && !terminal2) {
-          terminals.T1 = shift(center, 0, -size);
-        }
-        const n1 = shift(center, 1, size);
-        if (!neutral) {
-          terminals.N1 = n1;
-        } else if (neutral.getAttribute('cNodeName') === 'grounded') {
-          const n1p = shift(n1, 1, 0.2);
-          grounded.N1 = [n1p, n1];
-        }
-      }
-    }
-    return { center, size, terminals, grounded, arc, zigZagTransform };
-  }
-
   renderTransformerWinding(winding: Element): TemplateResult<2> {
     const {
       size,
@@ -2580,7 +2338,12 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       grounded,
       arc,
       zigZagTransform,
-    } = this.windingMeasures(winding);
+    } = transformerWindingMeasures(
+      winding,
+      this.renderedPosition(winding.parentElement!),
+      attributes(winding.parentElement!),
+      zigZag2WTransform,
+    );
     const ports: TemplateResult<2>[] = [];
     Object.entries(grounded).forEach(([_, [[x1, y1], [x2, y2]]]) => {
       ports.push(
