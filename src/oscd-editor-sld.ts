@@ -22,11 +22,13 @@ import { SldEditor } from './sld-editor.js';
 import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from './icons.js';
 import { isBusBar, makeBusBar } from './foundations/connectivity.js';
 import {
-  eqTypes,
   getSLDAttributes,
+  setSLDAttributes,
+} from './foundations/sld-attributes.js';
+import {
+  eqTypes,
   iedReferences,
   resolveIed,
-  setSLDAttributes,
   sldNs,
   xmlnsNs,
 } from './foundations.js';

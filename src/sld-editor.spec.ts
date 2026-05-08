@@ -65,11 +65,9 @@ import { SldSubstationEditor } from './sld-substation-editor.js';
 import { busSections, makeBusBar } from './foundations/connectivity.js';
 import {
   getSLDAttributes,
-  iedReferences,
-  resolveIed,
   setSLDAttributes,
-  sldNs,
-} from './foundations.js';
+} from './foundations/sld-attributes.js';
+import { iedReferences, resolveIed, sldNs } from './foundations.js';
 
 import { SldEditor } from './sld-editor.js';
 import {
