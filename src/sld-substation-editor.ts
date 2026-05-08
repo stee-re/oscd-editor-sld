@@ -53,9 +53,14 @@ import {
   overlaps,
 } from './foundations/geometry.js';
 import {
+  copyElementForPlacement,
+  createAddTextEdit,
+  createFlipElementEdits,
+  createGroundTerminalEdits,
+} from './foundations/edits.js';
+import {
   attributes,
   connectionStartPoints,
-  elementPath,
   getSLDAttributes,
   iedReferences,
   isIedReferenceElement,
@@ -80,14 +85,12 @@ import {
   removeTerminal,
   ringedEqTypes,
   robotoDataURL,
-  setSLDAttributes,
   singleTerminal,
   sldNs,
   Style,
   svgNs,
   uniqueName,
   updateSLDAttributes,
-  uuid,
   xlinkNs,
   xmlBoolean,
   resolveIed,
@@ -166,79 +169,6 @@ function isBay(element: Element) {
 
 function preventDefault(e: MouseEvent) {
   if (e.button === 1) e.preventDefault();
-}
-
-function copy(element: Element, nsp: string): Element {
-  const clone = element.cloneNode(true) as Element;
-  if (['Bay', 'VoltageLevel'].includes(element.tagName)) {
-    iedReferences(clone).forEach(ied => ied.remove());
-  }
-  const terminals = new Set<Element>(
-    Array.from(element.querySelectorAll('Terminal, NeutralPoint')),
-  );
-  const cNodes = new Set<Element>(
-    Array.from(element.querySelectorAll('ConnectivityNode')),
-  );
-  terminals.forEach(terminal => {
-    const cNode = element.ownerDocument.querySelector(
-      `ConnectivityNode[pathName="${terminal.getAttribute(
-        'connectivityNode',
-      )}"]`,
-    );
-    if (cNode) cNodes.add(cNode);
-  });
-  const foreignCNodes = new Set<Element>();
-  cNodes.forEach(cNode => {
-    const foreignTerminal = Array.from(
-      element.ownerDocument.querySelectorAll(
-        `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
-      ),
-    ).find(terminal => !terminals.has(terminal));
-    if (
-      foreignTerminal ||
-      (isBusBar(cNode.closest('Bay')!) &&
-        cNode.closest(element.tagName) !== element)
-    )
-      foreignCNodes.add(cNode);
-  });
-  foreignCNodes.forEach(cNode => {
-    if (cNode.closest(element.tagName) === element) {
-      if (isBusBar(cNode.closest('Bay')!))
-        clone
-          .querySelector(
-            `ConnectivityNode[pathName="${cNode.getAttribute('pathName')}"]`,
-          )
-          ?.closest('Bay')
-          ?.remove();
-      else
-        clone
-          .querySelector(
-            `ConnectivityNode[pathName="${cNode.getAttribute('pathName')}"]`,
-          )
-          ?.remove();
-    }
-    terminals.forEach(terminal => {
-      if (
-        terminal.getAttribute('connectivityNode') ===
-        cNode.getAttribute('pathName')
-      )
-        clone
-          .querySelector(`[*|uuid="${getSLDAttributes(terminal, 'uuid')}"]`)
-          ?.remove();
-    });
-  });
-  Array.from(clone.querySelectorAll('Terminal, NeutralPoint')).forEach(
-    terminal => {
-      const oldUUID = getSLDAttributes(terminal, 'uuid');
-      if (!oldUUID) return;
-      const newUUID = uuid();
-      Array.from(clone.querySelectorAll(`Vertex[*|uuid="${oldUUID}"`)).forEach(
-        vertex => setSLDAttributes(vertex, nsp, { uuid: newUUID }),
-      );
-      setSLDAttributes(terminal, nsp, { uuid: newUUID });
-    },
-  );
-  return clone;
 }
 
 function renderMenuHeader(element: Element) {
@@ -731,92 +661,23 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   groundTerminal(equipment: Element, name: 'T1' | 'T2' | 'N1' | 'N2') {
-    const neutralPoint = name.startsWith('N');
-    const bay = equipment.closest('Bay');
-    if (!bay) {
+    const edits = createGroundTerminalEdits(equipment, name);
+    if (!edits) {
       this.groundHint.show();
       return;
     }
-    const edits: EditV2[] = [];
-    let grounded = bay.querySelector(
-      ':scope > ConnectivityNode[name="grounded"]',
-    );
-    let pathName = grounded?.getAttribute('pathName');
-    if (!pathName) {
-      pathName = elementPath(bay, 'grounded');
-      grounded = this.doc.createElementNS(
-        this.doc.documentElement.namespaceURI,
-        'ConnectivityNode',
-      );
-      grounded.setAttribute('name', 'grounded');
-      grounded.setAttribute('pathName', pathName);
-      edits.push({
-        parent: bay,
-        node: grounded,
-        reference: getReference(bay, 'ConnectivityNode'),
-      });
-    }
-    const tagName = neutralPoint ? 'NeutralPoint' : 'Terminal';
-    const terminal = this.doc.createElementNS(
-      this.doc.documentElement.namespaceURI,
-      tagName,
-    );
-    terminal.setAttribute('name', name);
-    terminal.setAttribute('cNodeName', 'grounded');
-    const sName = bay.closest('Substation')!.getAttribute('name');
-    if (sName) terminal.setAttribute('substationName', sName);
-    const vlName = bay.closest('VoltageLevel')!.getAttribute('name');
-    if (vlName) terminal.setAttribute('voltageLevelName', vlName);
-    const bName = bay.getAttribute('name');
-    if (bName) terminal.setAttribute('bayName', bName);
-    terminal.setAttribute('connectivityNode', pathName);
-    edits.push({
-      parent: equipment,
-      node: terminal,
-      reference: getReference(equipment, tagName),
-    });
+
     this.dispatchEvent(newEditEventV2(edits));
   }
 
   flipElement(element: Element) {
-    const { flip, kind } = attributes(element);
-    const flipEdit = updateSLDAttributes(element, this.nsp, {
-      flip: flip ? null : 'true',
-    });
-    const edits: EditV2[] = [flipEdit];
-    if (element.tagName === 'PowerTransformer') {
-      const winding = element.querySelector('TransformerWinding')!;
-      Array.from(winding.querySelectorAll('Terminal')).forEach(terminal =>
-        edits.push(...removeTerminal(terminal)),
-      );
-      if (kind === 'earthing') {
-        Array.from(winding.querySelectorAll('NeutralPoint')).forEach(np =>
-          edits.push(...removeTerminal(np)),
-        );
-      }
-    }
-    this.dispatchEvent(newEditEventV2(edits));
+    this.dispatchEvent(
+      newEditEventV2(createFlipElementEdits(element, this.nsp)),
+    );
   }
 
   addTextTo(element: Element) {
-    const {
-      pos: [x, y],
-    } = attributes(element);
-    const text = this.doc.createElementNS(
-      this.doc.documentElement.namespaceURI,
-      'Text',
-    );
-    setSLDAttributes(text, this.nsp, {
-      lx: x.toString(),
-      ly: (y < 2 ? y + 1 : y - 1).toString(),
-    });
-    this.dispatchEvent(
-      newEditEventV2({
-        node: text,
-        parent: element,
-        reference: getReference(element, 'Text'),
-      }),
-    );
+    this.dispatchEvent(newEditEventV2(createAddTextEdit(element, this.nsp)));
   }
 
   transformerWindingMenuItems(winding: Element) {
@@ -931,7 +792,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         </oscd-menu-item>`,
         handler: () =>
           this.dispatchEvent(
-            newStartPlaceEvent(copy(transformer, this.nsp), offset),
+            newStartPlaceEvent(
+              copyElementForPlacement(transformer, this.nsp),
+              offset,
+            ),
           ),
       },
       {
@@ -1036,7 +900,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <oscd-icon slot="start">copy_all</oscd-icon>
         </oscd-menu-item>`,
         handler: () =>
-          this.dispatchEvent(newStartPlaceEvent(copy(equipment, this.nsp))),
+          this.dispatchEvent(
+            newStartPlaceEvent(copyElementForPlacement(equipment, this.nsp)),
+          ),
       },
       {
         content: html`<oscd-menu-item>
@@ -1434,7 +1300,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         </oscd-menu-item>`,
         handler: () =>
           this.dispatchEvent(
-            newStartPlaceEvent(copy(bayOrVL, this.nsp), offset),
+            newStartPlaceEvent(
+              copyElementForPlacement(bayOrVL, this.nsp),
+              offset,
+            ),
           ),
       },
       {
@@ -2281,7 +2150,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       if (this.idle)
         this.dispatchEvent(
           newStartPlaceEvent(
-            e.shiftKey ? copy(bayOrVL, this.nsp) : bayOrVL,
+            e.shiftKey ? copyElementForPlacement(bayOrVL, this.nsp) : bayOrVL,
             offset,
           ),
         );
@@ -2869,7 +2738,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         if (!this.idle) return;
 
         let placing = transformer;
-        if (e.shiftKey) placing = copy(transformer, this.nsp);
+        if (e.shiftKey)
+          placing = copyElementForPlacement(transformer, this.nsp);
         this.dispatchEvent(newStartPlaceEvent(placing, offset));
       };
     else if (this.disabled && isSelectable(transformer, this.selectable))
@@ -2878,7 +2748,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     else {
       handleClick = (e: MouseEvent) => {
         let placing = transformer;
-        if (e.shiftKey) placing = copy(transformer, this.nsp);
+        if (e.shiftKey)
+          placing = copyElementForPlacement(transformer, this.nsp);
         this.dispatchEvent(newStartPlaceEvent(placing, offset));
       };
     }
@@ -2949,7 +2820,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let handleClick = (e: MouseEvent) => {
       let placing = equipment;
-      if (e.shiftKey) placing = copy(equipment, this.nsp);
+      if (e.shiftKey) placing = copyElementForPlacement(equipment, this.nsp);
       this.dispatchEvent(newStartPlaceEvent(placing));
     };
 
