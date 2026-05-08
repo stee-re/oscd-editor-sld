@@ -17,7 +17,7 @@ export function iedReferences(root: XMLDocument | Element): Element[] {
   return refs;
 }
 
-export function iedIdentity(referencedIed: Element): string | null {
+function iedIdentity(referencedIed: Element): string | null {
   if (isIedReferenceElement(referencedIed)) {
     return referencedIed.getAttributeNS(sldNs, 'id');
   }
