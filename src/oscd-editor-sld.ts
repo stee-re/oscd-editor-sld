@@ -20,12 +20,11 @@ import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 import { SldEditor } from './sld-editor.js';
 
 import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from './icons.js';
+import { isBusBar, makeBusBar } from './foundations/connectivity.js';
 import {
   eqTypes,
   getSLDAttributes,
   iedReferences,
-  isBusBar,
-  makeBusBar,
   resolveIed,
   setSLDAttributes,
   sldNs,
