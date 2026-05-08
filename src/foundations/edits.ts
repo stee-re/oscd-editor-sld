@@ -6,6 +6,7 @@ import {
   getSLDAttributes,
   iedReferences,
   isBusBar,
+  removeNode,
   removeTerminal,
   setSLDAttributes,
   updateSLDAttributes,
@@ -214,4 +215,44 @@ export function createAddTextEdit(element: Element, nsp: string): EditV2 {
     parent: element,
     reference: getReference(element, 'Text'),
   };
+}
+
+export function createDeleteBusBarEdits(busBar: Element): EditV2[] {
+  const node = busBar.querySelector('ConnectivityNode')!;
+  return [...removeNode(node), { node: busBar }];
+}
+
+export function createDeleteContainerEdits(container: Element): EditV2[] {
+  const edits: EditV2[] = [];
+
+  Array.from(container.getElementsByTagName('ConnectivityNode')).forEach(
+    cNode => {
+      if (
+        Array.from(
+          container.ownerDocument.querySelectorAll(
+            `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
+          ),
+        ).find(terminal => terminal.closest(container.tagName) !== container)
+      ) {
+        edits.push(...removeNode(cNode));
+      }
+    },
+  );
+
+  Array.from(container.querySelectorAll('Terminal, NeutralPoint')).forEach(
+    terminal => {
+      const cNode = container.ownerDocument.querySelector(
+        `ConnectivityNode[pathName="${terminal.getAttribute(
+          'connectivityNode',
+        )}"]`,
+      );
+      if (cNode && cNode.closest(container.tagName) !== container) {
+        edits.push(...removeNode(cNode));
+      }
+    },
+  );
+
+  edits.push({ node: container });
+
+  return edits;
 }

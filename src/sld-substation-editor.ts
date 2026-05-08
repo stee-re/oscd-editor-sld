@@ -55,6 +55,8 @@ import {
 import {
   copyElementForPlacement,
   createAddTextEdit,
+  createDeleteBusBarEdits,
+  createDeleteContainerEdits,
   createFlipElementEdits,
   createGroundTerminalEdits,
 } from './foundations/edits.js';
@@ -81,7 +83,6 @@ import {
   Point,
   prettyPrint,
   privType,
-  removeNode,
   removeTerminal,
   ringedEqTypes,
   robotoDataURL,
@@ -1260,12 +1261,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Delete</div>
           <oscd-icon slot="start">delete</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => {
-          const node = busBar.querySelector('ConnectivityNode')!;
-          this.dispatchEvent(
-            newEditEventV2([...removeNode(node), { node: busBar }]),
-          );
-        },
+        handler: () =>
+          this.dispatchEvent(newEditEventV2(createDeleteBusBarEdits(busBar))),
       },
     ];
     return items;
@@ -1356,36 +1353,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Delete</div>
           <oscd-icon slot="start">delete</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => {
-          const edits: EditV2[] = [];
-          Array.from(bayOrVL.getElementsByTagName('ConnectivityNode')).forEach(
-            cNode => {
-              if (
-                Array.from(
-                  this.doc.querySelectorAll(
-                    `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
-                  ),
-                ).find(
-                  terminal => terminal.closest(bayOrVL.tagName) !== bayOrVL,
-                )
-              )
-                edits.push(...removeNode(cNode));
-            },
-          );
-          Array.from(
-            bayOrVL.querySelectorAll('Terminal, NeutralPoint'),
-          ).forEach(terminal => {
-            const cNode = this.doc.querySelector(
-              `ConnectivityNode[pathName="${terminal.getAttribute(
-                'connectivityNode',
-              )}"]`,
-            );
-            if (cNode && cNode.closest(bayOrVL.tagName) !== bayOrVL)
-              edits.push(...removeNode(cNode));
-          });
-          edits.push({ node: bayOrVL });
-          this.dispatchEvent(newEditEventV2(edits));
-        },
+        handler: () =>
+          this.dispatchEvent(
+            newEditEventV2(createDeleteContainerEdits(bayOrVL)),
+          ),
       },
     ];
     return items;
