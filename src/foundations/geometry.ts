@@ -24,22 +24,18 @@ export function overlaps(
   return true;
 }
 
-export function between(a: number, x: number, b: number): boolean {
+function between(a: number, x: number, b: number): boolean {
   return (a <= x && x <= b) || (b <= x && x <= a);
 }
 
-export function liesOn(
-  [x, y]: Point,
-  [x1, y1]: Point,
-  [x2, y2]: Point,
-): boolean {
+function liesOn([x, y]: Point, [x1, y1]: Point, [x2, y2]: Point): boolean {
   return (
     (x === x1 && x === x2 && between(y1, y, y2)) ||
     (y === y1 && y === y2 && between(x1, x, x2))
   );
 }
 
-export function pointsOnLine(p1: Point, p2: Point): Point[] {
+function pointsOnLine(p1: Point, p2: Point): Point[] {
   const points = [] as Point[];
   const coord = p1[0] === p2[0] ? 1 : 0;
   let p = p1[coord] < p2[coord] ? p1 : p2;
@@ -60,7 +56,7 @@ export function distance([x1, y1]: Point, [x2, y2]: Point): number {
   return Math.abs(x1 - x2) + Math.abs(y1 - y2);
 }
 
-export function closestPointOnLine(p: Point, p1: Point, p2: Point): Point {
+function closestPointOnLine(p: Point, p1: Point, p2: Point): Point {
   let point = p1;
   const points = pointsOnLine(p1, p2);
 

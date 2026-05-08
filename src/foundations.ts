@@ -25,7 +25,6 @@ export {
   connectivityPath,
   isBusBar,
   makeBusBar,
-  nonBusSections,
   removeNode,
   removeTerminal,
   reparentElement,

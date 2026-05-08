@@ -26,7 +26,7 @@ export function busSections(element: Element): Element[] {
 }
 
 /** Returns the SLD sections in an element that represent regular connection geometry. */
-export function nonBusSections(element: Element): Element[] {
+function nonBusSections(element: Element): Element[] {
   return sections(element).filter(section => !getSLDAttributes(section, 'bus'));
 }
 
