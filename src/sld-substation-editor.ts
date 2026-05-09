@@ -32,16 +32,12 @@ import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs
 
 import { getReference, identity, removeIED } from '@openscd/scl-lib';
 import {
-  bayGraphic,
   eqRingPath,
-  equipmentGraphic,
   movePath,
-  ptrIcon,
   resizeBRPath,
   resizePath,
   resizeTLPath,
   symbols,
-  voltageLevelGraphic,
   zigZag2WTransform,
   zigZagPath,
 } from './icons.js';
@@ -100,6 +96,12 @@ import {
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
 import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
+import {
+  newSclEditDialogEvent,
+  renderMenuHeader,
+  type EditWizardDetail,
+  type MenuItem,
+} from './sld-context-menu.js';
 
 import type { Point, Style } from './foundations/types.js';
 
@@ -110,18 +112,6 @@ const parentTags: Partial<Record<string, string[]>> = {
   PowerTransformer: ['Bay', 'VoltageLevel', 'Substation'],
   Reference: ['Bay', 'VoltageLevel', 'Substation'],
 };
-
-type EditWizardDetial = { element: Element };
-
-function newEditWizardEvent(element: Element): CustomEvent<EditWizardDetial> {
-  return new CustomEvent<EditWizardDetial>('oscd-edit-wizard-request', {
-    bubbles: true,
-    composed: true,
-    detail: { element },
-  });
-}
-
-type MenuItem = { handler?: () => void; content: TemplateResult };
 
 function containsRect(
   element: Element,
@@ -157,55 +147,6 @@ function isBay(element: Element) {
 
 function preventDefault(e: MouseEvent) {
   if (e.button === 1) e.preventDefault();
-}
-
-function renderMenuHeader(element: Element) {
-  let name = element.getAttribute('name') || element.tagName;
-  let detail: string | null | TemplateResult<1> = element.getAttribute('desc');
-  const type = element.getAttribute('type');
-  if (type) {
-    if (detail) detail = html`${type} &mdash; ${detail}`;
-    else detail = type;
-  }
-  let footerGraphic = equipmentGraphic(null);
-  if (element.tagName === 'PowerTransformer') {
-    const windings = element.querySelectorAll('TransformerWinding').length;
-    const { kind } = attributes(element);
-    if (windings === 3) {
-      footerGraphic = ptrIcon(3, { slot: 'start' });
-    } else if (windings === 2) {
-      footerGraphic = ptrIcon(2, { slot: 'start', kind });
-    } else {
-      footerGraphic = ptrIcon(1, { slot: 'start', kind });
-    }
-  } else if (element.tagName === 'TransformerWinding')
-    footerGraphic = ptrIcon(1, { slot: 'start' });
-  else if (element.tagName === 'ConductingEquipment')
-    footerGraphic = equipmentGraphic(type);
-  else if (element.tagName === 'Bay' && isBusBar(element))
-    footerGraphic = html`<oscd-icon slot="start">horizontal_rule</oscd-icon>`;
-  else if (element.tagName === 'Bay') footerGraphic = bayGraphic;
-  else if (element.tagName === 'VoltageLevel')
-    footerGraphic = voltageLevelGraphic;
-  else if (isIedReferenceElement(element)) {
-    name = 'IED';
-    footerGraphic = html`<oscd-icon slot="start">developer_board</oscd-icon>`;
-  } else if (element.tagName === 'Text') {
-    footerGraphic = html`<oscd-icon slot="start">title</oscd-icon>`;
-    detail = element.textContent;
-  }
-  return html`<oscd-list-item type="text">
-    <div slot="headline">${name}</div>
-    ${detail
-      ? html`<div
-          slot="supporting-text"
-          style="display: inline-block; max-width: 15em; overflow: hidden; text-overflow: ellipsis;"
-        >
-          ${detail}
-        </div>`
-      : nothing}
-    ${footerGraphic}
-  </oscd-list-item>`;
 }
 
 function isSelectable(element: Element, selectable: string[]) {
@@ -601,7 +542,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   private handleEditWizardRequest = (event: Event) => {
-    const detail = (event as CustomEvent<EditWizardDetial>).detail;
+    const detail = (event as CustomEvent<EditWizardDetail>).detail;
     this.sclDialogs.edit(detail);
   };
 
@@ -664,7 +605,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit${tapChanger ? ' Winding' : nothing}</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(winding)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(winding)),
       },
     ];
 
@@ -683,7 +624,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             <div slot="headline">Edit Tap Changer</div>
             <oscd-icon slot="start">edit</oscd-icon>
           </oscd-menu-item>`,
-          handler: () => this.dispatchEvent(newEditWizardEvent(tapChanger)),
+          handler: () => this.dispatchEvent(newSclEditDialogEvent(tapChanger)),
         },
       );
     else
@@ -816,7 +757,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(transformer)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(transformer)),
       },
       {
         content: html`<oscd-menu-item>
@@ -923,7 +864,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(equipment)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(equipment)),
       },
       {
         content: html`<oscd-menu-item>
@@ -1216,7 +1157,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(busBar)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(busBar)),
       },
       {
         content: html`<oscd-menu-item>
@@ -1308,7 +1249,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(bayOrVL)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(bayOrVL)),
       },
       {
         content: html`<oscd-menu-item>
@@ -1356,7 +1297,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           <div slot="headline">Edit</div>
           <oscd-icon slot="start">edit</oscd-icon>
         </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newEditWizardEvent(text)),
+        handler: () => this.dispatchEvent(newSclEditDialogEvent(text)),
       },
       {
         content: html`<oscd-menu-item>
@@ -1707,7 +1648,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           label="Edit Substation"
           title="Edit Substation"
           @click=${() =>
-            this.dispatchEvent(newEditWizardEvent(this.substation))}
+            this.dispatchEvent(newSclEditDialogEvent(this.substation))}
         >
           <oscd-icon>edit</oscd-icon>
         </oscd-icon-button>
@@ -2016,7 +1957,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         if (e.button === 1) {
           // middle mouse button
           if (!isIedReferenceElement(element)) {
-            this.dispatchEvent(newEditWizardEvent(element));
+            this.dispatchEvent(newSclEditDialogEvent(element));
           } else {
             const ied = this.resolvedIed(element);
             if (ied) this.openIedEditDialog(ied);
