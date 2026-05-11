@@ -23,70 +23,83 @@ snapshots["SLD Editor given a voltage level opens a menu on voltage level right 
       role="separator"
     >
     </li>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Resize
-        </div>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Copy
-        </div>
-        <oscd-icon slot="start">
-          copy_all
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Move
-        </div>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Move Label
-        </div>
-        <oscd-icon slot="start">
-          text_rotation_none
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Add Text
-        </div>
-        <oscd-icon slot="start">
-          title
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Edit
-        </div>
-        <oscd-icon slot="start">
-          edit
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Delete
-        </div>
-        <oscd-icon slot="start">
-          delete
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Resize
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        sld_resize
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Copy
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        copy_all
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Move
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        sld_move
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Move Label
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        text_rotation_none
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Add Text
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        title
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Edit
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        edit
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Delete
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        delete
+      </oscd-sld-icon>
+    </oscd-menu-item>
   </oscd-list>
 </menu>
 `;
@@ -438,123 +451,138 @@ snapshots["SLD Editor given conducting equipment opens a menu on equipment right
       role="separator"
     >
     </li>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Connect right
-        </div>
-        <oscd-icon slot="start">
-          east
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Ground right
-        </div>
-        <oscd-icon slot="start">
-          chevron_right
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Connect left
-        </div>
-        <oscd-icon slot="start">
-          west
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Ground left
-        </div>
-        <oscd-icon slot="start">
-          chevron_left
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Mirror
-        </div>
-        <oscd-icon slot="start">
-          flip
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Rotate
-        </div>
-        <oscd-icon slot="start">
-          rotate_90_degrees_cw
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Copy
-        </div>
-        <oscd-icon slot="start">
-          copy_all
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Move
-        </div>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Move Label
-        </div>
-        <oscd-icon slot="start">
-          text_rotation_none
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Add Text
-        </div>
-        <oscd-icon slot="start">
-          title
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Edit
-        </div>
-        <oscd-icon slot="start">
-          edit
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
-    <span>
-      <oscd-menu-item>
-        <div slot="headline">
-          Delete
-        </div>
-        <oscd-icon slot="start">
-          delete
-        </oscd-icon>
-      </oscd-menu-item>
-    </span>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Connect right
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        east
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Ground right
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        chevron_right
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Connect left
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        west
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Ground left
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        chevron_left
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Mirror
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        flip
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Rotate
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        rotate_90_degrees_cw
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Copy
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        copy_all
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Move
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        sld_move
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Move Label
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        text_rotation_none
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Add Text
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        title
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Edit
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        edit
+      </oscd-sld-icon>
+    </oscd-menu-item>
+    <oscd-menu-item md-menu-item="">
+      <div slot="headline">
+        Delete
+      </div>
+      <oscd-sld-icon
+        aria-hidden="true"
+        slot="start"
+      >
+        delete
+      </oscd-sld-icon>
+    </oscd-menu-item>
   </oscd-list>
 </menu>
 `;
@@ -1511,10 +1539,10 @@ snapshots["SLD Editor given conducting equipment retargets grounded terminals wh
           <Private type="OpenSCD-SLD-Layout">
             <SLDAttributes
               esldoscd:lx="18.5"
-              esldoscd:ly="4"
+              esldoscd:ly="5"
               esldoscd:rot="1"
               esldoscd:x="19"
-              esldoscd:y="4"
+              esldoscd:y="5"
             >
             </SLDAttributes>
           </Private>
@@ -8554,29 +8582,33 @@ snapshots["SLD Editor when disabled given a substation disables substation butto
   <oscd-icon-button
     label="Edit Substation"
     title="Edit Substation"
+    value=""
   >
-    <oscd-icon>
+    <oscd-icon aria-hidden="true">
       edit
     </oscd-icon>
   </oscd-icon-button>
   <oscd-icon-button
     label="Resize Substation"
     title="Resize Substation"
+    value=""
   >
   </oscd-icon-button>
   <oscd-icon-button
     label="Delete Substation"
     title="Delete Substation"
+    value=""
   >
-    <oscd-icon>
+    <oscd-icon aria-hidden="true">
       delete
     </oscd-icon>
   </oscd-icon-button>
   <oscd-icon-button
     label="Export Single Line Diagram SVG"
     title="Export Single Line Diagram SVG"
+    value=""
   >
-    <oscd-icon>
+    <oscd-icon aria-hidden="true">
       file_download
     </oscd-icon>
   </oscd-icon-button>

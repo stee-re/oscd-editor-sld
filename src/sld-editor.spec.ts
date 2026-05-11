@@ -1,4 +1,3 @@
-import '@webcomponents/scoped-custom-element-registry';
 import { html } from 'lit';
 import { fixture, expect, aTimeout, chai } from '@open-wc/testing';
 
@@ -83,11 +82,8 @@ import {
   eqPos,
   eqTarget,
 } from './test-helpers.js';
-import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 
 customElements.define('sld-editor', SldEditor);
-customElements.define('sld-substation-editor', SldSubstationEditor);
-customElements.define('oscd-outlined-text-field', OscdOutlinedTextField);
 
 function middleOf(element: Element): [number, number] {
   const { x, y, width, height } = element.getBoundingClientRect();
@@ -279,20 +275,46 @@ describe('SLD Editor', () => {
       const sclTarget = element.doc.querySelector(scl);
       target = target.getElementById?.(<string>identity(sclTarget))!;
     }
+    if (ui === 'menu') {
+      return contextMenu() as Element;
+    }
     if (ui) {
       target = target.querySelector(ui)!;
     }
     return target as Element;
   }
 
+  function contextMenu(): HTMLElement | null {
+    return (
+      getSldSubstationEditor(element)!
+        .shadowRoot!.querySelector('sld-context-menu')
+        ?.shadowRoot?.querySelector<HTMLElement>('menu#sld-context-menu') ??
+      null
+    );
+  }
+
+  function clickInteractive(element: HTMLElement): void {
+    const target =
+      element.shadowRoot?.querySelector<HTMLElement>('#button, #item') ??
+      element;
+    if (target !== element) target.click();
+    else
+      element.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, composed: true }),
+      );
+  }
+
+  function contextMenuItems(): OscdMenuItem[] {
+    return Array.from(
+      contextMenu()?.querySelectorAll<OscdMenuItem>('oscd-menu-item') ?? [],
+    );
+  }
+
   /** Query menu items by index (0-based) or from end (negative). */
   function menuItem(index: number): OscdMenuItem {
-    const items =
-      getSldSubstationEditor(element)!.shadowRoot!.querySelectorAll(
-        'oscd-menu-item',
-      );
+    const items = contextMenuItems();
     const i = index >= 0 ? index : items.length + index;
-    return items[i] as unknown as OscdMenuItem;
+    return items[i];
   }
 
   function gridPos(gx: number, gy: number): [number, number] {
@@ -381,6 +403,7 @@ describe('SLD Editor', () => {
     it('allows resizing substations', async () => {
       sldSubstationEditor.shadowRoot
         ?.querySelector<OscdIconButton>('h2 > oscd-icon-button')
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       sldSubstationEditor.substationWidthUI.value = '51';
       sldSubstationEditor.substationHeightUI.value = '26';
@@ -388,6 +411,7 @@ describe('SLD Editor', () => {
         ?.querySelector<OscdTextButton>(
           'div[slot="actions"] > oscd-text-button:last-child',
         )
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       expect(element).to.have.property('docVersion', 0);
       sldSubstationEditor.substationWidthUI.value = '1337';
@@ -396,6 +420,7 @@ describe('SLD Editor', () => {
         ?.querySelector<OscdTextButton>(
           'div[slot="actions"] > oscd-text-button:last-child',
         )
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       expect(sldAttribute(sldSubstationEditor.substation, 'h')).to.equal('42');
       expect(sldAttribute(sldSubstationEditor.substation, 'w')).to.equal(
@@ -455,6 +480,7 @@ describe('SLD Editor', () => {
     it('forbids undersizing the substation', async () => {
       sldSubstationEditor.shadowRoot
         ?.querySelector<OscdIconButton>('h2 > oscd-icon-button')
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       sldSubstationEditor.substationWidthUI.value = '30';
       sldSubstationEditor.substationHeightUI.value = '20';
@@ -462,6 +488,7 @@ describe('SLD Editor', () => {
         ?.querySelector<OscdTextButton>(
           'oscd-text-button[slot="primaryAction"]',
         )
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       expect(sldAttribute(sldSubstationEditor.substation, 'h')).to.equal('25');
       expect(sldAttribute(sldSubstationEditor.substation, 'w')).to.equal('50');
@@ -516,7 +543,7 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await sldSubstationEditor.updateComplete;
       const item = menuItem(0);
-      item.click();
+      clickInteractive(item);
       await sldSubstationEditor.updateComplete;
       expect(element)
         .property('resizingBR')
@@ -550,7 +577,7 @@ describe('SLD Editor', () => {
 
       // Select "Move" menu item
       const item = menuItem(2);
-      item.click();
+      clickInteractive(item);
       await sldSubstationEditor.updateComplete;
 
       expect(element)
@@ -572,7 +599,7 @@ describe('SLD Editor', () => {
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
-      menuItem(-2).click();
+      clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
       expect(lastCalledWizard).to.equal(
         element.doc.querySelector('VoltageLevel'),
@@ -585,7 +612,7 @@ describe('SLD Editor', () => {
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
-      menuItem(-4).click();
+      clickInteractive(menuItem(-4));
       await sldSubstationEditor.updateComplete;
       expect(element)
         .property('placingLabel')
@@ -734,7 +761,7 @@ describe('SLD Editor', () => {
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
-      menuItem(-2).click();
+      clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
       expect(lastCalledWizard).to.equal(element.doc.querySelector('Bay'));
     });
@@ -791,7 +818,7 @@ describe('SLD Editor', () => {
       );
       await element.updateComplete;
 
-      menuItem(2).click();
+      clickInteractive(menuItem(2));
       await sldSubstationEditor.updateComplete;
 
       expect(element)
@@ -941,7 +968,7 @@ describe('SLD Editor', () => {
         );
         await element.updateComplete;
 
-        menuItem(1).click();
+        clickInteractive(menuItem(1));
         await sldSubstationEditor.updateComplete;
 
         await sendMouse({ type: 'click', position: gridPos(...eqTarget) });
@@ -966,7 +993,7 @@ describe('SLD Editor', () => {
         );
         await element.updateComplete;
 
-        menuItem(0).click();
+        clickInteractive(menuItem(0));
         await sldSubstationEditor.updateComplete;
 
         expect(sldAttribute(bus!, 'w')).to.equal('1');
@@ -1194,17 +1221,15 @@ describe('SLD Editor', () => {
       );
       await settle();
 
-      const menu = sldSubstationEditor.shadowRoot?.querySelector(
-        'menu#sld-context-menu',
-      );
+      const menu = contextMenu();
       expect(menu).to.exist;
 
-      const items = Array.from(menu!.querySelectorAll('oscd-menu-item'));
+      const items = contextMenuItems();
       const editItem = items.find(item =>
         item.textContent?.includes('Edit'),
       ) as OscdMenuItem | undefined;
       expect(editItem).to.exist;
-      editItem!.click();
+      clickInteractive(editItem!);
       await settle();
 
       expect(editCalls).to.have.lengthOf(1);
@@ -1254,18 +1279,14 @@ describe('SLD Editor', () => {
       );
       await settle();
 
-      const menu = sldSubstationEditor.shadowRoot?.querySelector(
-        'menu#sld-context-menu',
-      );
+      const menu = contextMenu();
       expect(menu).to.exist;
 
-      const editItem = Array.from(
-        menu!.querySelectorAll('oscd-menu-item'),
-      ).find(item => item.textContent?.includes('Edit')) as
-        | OscdMenuItem
-        | undefined;
+      const editItem = contextMenuItems().find(item =>
+        item.textContent?.includes('Edit'),
+      ) as OscdMenuItem | undefined;
       expect(editItem).to.exist;
-      editItem!.click();
+      clickInteractive(editItem!);
       await settle();
 
       expect(element.doc.querySelector(':root > IED[name="IED1"]')).to.not
@@ -1301,17 +1322,15 @@ describe('SLD Editor', () => {
       );
       await settle();
 
-      const menu = sldSubstationEditor.shadowRoot?.querySelector(
-        'menu#sld-context-menu',
-      );
+      const menu = contextMenu();
       expect(menu).to.exist;
 
-      const items = Array.from(menu!.querySelectorAll('oscd-menu-item'));
+      const items = contextMenuItems();
       const moveItem = items.find(item =>
         item.textContent?.includes('Move'),
       ) as OscdMenuItem | undefined;
       expect(moveItem).to.exist;
-      moveItem!.click();
+      clickInteractive(moveItem!);
       await settle();
 
       expect(element.placing).to.exist;
@@ -1355,17 +1374,15 @@ describe('SLD Editor', () => {
       );
       await settle();
 
-      const menu = sldSubstationEditor.shadowRoot?.querySelector(
-        'menu#sld-context-menu',
-      );
+      const menu = contextMenu();
       expect(menu).to.exist;
 
-      const items = Array.from(menu!.querySelectorAll('oscd-menu-item'));
+      const items = contextMenuItems();
       const removeItem = items.find(item =>
         item.textContent?.includes('Remove from SLD'),
       ) as OscdMenuItem | undefined;
       expect(removeItem).to.exist;
-      removeItem!.click();
+      clickInteractive(removeItem!);
       await settle();
 
       const sclIed = element.doc.querySelector(':root > IED[name="IED1"]');
@@ -1397,17 +1414,15 @@ describe('SLD Editor', () => {
       );
       await settle();
 
-      const menu = sldSubstationEditor.shadowRoot?.querySelector(
-        'menu#sld-context-menu',
-      );
+      const menu = contextMenu();
       expect(menu).to.exist;
 
-      const items = Array.from(menu!.querySelectorAll('oscd-menu-item'));
+      const items = contextMenuItems();
       const deleteItem = items.find(item =>
         item.textContent?.includes('Delete IED'),
       ) as OscdMenuItem | undefined;
       expect(deleteItem).to.exist;
-      deleteItem!.click();
+      clickInteractive(deleteItem!);
       await settle();
 
       sclIed = element.doc.querySelector(':root > IED[name="IED1"]');
@@ -1439,7 +1454,7 @@ describe('SLD Editor', () => {
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
-      menuItem(-2).click();
+      clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
       expect(lastCalledWizard).to.equal(
         element.doc.querySelector('[type="SMC"]'),
@@ -1452,7 +1467,7 @@ describe('SLD Editor', () => {
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
-      menuItem(-4).click();
+      clickInteractive(menuItem(-4));
       await sldSubstationEditor.updateComplete;
       expect(element)
         .property('placingLabel')
@@ -1534,7 +1549,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       let item = menuItem(4);
       expect(equipment).to.not.have.attribute('esldoscd:flip');
-      item.click();
+      clickInteractive(item);
       await element.updateComplete;
       item.selected = false;
       expect(sldAttribute(equipment!, 'flip')).to.equal('true');
@@ -1544,7 +1559,7 @@ describe('SLD Editor', () => {
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       item = menuItem(4);
-      item.click();
+      clickInteractive(item);
       await element.updateComplete;
       expect(equipment).to.not.have.attribute('esldoscd:flip');
     });
@@ -1559,7 +1574,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       const item = menuItem(5);
       expect(sldAttribute(equipment!, 'rot')).to.equal('1');
-      item.click();
+      clickInteractive(item);
       await element.updateComplete;
       expect(sldAttribute(equipment!, 'rot')).to.equal('2');
     });
@@ -1588,7 +1603,7 @@ describe('SLD Editor', () => {
 
       // Select "Move" menu item (5th from end)
       const item = menuItem(-5);
-      item.click();
+      clickInteractive(item);
       await element.updateComplete;
 
       expect(sldAttribute(equipment!, 'x')).to.equal('4');
@@ -1639,7 +1654,7 @@ describe('SLD Editor', () => {
       expect(
         equipment.querySelector('Terminal[name="T1"][cNodeName="grounded"]'),
       ).to.not.exist;
-      menuItem(1).click();
+      clickInteractive(menuItem(1));
       await element.updateComplete;
       expect(
         equipment.querySelector('Terminal[name="T1"][cNodeName="grounded"]'),
@@ -1651,7 +1666,7 @@ describe('SLD Editor', () => {
       expect(
         equipment.querySelector('Terminal[name="T2"][cNodeName="grounded"]'),
       ).to.not.exist;
-      menuItem(2).click();
+      clickInteractive(menuItem(2));
       await element.updateComplete;
       expect(
         equipment.querySelector('Terminal[name="T2"][cNodeName="grounded"]'),
@@ -1685,7 +1700,7 @@ describe('SLD Editor', () => {
         new PointerEvent('contextmenu'),
       );
       await element.updateComplete;
-      menuItem(0).click();
+      clickInteractive(menuItem(0));
       expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
       let position = middleOf(queryUI({ scl: '[type="VTR"]', ui: 'rect' }));
       position[1] -= 1;
@@ -1696,7 +1711,7 @@ describe('SLD Editor', () => {
         new PointerEvent('contextmenu'),
       );
       await element.updateComplete;
-      menuItem(1).click();
+      clickInteractive(menuItem(1));
       expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[type="NEW"]', ui: 'rect' }));
       position[1] -= 1;
@@ -1708,7 +1723,7 @@ describe('SLD Editor', () => {
         new PointerEvent('contextmenu'),
       );
       await element.updateComplete;
-      menuItem(0).click();
+      clickInteractive(menuItem(0));
       expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[type="CTR"]', ui: 'rect' }));
       await sendMouse({ type: 'click', position });
@@ -1718,7 +1733,7 @@ describe('SLD Editor', () => {
         new PointerEvent('contextmenu'),
       );
       await element.updateComplete;
-      menuItem(1).click();
+      clickInteractive(menuItem(1));
       expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
       position = middleOf(queryUI({ scl: '[name="DIS2"]', ui: 'rect' }));
       position[1] += 1;
@@ -1758,14 +1773,11 @@ describe('SLD Editor', () => {
       expect(
         element.doc.querySelectorAll('ConnectivityNode[name="grounded"]'),
       ).to.have.lengthOf(1);
-      const position = middleOf(
-        queryUI({ scl: 'ConductingEquipment', ui: 'rect' }),
-      );
-      await sendMouse({ type: 'click', position });
-      await sendMouse({
-        type: 'click',
-        position: middleOf(queryUI({ scl: '[name="V2"] Bay', ui: 'rect' })),
-      });
+      await sendMouse({ type: 'move', position: gridPos(...eqPos) });
+      await element.updateComplete;
+      await sendMouse({ type: 'click', position: gridPos(...eqPos) });
+      await element.updateComplete;
+      await sendMouse({ type: 'click', position: gridPos(19, 5) });
       expect(
         element.doc.querySelectorAll('ConnectivityNode[name="grounded"]'),
       ).to.have.lengthOf(2);
@@ -1954,7 +1966,7 @@ describe('SLD Editor', () => {
           );
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.exist;
-          menuItem(0).click();
+          clickInteractive(menuItem(0));
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.not.exist;
           queryUI({ scl: '[type="CTR"]', ui: 'rect' }).dispatchEvent(
@@ -1962,7 +1974,7 @@ describe('SLD Editor', () => {
           );
           await sldSubstationEditor.updateComplete;
           expect(equipment.querySelector('Terminal[name="T2"]')).to.exist;
-          menuItem(2).click();
+          clickInteractive(menuItem(2));
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T2"]')).to.not.exist;
         });
@@ -2111,7 +2123,7 @@ describe('SLD Editor', () => {
           );
           await element.updateComplete;
           expect(equipment.querySelector('Terminal[name="T1"]')).to.exist;
-          menuItem(-1).click();
+          clickInteractive(menuItem(-1));
           await element.updateComplete;
           expect(equipment.parentElement).to.not.exist;
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
@@ -2126,7 +2138,7 @@ describe('SLD Editor', () => {
           );
           await element.updateComplete;
           expect(bay.querySelector('Terminal[name="T1"]')).to.exist;
-          menuItem(-1).click();
+          clickInteractive(menuItem(-1));
           await element.updateComplete;
           expect(bay.parentElement).to.not.exist;
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
@@ -2141,7 +2153,7 @@ describe('SLD Editor', () => {
           );
           await element.updateComplete;
           expect(bay.querySelector('Terminal[name="T1"]')).to.exist;
-          menuItem(-1).click();
+          clickInteractive(menuItem(-1));
           await element.updateComplete;
           expect(bay.parentElement).to.not.exist;
           await expect(element.doc.documentElement).dom.to.equalSnapshot({
@@ -2238,7 +2250,7 @@ describe('SLD Editor', () => {
               ui: 'line:not([stroke])',
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
-            menuItem(0).click();
+            clickInteractive(menuItem(0));
             expect(sldAttribute(bus!, 'h')).equal('1');
             await sendMouse({ type: 'click', position: gridPos(11, 4) });
             expect(sldAttribute(bus!, 'h')).equal('2');
@@ -2264,7 +2276,7 @@ describe('SLD Editor', () => {
               }),
             );
             await element.updateComplete;
-            menuItem(-6).click();
+            clickInteractive(menuItem(-6));
             expect(
               element.doc.querySelector(
                 'ConductingEquipment SLDAttributes[*|x="3"][*|y="3"]',
@@ -2326,7 +2338,7 @@ describe('SLD Editor', () => {
             );
             await element.updateComplete;
 
-            menuItem(1).click();
+            clickInteractive(menuItem(1));
             await sldSubstationEditor.updateComplete;
 
             expect(sldAttribute(bus!, 'y')).to.equal(initialY);
@@ -2344,7 +2356,7 @@ describe('SLD Editor', () => {
               ui: 'line:not([stroke])',
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
-            menuItem(-4).click();
+            clickInteractive(menuItem(-4));
             await sldSubstationEditor.updateComplete;
             expect(element)
               .property('placingLabel')
@@ -2361,7 +2373,7 @@ describe('SLD Editor', () => {
               ui: 'line:not([stroke])',
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
-            menuItem(-2).click();
+            clickInteractive(menuItem(-2));
             await sldSubstationEditor.updateComplete;
             expect(lastCalledWizard).to.equal(
               element.doc.querySelector('[name="BB1"]'),
@@ -2375,7 +2387,7 @@ describe('SLD Editor', () => {
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
             expect(element.doc.querySelector('[name="BB1"]')).to.exist;
-            menuItem(-1).click();
+            clickInteractive(menuItem(-1));
             await sldSubstationEditor.updateComplete;
             expect(element.doc.querySelector('[name="BB1"]')).to.not.exist;
             await expect(element.doc.documentElement).dom.to.equalSnapshot({
@@ -2401,7 +2413,7 @@ describe('SLD Editor', () => {
               }),
             );
             await element.updateComplete;
-            menuItem(-6).click();
+            clickInteractive(menuItem(-6));
             expect(element.doc.querySelector('[name="V1"] [name="B2"]')).not.to
               .exist;
             // Place in V1 voltage level - target around [5,8] using equipment formula

@@ -63,6 +63,12 @@ function defaultGetImageDiff({ baselineImage, image, options }) {
 }
 
 export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
+  testsFinishTimeout: 20000,
+  coverageConfig: {
+    include: ['dist/**/*.js'],
+    exclude: ['**/node_modules/**', '**/__wds-outside-root__/**'],
+  },
+
   plugins: [
     visualRegressionPlugin({
       update: process.argv.includes('--update-visual-baseline'),
@@ -182,9 +188,6 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
 
   /** Amount of test files per browser to test concurrently */
   concurrency: 1,
-
-  /** Timeout for tests to finish */
-  testsFinishTimeout: 300000,
 
   /** Browsers to run tests on */
   browsers,
