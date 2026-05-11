@@ -14,26 +14,21 @@ import { classMap } from 'lit/directives/class-map.js';
 import { createRef, Ref, ref } from 'lit/directives/ref.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
-import { EditV2, SetAttributes } from '@openscd/oscd-api';
+import { SetAttributes } from '@openscd/oscd-api';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 
 import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
 import { OscdDialog } from '@omicronenergy/oscd-ui/dialog/OscdDialog.js';
 import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
-import { OscdList } from '@omicronenergy/oscd-ui/list/OscdList.js';
-import { OscdListItem } from '@omicronenergy/oscd-ui/list/OscdListItem.js';
-import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
-import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 // TODO: Replace with oscd-ui notification when available
 import { SldSnackbar } from './sld-snackbar.js';
 import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
-import { getReference, identity, removeIED } from '@openscd/scl-lib';
+import { identity } from '@openscd/scl-lib';
 import {
   eqRingPath,
-  movePath,
   resizeBRPath,
   resizePath,
   resizeTLPath,
@@ -50,18 +45,9 @@ import {
 } from './foundations/geometry.js';
 import {
   copyElementForPlacement,
-  createAddTextEdit,
-  createDeleteBusBarEdits,
-  createDeleteContainerEdits,
-  createFlipElementEdits,
   createGroundTerminalEdits,
 } from './foundations/edits.js';
-import {
-  connectionStartPoints,
-  isBusBar,
-  removeTerminal,
-  uniqueName,
-} from './foundations/connectivity.js';
+import { connectionStartPoints, isBusBar } from './foundations/connectivity.js';
 import {
   attributes,
   getSLDAttributes,
@@ -75,33 +61,34 @@ import {
   singleTerminal,
 } from './foundations/equipment.js';
 import {
-  createRemoveIedReferenceEdit,
   iedReferences,
   isIedReferenceElement,
   resolveIed,
 } from './foundations/ied.js';
 import {
   newConnectEvent,
+  newEditIedEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
   newResizeEvent,
   newResizeTLEvent,
   newRotateEvent,
+  newSclEditDialogEvent,
   newSelectEvent,
   newStartConnectEvent,
   newStartPlaceEvent,
   newStartPlaceLabelEvent,
   newStartResizeBREvent,
   newStartResizeTLEvent,
+  type EditIedDetail,
+  type EditWizardDetail,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
 import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
 import {
-  newSclEditDialogEvent,
-  renderMenuHeader,
-  type EditWizardDetail,
-  type MenuItem,
-} from './sld-context-menu.js';
+  SldContextMenu,
+  type MenuContext,
+} from './context-menu/sld-context-menu.js';
 
 import type { Point, Style } from './foundations/types.js';
 
@@ -213,14 +200,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     'oscd-dialog': OscdDialog,
     'oscd-icon': OscdIcon,
     'oscd-icon-button': OscdIconButton,
-    'oscd-list': OscdList,
-    'oscd-list-item': OscdListItem,
-    'oscd-menu': OscdMenu,
-    'oscd-menu-item': OscdMenuItem,
     // TODO: Replace with oscd-ui notification when available
     'sld-snackbar': SldSnackbar,
     'oscd-outlined-text-field': OscdOutlinedTextField,
     'oscd-scl-dialogs': OscdSclDialogs,
+    'sld-context-menu': SldContextMenu,
   };
 
   @property()
@@ -301,6 +285,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   @query('oscd-scl-dialogs')
   sclDialogs!: OscdSclDialogs;
 
+  @query('sld-context-menu')
+  contextMenu?: SldContextMenu;
+
   @state()
   mouseX = 0;
 
@@ -339,9 +326,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   @state()
   mouseY2f = 0;
 
-  @state()
-  menu?: { element: Element; top: number; left: number };
-
   coordinatesRef: Ref<HTMLElement> = createRef();
 
   positionCoordinates(e: MouseEvent) {
@@ -352,9 +336,13 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     }
   }
 
-  openMenu(element: Element, e: MouseEvent) {
-    if (this.idle) this.menu = { element, left: e.clientX, top: e.clientY };
-    e.preventDefault();
+  private contextMenuContext(element: Element, e: MouseEvent): MenuContext {
+    const [gridX, gridY] =
+      e.clientX || e.clientY
+        ? this.svgCoordinates(e.clientX, e.clientY).map(Math.floor)
+        : [this.mouseX, this.mouseY];
+
+    return { element, x: e.clientX, y: e.clientY, gridX, gridY };
   }
 
   svgCoordinates(clientX: number, clientY: number) {
@@ -503,551 +491,39 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return [x, y];
   }
 
-  handleKeydown = ({ key }: KeyboardEvent) => {
-    if (key === 'Escape') this.menu = undefined;
-  };
-
-  handleClick = (e: MouseEvent) => {
-    if (
-      this.menu &&
-      !e
-        .composedPath()
-        .find(elm => 'id' in elm && elm.id === 'sld-context-menu')
-    ) {
-      e.stopImmediatePropagation();
-      this.menu = undefined;
-    }
-  };
-
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('keydown', this.handleKeydown);
-    window.addEventListener('click', this.handleClick, true);
     window.addEventListener('click', this.positionCoordinates);
+    //TODO consider moving this up to the sld-editor - unless there is a good reason these things should be managed at this level.
     this.addEventListener(
       'oscd-edit-wizard-request',
       this.handleEditWizardRequest,
     );
+    this.addEventListener('oscd-edit-ied-request', this.handleEditIedRequest);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('keydown', this.handleKeydown);
-    window.removeEventListener('click', this.handleClick);
     window.removeEventListener('click', this.positionCoordinates);
     this.removeEventListener(
       'oscd-edit-wizard-request',
       this.handleEditWizardRequest,
     );
-  }
-
-  private handleEditWizardRequest = (event: Event) => {
-    const detail = (event as CustomEvent<EditWizardDetail>).detail;
-    this.sclDialogs.edit(detail);
-  };
-
-  handleExport() {
-    exportSVG({
-      svg: this.sld,
-      filename: `${this.substation.getAttribute('name')}.svg`,
-    });
-  }
-
-  nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined {
-    if (!equipment) return undefined;
-    const topTerminal = equipment.querySelector('Terminal[name="T1"]');
-    const bottomTerminal = equipment.querySelector('Terminal:not([name="T1"])');
-    const oneSided = singleTerminal.has(equipment.getAttribute('type')!);
-    if (topTerminal && bottomTerminal) return undefined;
-    if (oneSided && (topTerminal || bottomTerminal)) return undefined;
-    if (oneSided) return 'T1';
-    if (topTerminal) return 'T2';
-    if (bottomTerminal) return 'T1';
-
-    const [mx, my] = [this.mouseX2f, this.mouseY2f];
-    const {
-      rot,
-      pos: [x, y],
-    } = attributes(equipment);
-    if (rot === 0 && my >= y + 0.5) return 'T2';
-    if (rot === 1 && mx < x + 0.5) return 'T2';
-    if (rot === 2 && my < y + 0.5) return 'T2';
-    if (rot === 3 && mx >= x + 0.5) return 'T2';
-    return 'T1';
-  }
-
-  groundTerminal(equipment: Element, name: 'T1' | 'T2' | 'N1' | 'N2') {
-    const edits = createGroundTerminalEdits(equipment, name);
-    if (!edits) {
-      this.groundHint.show();
-      return;
-    }
-
-    this.dispatchEvent(newEditEventV2(edits));
-  }
-
-  flipElement(element: Element) {
-    this.dispatchEvent(
-      newEditEventV2(createFlipElementEdits(element, this.nsp)),
+    this.removeEventListener(
+      'oscd-edit-ied-request',
+      this.handleEditIedRequest,
     );
   }
 
-  addTextTo(element: Element) {
-    this.dispatchEvent(newEditEventV2(createAddTextEdit(element, this.nsp)));
-  }
+  private handleEditWizardRequest = async (event: Event) => {
+    const detail = (event as CustomEvent<EditWizardDetail>).detail;
+    const edits = await this.sclDialogs.edit(detail);
 
-  transformerWindingMenuItems(winding: Element) {
-    const tapChanger = winding.querySelector('TapChanger');
+    this.dispatchEvent(newEditEventV2(edits));
+  };
 
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit${tapChanger ? ' Winding' : nothing}</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(winding)),
-      },
-    ];
-
-    if (tapChanger)
-      items.unshift(
-        {
-          handler: () =>
-            this.dispatchEvent(newEditEventV2({ node: tapChanger })),
-          content: html`<oscd-menu-item>
-            <div slot="headline">Remove Tap Changer</div>
-            <oscd-icon slot="start">remove</oscd-icon>
-          </oscd-menu-item>`,
-        },
-        {
-          content: html`<oscd-menu-item>
-            <div slot="headline">Edit Tap Changer</div>
-            <oscd-icon slot="start">edit</oscd-icon>
-          </oscd-menu-item>`,
-          handler: () => this.dispatchEvent(newSclEditDialogEvent(tapChanger)),
-        },
-      );
-    else
-      items.unshift({
-        handler: () => {
-          const node = this.doc.createElementNS(
-            this.doc.documentElement.namespaceURI,
-            'TapChanger',
-          );
-          node.setAttribute('name', 'LTC');
-          node.setAttribute('type', 'LTC');
-          node.setAttribute('name', uniqueName(node, winding));
-          this.dispatchEvent(
-            newEditEventV2({
-              parent: winding,
-              node,
-              reference: getReference(winding, 'TapChanger'),
-            }),
-          );
-        },
-        content: html`<oscd-menu-item>
-          <div slot="headline">Add Tap Changer</div>
-          <oscd-icon slot="start">north_east</oscd-icon>
-        </oscd-menu-item>`,
-      });
-
-    const neutralPoints = Array.from(winding.querySelectorAll('NeutralPoint'));
-
-    if (neutralPoints.length)
-      items.unshift({
-        handler: () =>
-          this.dispatchEvent(
-            newEditEventV2(
-              neutralPoints.map(neutralPoint => removeTerminal(neutralPoint)),
-            ),
-          ),
-        content: html`<oscd-menu-item>
-          <div slot="headline">Detach Neutral Point</div>
-          <oscd-icon slot="start">remove_circle_outline</oscd-icon>
-        </oscd-menu-item>`,
-      });
-
-    const terminals = Array.from(winding.querySelectorAll('Terminal'));
-    if (terminals.length)
-      items.unshift({
-        handler: () =>
-          this.dispatchEvent(
-            newEditEventV2(terminals.map(terminal => removeTerminal(terminal))),
-          ),
-        content: html`<oscd-menu-item>
-          <div slot="headline">
-            Detach Terminal${terminals.length > 1 ? 's' : nothing}
-          </div>
-          <oscd-icon slot="start">cancel</oscd-icon>
-        </oscd-menu-item>`,
-      });
-
-    return items;
-  }
-
-  transformerMenuItems(transformer: Element) {
-    const text = transformer.querySelector(':scope > Text');
-    const {
-      pos: [x, y],
-    } = attributes(transformer);
-    const offset: Point = [this.mouseX - x, this.mouseY - y];
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Rotate</div>
-          <oscd-icon slot="start">rotate_90_degrees_cw</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          this.dispatchEvent(newRotateEvent(transformer));
-        },
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Copy</div>
-          <oscd-icon slot="start">copy_all</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(
-            newStartPlaceEvent(
-              copyElementForPlacement(transformer, this.nsp),
-              offset,
-            ),
-          ),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(newStartPlaceEvent(transformer, offset)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move Label</div>
-          <oscd-icon slot="start">text_rotation_none</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceLabelEvent(transformer)),
-      },
-      text
-        ? {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Delete Text</div>
-              <oscd-icon slot="start">format_strikethrough</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.dispatchEvent(newEditEventV2({ node: text })),
-          }
-        : {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Add Text</div>
-              <oscd-icon slot="start">title</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.addTextTo(transformer),
-          },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(transformer)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Delete</div>
-          <oscd-icon slot="start">delete</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const edits: EditV2[] = [];
-          Array.from(
-            transformer.querySelectorAll('Terminal, NeutralPoint'),
-          ).forEach(terminal => edits.push(...removeTerminal(terminal)));
-          edits.push({ node: transformer });
-          this.dispatchEvent(newEditEventV2(edits));
-        },
-      },
-    ];
-
-    const kind = getSLDAttributes(transformer, 'kind');
-    const windingCount =
-      transformer.querySelectorAll('TransformerWinding').length;
-
-    if (kind === 'auto' || (kind === 'earthing' && windingCount === 2))
-      items.unshift({
-        content: html`<oscd-menu-item>
-          <div slot="headline">Mirror</div>
-          <oscd-icon slot="start">flip</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.flipElement(transformer),
-      });
-
-    return items;
-  }
-
-  equipmentMenuItems(equipment: Element) {
-    const textElement = equipment.querySelector(':scope > Text');
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Mirror</div>
-          <oscd-icon slot="start">flip</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.flipElement(equipment),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Rotate</div>
-          <oscd-icon slot="start">rotate_90_degrees_cw</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          this.dispatchEvent(newRotateEvent(equipment));
-        },
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Copy</div>
-          <oscd-icon slot="start">copy_all</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(
-            newStartPlaceEvent(copyElementForPlacement(equipment, this.nsp)),
-          ),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceEvent(equipment)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move Label</div>
-          <oscd-icon slot="start">text_rotation_none</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceLabelEvent(equipment)),
-      },
-      textElement
-        ? {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Remove Text</div>
-              <oscd-icon slot="start">format_strikethrough</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () =>
-              this.dispatchEvent(newEditEventV2({ node: textElement })),
-          }
-        : {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Add Text</div>
-              <oscd-icon slot="start">title</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.addTextTo(equipment),
-          },
-
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(equipment)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Delete</div>
-          <oscd-icon slot="start">delete</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const edits: EditV2[] = [];
-          Array.from(equipment.querySelectorAll('Terminal')).forEach(terminal =>
-            edits.push(...removeTerminal(terminal)),
-          );
-          edits.push({ node: equipment });
-          this.dispatchEvent(newEditEventV2(edits));
-        },
-      },
-    ];
-
-    const { rot } = attributes(equipment);
-    const icons = {
-      connect: ['north', 'east', 'south', 'west'],
-      ground: ['expand_less', 'chevron_right', 'expand_more', 'chevron_left'],
-      disconnect: [
-        'arrow_drop_up',
-        'arrow_right',
-        'arrow_drop_down',
-        'arrow_left',
-      ],
-    };
-    const texts = {
-      connect: [
-        'Connect top',
-        'Connect right',
-        'Connect bottom',
-        'Connect left',
-      ],
-      ground: ['Ground top', 'Ground right', 'Ground bottom', 'Ground left'],
-      disconnect: [
-        'Detach top',
-        'Detach right',
-        'Detach bottom',
-        'Detach left',
-      ],
-    };
-    const icon = (kind: 'connect' | 'ground' | 'disconnect', top: boolean) =>
-      icons[kind][top ? rot % 4 : (rot + 2) % 4];
-    const text = (kind: 'connect' | 'ground' | 'disconnect', top: boolean) =>
-      texts[kind][top ? rot % 4 : (rot + 2) % 4];
-    const item = (kind: 'connect' | 'ground' | 'disconnect', top: boolean) =>
-      html`<oscd-menu-item>
-        <div slot="headline">${text(kind, top)}</div>
-        <oscd-icon slot="start">${icon(kind, top)}</oscd-icon>
-      </oscd-menu-item>`;
-
-    const topTerminal = equipment.querySelector('Terminal[name="T1"]');
-    const bottomTerminal = equipment.querySelector('Terminal:not([name="T1"])');
-
-    if (bottomTerminal)
-      items.unshift({
-        handler: () =>
-          this.dispatchEvent(newEditEventV2(removeTerminal(bottomTerminal))),
-        content: item('disconnect', false),
-      });
-    else if (!singleTerminal.has(equipment.getAttribute('type')!)) {
-      items.unshift(
-        {
-          handler: () =>
-            this.dispatchEvent(
-              newStartConnectEvent({
-                from: equipment,
-                fromTerminal: 'T2',
-                path: connectionStartPoints(equipment).T2,
-              }),
-            ),
-          content: item('connect', false),
-        },
-        {
-          handler: () => this.groundTerminal(equipment, 'T2'),
-          content: item('ground', false),
-        },
-      );
-    }
-    if (topTerminal)
-      items.unshift({
-        handler: () =>
-          this.dispatchEvent(newEditEventV2(removeTerminal(topTerminal))),
-        content: item('disconnect', true),
-      });
-    else
-      items.unshift(
-        {
-          handler: () =>
-            this.dispatchEvent(
-              newStartConnectEvent({
-                from: equipment,
-                fromTerminal: 'T1',
-                path: connectionStartPoints(equipment).T1,
-              }),
-            ),
-          content: item('connect', true),
-        },
-        {
-          handler: () => this.groundTerminal(equipment, 'T1'),
-          content: item('ground', true),
-        },
-      );
-    return items;
-  }
-
-  iedMenuItems(referencedIed: Element) {
-    const sclIed = this.resolvedIed(referencedIed);
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceEvent(referencedIed)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move Label</div>
-          <oscd-icon slot="start">text_rotation_none</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(newStartPlaceLabelEvent(referencedIed)),
-      },
-    ];
-
-    if (sclIed)
-      items.push(
-        {
-          content: html`<oscd-menu-item>
-            <div slot="headline">Edit</div>
-            <oscd-icon slot="start">edit</oscd-icon>
-          </oscd-menu-item>`,
-          handler: async () => this.openIedEditDialog(sclIed),
-        },
-        {
-          content: html`<oscd-menu-item
-            style="--mdc-theme-text-primary-on-background: #BB1326; --mdc-theme-text-icon-on-background: #BB1326;"
-          >
-            <div slot="headline">Delete IED</div>
-            <oscd-icon slot="start">delete</oscd-icon>
-          </oscd-menu-item>`,
-          handler: () => {
-            const edits: EditV2[] = [
-              createRemoveIedReferenceEdit(referencedIed),
-            ];
-            edits.push(...removeIED({ node: sclIed }));
-            this.dispatchEvent(
-              newEditEventV2(edits, { title: 'Deleted IED', squash: false }),
-            );
-          },
-        },
-      );
-
-    items.push({
-      content: html`<oscd-menu-item>
-        <div slot="headline">Remove from SLD</div>
-        <oscd-icon slot="start">location_off</oscd-icon>
-      </oscd-menu-item>`,
-      handler: () => {
-        this.dispatchEvent(
-          newEditEventV2(createRemoveIedReferenceEdit(referencedIed), {
-            title: 'Removed from SLD',
-            squash: false,
-          }),
-        );
-      },
-    });
-
-    return items;
-  }
-
-  private async openIedEditDialog(sclIed: Element): Promise<void> {
+  private handleEditIedRequest = async (event: Event) => {
+    const { element: sclIed } = (event as CustomEvent<EditIedDetail>).detail;
     const edits = await this.sclDialogs.edit({ element: sclIed });
 
     const iedReference = iedReferences(this.doc).find(
@@ -1090,387 +566,46 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         squash: false,
       }),
     );
+  };
+
+  handleExport() {
+    exportSVG({
+      svg: this.sld,
+      filename: `${this.substation.getAttribute('name')}.svg`,
+    });
   }
 
-  busBarMenuItems(busBar: Element) {
-    const text = busBar.querySelector(':scope > Text');
+  nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined {
+    if (!equipment) return undefined;
+    const topTerminal = equipment.querySelector('Terminal[name="T1"]');
+    const bottomTerminal = equipment.querySelector('Terminal:not([name="T1"])');
+    const oneSided = singleTerminal.has(equipment.getAttribute('type')!);
+    if (topTerminal && bottomTerminal) return undefined;
+    if (oneSided && (topTerminal || bottomTerminal)) return undefined;
+    if (oneSided) return 'T1';
+    if (topTerminal) return 'T2';
+    if (bottomTerminal) return 'T1';
+
+    const [mx, my] = [this.mouseX2f, this.mouseY2f];
     const {
+      rot,
       pos: [x, y],
-    } = attributes(busBar);
-    const offset: Point = [this.mouseX - x, this.mouseY - y];
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Resize</div>
-          <svg
-            xmlns="${svgNs}"
-            slot="start"
-            width="24"
-            height="24"
-            viewBox="0 96 960 960"
-          >
-            ${resizeBRPath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartResizeBREvent(busBar)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceEvent(busBar, offset)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move Label</div>
-          <oscd-icon slot="start">text_rotation_none</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceLabelEvent(busBar)),
-      },
-      text
-        ? {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Remove Text</div>
-              <oscd-icon slot="start">format_strikethrough</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.dispatchEvent(newEditEventV2({ node: text })),
-          }
-        : {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Add Text</div>
-              <oscd-icon slot="start">title</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.addTextTo(busBar),
-          },
-
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(busBar)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Delete</div>
-          <oscd-icon slot="start">delete</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(newEditEventV2(createDeleteBusBarEdits(busBar))),
-      },
-    ];
-    return items;
+    } = attributes(equipment);
+    if (rot === 0 && my >= y + 0.5) return 'T2';
+    if (rot === 1 && mx < x + 0.5) return 'T2';
+    if (rot === 2 && my < y + 0.5) return 'T2';
+    if (rot === 3 && mx >= x + 0.5) return 'T2';
+    return 'T1';
   }
 
-  containerMenuItems(bayOrVL: Element) {
-    const text = bayOrVL.querySelector(':scope > Text');
-    const {
-      pos: [x, y],
-    } = attributes(bayOrVL);
-    const offset: Point = [this.mouseX - x, this.mouseY - y];
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Resize</div>
-          <svg
-            xmlns="${svgNs}"
-            slot="start"
-            width="24"
-            height="24"
-            viewBox="0 96 960 960"
-          >
-            ${resizeBRPath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartResizeBREvent(bayOrVL)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Copy</div>
-          <oscd-icon slot="start">copy_all</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(
-            newStartPlaceEvent(
-              copyElementForPlacement(bayOrVL, this.nsp),
-              offset,
-            ),
-          ),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceEvent(bayOrVL, offset)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move Label</div>
-          <oscd-icon slot="start">text_rotation_none</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceLabelEvent(bayOrVL)),
-      },
-      text
-        ? {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Remove Text</div>
-              <oscd-icon slot="start">format_strikethrough</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.dispatchEvent(newEditEventV2({ node: text })),
-          }
-        : {
-            content: html`<oscd-menu-item>
-              <div slot="headline">Add Text</div>
-              <oscd-icon slot="start">title</oscd-icon>
-            </oscd-menu-item>`,
-            handler: () => this.addTextTo(bayOrVL),
-          },
-
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(bayOrVL)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Delete</div>
-          <oscd-icon slot="start">delete</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () =>
-          this.dispatchEvent(
-            newEditEventV2(createDeleteContainerEdits(bayOrVL)),
-          ),
-      },
-    ];
-    return items;
-  }
-
-  textMenuItems(text: Element) {
-    const { weight, color } = attributes(text);
-    const items: MenuItem[] = [
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Rotate</div>
-          <oscd-icon slot="start">rotate_90_degrees_cw</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          this.dispatchEvent(newRotateEvent(text));
-        },
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Move</div>
-          <svg
-            xmlns="${svgNs}"
-            height="24"
-            width="24"
-            slot="start"
-            viewBox="0 96 960 960"
-          >
-            ${movePath}
-          </svg>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newStartPlaceLabelEvent(text)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Edit</div>
-          <oscd-icon slot="start">edit</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => this.dispatchEvent(newSclEditDialogEvent(text)),
-      },
-      {
-        content: html`<oscd-menu-item>
-          <div slot="headline">Delete</div>
-          <oscd-icon slot="start">delete</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          this.dispatchEvent(newEditEventV2({ node: text }));
-        },
-      },
-    ];
-
-    if (weight !== 500)
-      items.unshift({
-        content: html`<oscd-menu-item>
-          <div slot="headline">Bold</div>
-          <oscd-icon slot="start">format_bold</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const makeBold = updateSLDAttributes(text, this.nsp, {
-            weight: '500',
-          });
-          this.dispatchEvent(newEditEventV2(makeBold));
-        },
-      });
-
-    if (weight !== 300)
-      items.unshift({
-        content: html`<oscd-menu-item>
-          <div slot="headline">Remove Formatting</div>
-          <oscd-icon slot="start">format_clear</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const removeFormat = updateSLDAttributes(text, this.nsp, {
-            weight: null,
-          });
-          this.dispatchEvent(newEditEventV2(removeFormat));
-        },
-      });
-
-    if (color.toUpperCase() !== '#BB1326')
-      items.unshift({
-        content: html`<oscd-menu-item
-          style="--mdc-theme-text-primary-on-background: #BB1326; --mdc-theme-text-icon-on-background: #BB1326;"
-        >
-          <div slot="headline">Red</div>
-          <oscd-icon slot="start">format_color_text</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const colorRed = updateSLDAttributes(text, this.nsp, {
-            color: '#BB1326',
-          });
-          this.dispatchEvent(newEditEventV2(colorRed));
-        },
-      });
-
-    if (color.toUpperCase() !== '#12579B')
-      items.unshift({
-        content: html`<oscd-menu-item
-          style="--mdc-theme-text-primary-on-background: #12579B; --mdc-theme-text-icon-on-background: #12579B;"
-        >
-          <div slot="headline">Blue</div>
-          <oscd-icon slot="start">format_color_text</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const colorBlue = updateSLDAttributes(text, this.nsp, {
-            color: '#12579B',
-          });
-          this.dispatchEvent(newEditEventV2(colorBlue));
-        },
-      });
-
-    if (color !== '#000')
-      items.unshift({
-        content: html`<oscd-menu-item>
-          <div slot="headline">Reset Color</div>
-          <oscd-icon slot="start">format_color_reset</oscd-icon>
-        </oscd-menu-item>`,
-        handler: () => {
-          const colorReset = updateSLDAttributes(text, this.nsp, {
-            color: null,
-          });
-          this.dispatchEvent(newEditEventV2(colorReset));
-        },
-      });
-
-    return items;
-  }
-
-  renderMenu() {
-    if (!this.menu) return html``;
-    const { element } = this.menu;
-
-    const items: MenuItem[] = [
-      { content: renderMenuHeader(element) },
-      { content: html`<li divider role="separator"></li>` },
-    ];
-    if (element.tagName === 'ConductingEquipment')
-      items.push(...this.equipmentMenuItems(element));
-    else if (element.tagName === 'PowerTransformer')
-      items.push(...this.transformerMenuItems(element));
-    else if (element.tagName === 'Bay' && isBusBar(element))
-      items.push(...this.busBarMenuItems(element));
-    else if (element.tagName === 'Bay' || element.tagName === 'VoltageLevel')
-      items.push(...this.containerMenuItems(element));
-    else if (element.tagName === 'TransformerWinding') {
-      items.push(...this.transformerWindingMenuItems(element));
-      const transformer = element.parentElement!;
-      items.push({ content: html`<li divider role="separator"></li>` });
-      items.push({ content: renderMenuHeader(transformer) });
-      items.push({ content: html`<li divider role="separator"></li>` });
-      items.push(...this.transformerMenuItems(transformer));
-    } else if (isIedReferenceElement(element)) {
-      items.push(...this.iedMenuItems(element));
-    } else if (element.tagName === 'Text') {
-      items.push(...this.textMenuItems(element));
-      items.push({ content: html`<li divider role="separator"></li>` });
-      items.push({
-        content: renderMenuHeader(element.parentElement!),
-      });
+  groundTerminal(equipment: Element, name: 'T1' | 'T2' | 'N1' | 'N2') {
+    const edits = createGroundTerminalEdits(equipment, name);
+    if (!edits) {
+      this.groundHint.show();
+      return;
     }
 
-    const headerHeight =
-      element.hasAttribute('desc') ||
-      element.hasAttribute('type') ||
-      (element.tagName === 'Text' && element.textContent)
-        ? 73
-        : 57;
-
-    return html`
-      <menu
-        id="sld-context-menu"
-        style="top: ${this.menu.top - headerHeight}px; left: ${this.menu
-          .left}px;"
-        ${ref(async (menu?: Element) => {
-          if (!(menu instanceof HTMLElement)) return;
-          await this.updateComplete;
-          const { bottom, right } = menu.getBoundingClientRect();
-          if (bottom > window.innerHeight) {
-            menu.style.removeProperty('top');
-
-            menu.style.bottom = `0px`;
-
-            menu.style.maxHeight = `calc(100vh - 68px)`;
-          }
-          if (right > window.innerWidth) {
-            menu.style.removeProperty('left');
-
-            menu.style.right = '0px';
-          }
-        })}
-      >
-        <oscd-list>
-          ${items.map(i =>
-            i.handler
-              ? html`<span
-                  @click=${() => {
-                    i.handler!();
-                    this.menu = undefined;
-                  }}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      i.handler!();
-                      this.menu = undefined;
-                    }
-                  }}
-                  >${i.content}</span
-                >`
-              : i.content,
-          )}
-        </oscd-list>
-      </menu>
-    `;
+    this.dispatchEvent(newEditEventV2(edits));
   }
 
   render() {
@@ -1490,7 +625,32 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     const iedPlacingTarget =
       !!this.placing && isIedReferenceElement(this.placing)
-        ? svg`<rect width="100%" height="100%" fill="url(#grid)" />`
+        ? svg`<rect
+            width="100%"
+            height="100%"
+            fill="url(#grid)"
+            @click=${() => {
+              const element = this.placing!;
+              const [x, y] = this.renderedPosition(element);
+              if (!this.canPlaceAt(element, x, y, 1, 1)) return;
+
+              const parent =
+                Array.from(
+                  this.substation.querySelectorAll(
+                    ':scope > VoltageLevel > Bay',
+                  ),
+                )
+                  .concat(
+                    Array.from(
+                      this.substation.querySelectorAll(':scope > VoltageLevel'),
+                    ),
+                  )
+                  .find(vlOrBay => containsRect(vlOrBay, x, y, 1, 1)) ||
+                this.substation;
+
+              this.dispatchEvent(newPlaceEvent({ x, y, element, parent }));
+            }}
+          />`
         : nothing;
 
     const placingLabelTarget = this.placingLabel
@@ -1638,8 +798,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       }} />`,
       );
     }
-
-    const menu = this.renderMenu();
 
     return html`<section>
       <h2 class="${classMap({ disabled: this.disabled })}">
@@ -1802,7 +960,14 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         ${transformerPlacingTarget} ${iedPlacingTarget} ${placingLabelTarget}
         ${placingElement}
       </svg>
-      ${menu} ${coordinateTooltip}
+      ${this.disabled
+        ? nothing
+        : html`<sld-context-menu
+            .doc=${this.doc}
+            .nsp=${this.nsp}
+            @sld-ground-hint=${() => this.groundHint.show()}
+          ></sld-context-menu>`}
+      ${coordinateTooltip}
       <oscd-dialog id="resizeSubstationUI">
         <div slot="headline">
           Resize ${this.substation.getAttribute('name')}
@@ -1960,7 +1125,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             this.dispatchEvent(newSclEditDialogEvent(element));
           } else {
             const ied = this.resolvedIed(element);
-            if (ied) this.openIedEditDialog(ied);
+            if (ied) this.dispatchEvent(newEditIedEvent(ied));
           }
           e.preventDefault();
         }
@@ -1968,7 +1133,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let contextmenu: ((e: MouseEvent) => void) | symbol = nothing;
     if (!this.disabled)
-      contextmenu = (e: MouseEvent) => this.openMenu(element, e);
+      contextmenu = (e: MouseEvent) => {
+        e.preventDefault();
+        if (!this.idle) return;
+        this.contextMenu?.open(this.contextMenuContext(element, e));
+      };
 
     let id: typeof nothing | string = nothing;
     if (element.closest('Substation') === this.substation) {
@@ -2025,7 +1194,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     };
     let invalid = false;
 
-    let contextmenu = (e: MouseEvent) => this.openMenu(bayOrVL, e);
+    let contextmenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (!this.idle) return;
+      this.contextMenu?.open(this.contextMenuContext(bayOrVL, e));
+    };
     if (this.disabled) contextmenu = () => {};
 
     let auxclick = ({ clientX, clientY, button }: MouseEvent) => {
@@ -2320,7 +1493,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                 ${zigZagTransform}">${zigZagPath}</g>`;
 
     return svg`<g class="winding"
-        @contextmenu=${(e: MouseEvent) => this.openMenu(winding, e)}
+        @contextmenu=${(e: MouseEvent) => {
+          e.preventDefault();
+          if (!this.idle) return;
+          this.contextMenu?.open(this.contextMenuContext(winding, e));
+        }}
     ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
   }
 
@@ -2489,7 +1666,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     };
     if (this.disabled) auxclick = () => {};
 
-    let contextmenu = (e: MouseEvent) => this.openMenu(equipment, e);
+    let contextmenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (!this.idle) return;
+      this.contextMenu?.open(this.contextMenuContext(equipment, e));
+    };
     if (this.disabled) contextmenu = () => {};
 
     const terminals = Array.from(equipment.children).filter(
@@ -2695,7 +1876,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     else
       handleClick = () => this.dispatchEvent(newStartPlaceEvent(referencedIed));
 
-    let contextmenu = (e: MouseEvent) => this.openMenu(referencedIed, e);
+    let contextmenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (!this.idle) return;
+      this.contextMenu?.open(this.contextMenuContext(referencedIed, e));
+    };
     if (this.disabled) contextmenu = () => {};
 
     const clickthrough = !this.idle && this.placing !== referencedIed;
@@ -2827,7 +2012,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           handleAuxClick = ({ button }: MouseEvent) => {
             if (button === 1) this.dispatchEvent(newStartResizeBREvent(bay));
           };
-          handleContextMenu = (e: MouseEvent) => this.openMenu(bay, e);
+          handleContextMenu = (e: MouseEvent) => {
+            e.preventDefault();
+            if (!this.idle) return;
+            this.contextMenu?.open(this.contextMenuContext(bay, e));
+          };
         }
         if (busBar && this.resizingBR === bay && !this.disabled) {
           if (
@@ -2974,18 +2163,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       --md-icon-button-state-layer-height: 28px;
       --md-icon-button-state-layer-width: 28px;
       --md-icon-button-icon-size: 24px;
-    }
-
-    menu {
-      position: fixed;
-      background: var(--oscd-base3, white);
-      margin: 0px;
-      padding: 0px;
-      box-shadow:
-        0 10px 20px rgba(0, 0, 0, 0.19),
-        0 6px 6px rgba(0, 0, 0, 0.23);
-      --mdc-list-vertical-padding: 0px;
-      overflow-y: auto;
     }
 
     .hidden {

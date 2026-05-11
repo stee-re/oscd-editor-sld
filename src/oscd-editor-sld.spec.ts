@@ -1,4 +1,3 @@
-import '@webcomponents/scoped-custom-element-registry';
 import { html } from 'lit';
 import { fixture, expect, aTimeout, waitUntil } from '@open-wc/testing';
 
@@ -35,8 +34,6 @@ function sldAttribute(element: Element, attr: string): string | null {
 }
 
 customElements.define('oscd-editor-sld', OscdEditorSld);
-customElements.define('sld-editor', SldEditor);
-customElements.define('sld-substation-editor', SldSubstationEditor);
 
 export const emptyDocString = `<?xml version="1.0" encoding="UTF-8"?>
 <SCL version="2007" revision="B" xmlns="http://www.iec.ch/61850/2003/SCL">
@@ -442,6 +439,12 @@ function getSldEditor(element: OscdEditorSld): SldEditor | null | undefined {
   return element.shadowRoot?.querySelector<SldEditor>('sld-editor');
 }
 
+function clickInteractive(element: HTMLElement): void {
+  const target =
+    element.shadowRoot?.querySelector<HTMLElement>('#button, #item') ?? element;
+  target.click();
+}
+
 async function waitForSubstationEditor(
   element: OscdEditorSld,
 ): Promise<{ sldEditor: SldEditor; sldSubstationEditor: SldSubstationEditor }> {
@@ -815,17 +818,21 @@ describe('SLD Editor', () => {
 
     it('zooms in on zoom in button click', async () => {
       const initial = element.gridSize;
-      element
-        .shadowRoot!.querySelector<OscdIconButton>('[aria-label="Zoom In"]')
-        ?.click();
+      clickInteractive(
+        element.shadowRoot!.querySelector<OscdIconButton>(
+          '[title^="Zoom In"]',
+        )!,
+      );
       expect(element.gridSize).to.be.greaterThan(initial);
     });
 
     it('zooms out on zoom out button click', async () => {
       const initial = element.gridSize;
-      element
-        .shadowRoot!.querySelector<OscdIconButton>('[aria-label="Zoom Out"]')
-        ?.click();
+      clickInteractive(
+        element.shadowRoot!.querySelector<OscdIconButton>(
+          '[title^="Zoom Out"]',
+        )!,
+      );
       expect(element.gridSize).to.be.lessThan(initial);
     });
 
@@ -863,7 +870,13 @@ describe('SLD Editor', () => {
         const [clientX, clientY] = svgClientPosition(element, x, y);
         await sendMouse({ type: 'move', position: [clientX, clientY] });
         await sldSubstationEditor.updateComplete;
-        await sendMouse({ type: 'click', position: [clientX, clientY] });
+        const placementTargets =
+          sldSubstationEditor.shadowRoot!.querySelectorAll<SVGRectElement>(
+            'svg#sld > rect[fill="url(#grid)"]',
+          );
+        placementTargets[placementTargets.length - 1].dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true }),
+        );
         await settle();
       }
 
@@ -892,7 +905,7 @@ describe('SLD Editor', () => {
           | undefined;
 
         expect(!!item).to.be.true;
-        item!.click();
+        clickInteractive(item!);
         await settle();
         expect(!!sldEditor.placing).to.be.true;
         expect(sldEditor.placing!.localName).to.equal('Reference');
@@ -927,7 +940,7 @@ describe('SLD Editor', () => {
         );
         expect(itemIndex).to.be.greaterThan(-1);
         const item = iedItems[itemIndex] as OscdMenuItem;
-        item.click();
+        clickInteractive(item);
 
         await aTimeout(20);
         await sldEditor.updateComplete;
@@ -936,11 +949,7 @@ describe('SLD Editor', () => {
         expect(sldEditor.placing!.localName).to.equal('Reference');
         expect(sldEditor.placing!.namespaceURI).to.equal(sldNs);
 
-        const [clientX, clientY] = svgClientPosition(element, 3, 3);
-        await sendMouse({ type: 'move', position: [clientX, clientY] });
-        await sldSubstationEditor.updateComplete;
-        await sendMouse({ type: 'click', position: [clientX, clientY] });
-        await aTimeout(20);
+        await clickGridAt(3, 3);
 
         const referencedIeds = iedReferences(element.doc);
         expect(referencedIeds.length).to.equal(1);
@@ -1028,7 +1037,7 @@ describe('SLD Editor', () => {
         expect(
           removeUnmatchedItem?.textContent?.replace(/\s+/g, ' ').trim(),
         ).to.include('Remove reference to 1 missing IED');
-        removeUnmatchedItem!.click();
+        clickInteractive(removeUnmatchedItem!);
         await settle();
 
         expect(
@@ -1046,7 +1055,7 @@ describe('SLD Editor', () => {
         await aTimeout(100);
 
         const iedToggle = element.shadowRoot!.querySelector<HTMLElement>(
-          'oscd-icon-button[aria-label="Toggle IEDs"]',
+          'oscd-icon-button[title="Toggle IEDs"]',
         );
 
         expect(!!iedToggle).to.be.true;
@@ -1063,7 +1072,7 @@ describe('SLD Editor', () => {
         expect(!!iedGroup).to.be.true;
 
         // Click the toggle to hide IEDs
-        iedToggle!.click();
+        clickInteractive(iedToggle!);
         await settle();
 
         // Verify IED is now hidden
@@ -1074,7 +1083,7 @@ describe('SLD Editor', () => {
         expect(!!iedGroup).to.be.false;
 
         // Toggle back on
-        iedToggle!.click();
+        clickInteractive(iedToggle!);
         await settle();
 
         // Verify IED is visible again
