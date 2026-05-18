@@ -90,7 +90,8 @@ import {
   type MenuContext,
 } from './context-menu/sld-context-menu.js';
 
-import type { Point, Style } from './foundations/types.js';
+import type { Point } from './foundations/geometry.js';
+import type { Style } from './foundations/sld-attributes.js';
 
 function isBay(element: Element) {
   return element.tagName === 'Bay' && !isBusBar(element);

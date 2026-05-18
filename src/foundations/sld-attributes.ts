@@ -2,10 +2,40 @@ import { getReference } from '@openscd/scl-lib';
 
 import { isIedReferenceElement } from './ied.js';
 import { privType, sldNs } from './namespaces.js';
-import { isTransformerKind } from './transformer.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
-import type { Attrs, Point } from './types.js';
+import type { Point } from './geometry.js';
+
+export type Style = {
+  fill?: string;
+  fillOpacity?: number | string;
+  stroke?: string;
+  strokeWidth?: number | string;
+  strokeOpacity?: number | string;
+  rx?: string | number;
+};
+
+const transformerKinds = ['default', 'auto', 'earthing'] as const;
+
+export type TransformerKind = (typeof transformerKinds)[number];
+
+export function isTransformerKind(
+  kind: string | null,
+): kind is TransformerKind {
+  return transformerKinds.includes(kind as TransformerKind);
+}
+
+export type Attrs = {
+  pos: Point;
+  dim: Point;
+  label: Point;
+  flip: boolean;
+  rot: 0 | 1 | 2 | 3;
+  bus: boolean;
+  weight: number;
+  color: string;
+  kind: TransformerKind;
+};
 
 export function xmlBoolean(value?: string | null) {
   return ['true', '1'].includes(value?.trim() ?? 'false');

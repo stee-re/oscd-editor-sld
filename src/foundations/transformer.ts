@@ -1,14 +1,5 @@
-import type { Attrs, Point } from './types.js';
-
-const transformerKinds = ['default', 'auto', 'earthing'] as const;
-
-export type TransformerKind = (typeof transformerKinds)[number];
-
-export function isTransformerKind(
-  kind: string | null,
-): kind is TransformerKind {
-  return transformerKinds.includes(kind as TransformerKind);
-}
+import type { Point } from './geometry.js';
+import type { Attrs } from './sld-attributes.js';
 
 export type TransformerTerminalName = 'T1' | 'T2' | 'N1' | 'N2';
 

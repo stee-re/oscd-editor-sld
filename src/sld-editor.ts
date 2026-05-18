@@ -45,7 +45,8 @@ import type {
   StartEvent,
   StartPlaceEvent,
 } from './foundations/events.js';
-import type { Point, Style } from './foundations/types.js';
+import type { Point } from './foundations/geometry.js';
+import type { Style } from './foundations/sld-attributes.js';
 
 function cutSectionAt(
   section: Element,

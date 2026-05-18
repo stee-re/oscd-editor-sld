@@ -1,4 +1,4 @@
-import type { Point } from './types.js';
+import type { Point } from './geometry.js';
 
 export type ResizeDetail = {
   w: number;

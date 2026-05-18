@@ -5,7 +5,7 @@
  * knowledge of DOM Elements or SCL structure.
  */
 
-import type { Point } from './types.js';
+export type Point = [number, number];
 
 export type Rect = [number, number, number, number];
 
