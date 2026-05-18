@@ -170,12 +170,12 @@ export function newSelectEvent(element: Element): SelectEvent {
   });
 }
 
-export type EditWizardDetail = { element: Element };
+export type EditSclDetail = { element: Element };
 
-export type EditWizardEvent = CustomEvent<EditWizardDetail>;
+export type EditSclEvent = CustomEvent<EditSclDetail>;
 
-export function newSclEditDialogEvent(element: Element): EditWizardEvent {
-  return new CustomEvent<EditWizardDetail>('oscd-edit-wizard-request', {
+export function newSclEditDialogEvent(element: Element): EditSclEvent {
+  return new CustomEvent<EditSclDetail>('oscd-sld-edit-scl', {
     bubbles: true,
     composed: true,
     detail: { element },
@@ -187,7 +187,7 @@ export type EditIedDetail = { element: Element };
 export type EditIedEvent = CustomEvent<EditIedDetail>;
 
 export function newEditIedEvent(element: Element): EditIedEvent {
-  return new CustomEvent<EditIedDetail>('oscd-edit-ied-request', {
+  return new CustomEvent<EditIedDetail>('oscd-sld-edit-ied', {
     bubbles: true,
     composed: true,
     detail: { element },
@@ -208,7 +208,7 @@ declare global {
     ['oscd-sld-start-place-label']: StartPlaceEvent;
     ['oscd-sld-start-connect']: StartConnectEvent;
     ['oscd-sld-selected']: SelectEvent;
-    ['oscd-edit-wizard-request']: EditWizardEvent;
-    ['oscd-edit-ied-request']: EditIedEvent;
+    ['oscd-sld-edit-scl']: EditSclEvent;
+    ['oscd-sld-edit-ied']: EditIedEvent;
   }
 }

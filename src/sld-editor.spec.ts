@@ -257,7 +257,7 @@ function getSldSubstationEditor(
 describe('SLD Editor', () => {
   let element: SldEditor;
   let xmlEditor: XMLEditor;
-  let lastCalledWizard: Element | undefined;
+  let lastCalledSclEdit: Element | undefined;
   let lastSelectedElement: Element | undefined;
 
   function queryUI({
@@ -356,10 +356,10 @@ describe('SLD Editor', () => {
           xmlEditor.commit(event.detail.edit);
           element.docVersion += 1;
         }}
-        @oscd-edit-wizard-request=${({
+        @oscd-sld-edit-scl=${({
           detail: { element: e },
         }: CustomEvent<{ element: Element }>) => {
-          lastCalledWizard = e;
+          lastCalledSclEdit = e;
         }}
         @oscd-sld-selected=${({
           detail: { element: e },
@@ -371,7 +371,7 @@ describe('SLD Editor', () => {
   });
 
   afterEach(async () => {
-    lastCalledWizard = undefined;
+    lastCalledSclEdit = undefined;
     lastSelectedElement = undefined;
     element.placing = undefined;
     element.resizingBR = undefined;
@@ -593,7 +593,7 @@ describe('SLD Editor', () => {
       expect(sldAttribute(voltageLevel, 'y')).to.equal('2');
     });
 
-    it('requests voltage level edit wizard on edit menu item select', async () => {
+    it('requests voltage level scl edit on edit menu item select', async () => {
       queryUI({
         scl: 'VoltageLevel',
         ui: 'rect',
@@ -601,7 +601,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
-      expect(lastCalledWizard).to.equal(
+      expect(lastCalledSclEdit).to.equal(
         element.doc.querySelector('VoltageLevel'),
       );
     });
@@ -665,11 +665,11 @@ describe('SLD Editor', () => {
       expect(sldAttribute(voltageLevel, 'ly')).to.equal('4.5');
     });
 
-    it('requests a voltage level edit wizard on label middle click', async () => {
+    it('requests a voltage level scl edit on label middle click', async () => {
       queryUI({ ui: '.label text' }).dispatchEvent(
         new PointerEvent('auxclick', { button: 1 }),
       );
-      expect(lastCalledWizard).to.equal(
+      expect(lastCalledSclEdit).to.equal(
         element.doc.querySelector('VoltageLevel'),
       );
     });
@@ -755,7 +755,7 @@ describe('SLD Editor', () => {
       expect(queryUI({ ui: 'menu' })).to.exist;
     });
 
-    it('requests bay edit wizard on edit menu item select', async () => {
+    it('requests bay scl edit on edit menu item select', async () => {
       queryUI({
         scl: 'Bay',
         ui: 'rect',
@@ -763,7 +763,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
-      expect(lastCalledWizard).to.equal(element.doc.querySelector('Bay'));
+      expect(lastCalledSclEdit).to.equal(element.doc.querySelector('Bay'));
     });
 
     it('forbids resizing bays out of bounds', async () => {
@@ -1148,7 +1148,7 @@ describe('SLD Editor', () => {
     it('triggers oscd-scl-dialogs on IED label middle-click', async () => {
       await placeIedFromScl('IED1', 10, 10);
 
-      const sclDialogs = sldSubstationEditor.shadowRoot?.querySelector(
+      const sclDialogs = element.shadowRoot?.querySelector(
         'oscd-scl-dialogs',
       ) as
         | {
@@ -1189,7 +1189,7 @@ describe('SLD Editor', () => {
     it('triggers oscd-scl-dialogs via the IED context menu edit action', async () => {
       await placeIedFromScl('IED1', 3, 3);
 
-      const sclDialogs = sldSubstationEditor.shadowRoot?.querySelector(
+      const sclDialogs = element.shadowRoot?.querySelector(
         'oscd-scl-dialogs',
       ) as
         | {
@@ -1243,7 +1243,7 @@ describe('SLD Editor', () => {
     it('renames an IED via context menu edit dialog', async () => {
       await placeIedFromScl('IED1', 3, 3);
 
-      const sclDialogs = sldSubstationEditor.shadowRoot?.querySelector(
+      const sclDialogs = element.shadowRoot?.querySelector(
         'oscd-scl-dialogs',
       ) as
         | {
@@ -1448,7 +1448,7 @@ describe('SLD Editor', () => {
       await sldSubstationEditor.updateComplete;
     });
 
-    it('requests equipment edit wizard on edit menu item select', async () => {
+    it('requests equipment scl edit on edit menu item select', async () => {
       queryUI({
         scl: '[type="SMC"]',
         ui: 'rect',
@@ -1456,7 +1456,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       clickInteractive(menuItem(-2));
       await sldSubstationEditor.updateComplete;
-      expect(lastCalledWizard).to.equal(
+      expect(lastCalledSclEdit).to.equal(
         element.doc.querySelector('[type="SMC"]'),
       );
     });
@@ -2367,7 +2367,7 @@ describe('SLD Editor', () => {
             expect(sldAttribute(busBar!, 'ly')).to.equal('4.5');
           });
 
-          it('requests bus bar edit wizard on edit menu item select', async () => {
+          it('requests bus bar scl edit on edit menu item select', async () => {
             queryUI({
               scl: '[name="L"]',
               ui: 'line:not([stroke])',
@@ -2375,7 +2375,7 @@ describe('SLD Editor', () => {
             await element.updateComplete;
             clickInteractive(menuItem(-2));
             await sldSubstationEditor.updateComplete;
-            expect(lastCalledWizard).to.equal(
+            expect(lastCalledSclEdit).to.equal(
               element.doc.querySelector('[name="BB1"]'),
             );
           });
@@ -2544,7 +2544,7 @@ describe('SLD Editor', () => {
         queryUI({ ui: '.label text' }).dispatchEvent(
           new PointerEvent('auxclick', { button: 1 }),
         );
-        expect(lastCalledWizard).to.be.undefined;
+        expect(lastCalledSclEdit).to.be.undefined;
       });
 
       it('does not allow placing a new bay', async () => {
