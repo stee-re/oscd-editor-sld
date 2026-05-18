@@ -189,15 +189,15 @@ function transformerMenuItems(
     },
     text
       ? {
-          headline: 'Delete Text',
-          icon: 'format_strikethrough',
-          handler: () => context.dispatch(newEditEventV2({ node: text })),
-        }
+        headline: 'Delete Text',
+        icon: 'format_strikethrough',
+        handler: () => context.dispatch(newEditEventV2({ node: text })),
+      }
       : {
-          headline: 'Add Text',
-          icon: 'title',
-          handler: () => addTextTo(transformer, context),
-        },
+        headline: 'Add Text',
+        icon: 'title',
+        handler: () => addTextTo(transformer, context),
+      },
     {
       headline: 'Edit',
       icon: 'edit',
@@ -268,16 +268,16 @@ function equipmentMenuItems(
     },
     textElement
       ? {
-          headline: 'Remove Text',
-          icon: 'format_strikethrough',
-          handler: () =>
-            context.dispatch(newEditEventV2({ node: textElement })),
-        }
+        headline: 'Remove Text',
+        icon: 'format_strikethrough',
+        handler: () =>
+          context.dispatch(newEditEventV2({ node: textElement })),
+      }
       : {
-          headline: 'Add Text',
-          icon: 'title',
-          handler: () => addTextTo(equipment, context),
-        },
+        headline: 'Add Text',
+        icon: 'title',
+        handler: () => addTextTo(equipment, context),
+      },
     {
       headline: 'Edit',
       icon: 'edit',
@@ -464,15 +464,15 @@ function busBarMenuItems(
     },
     text
       ? {
-          headline: 'Remove Text',
-          icon: 'format_strikethrough',
-          handler: () => context.dispatch(newEditEventV2({ node: text })),
-        }
+        headline: 'Remove Text',
+        icon: 'format_strikethrough',
+        handler: () => context.dispatch(newEditEventV2({ node: text })),
+      }
       : {
-          headline: 'Add Text',
-          icon: 'title',
-          handler: () => addTextTo(busBar, context),
-        },
+        headline: 'Add Text',
+        icon: 'title',
+        handler: () => addTextTo(busBar, context),
+      },
     {
       headline: 'Edit',
       icon: 'edit',
@@ -526,15 +526,15 @@ function containerMenuItems(
     },
     text
       ? {
-          headline: 'Remove Text',
-          icon: 'format_strikethrough',
-          handler: () => context.dispatch(newEditEventV2({ node: text })),
-        }
+        headline: 'Remove Text',
+        icon: 'format_strikethrough',
+        handler: () => context.dispatch(newEditEventV2({ node: text })),
+      }
       : {
-          headline: 'Add Text',
-          icon: 'title',
-          handler: () => addTextTo(bayOrVL, context),
-        },
+        headline: 'Add Text',
+        icon: 'title',
+        handler: () => addTextTo(bayOrVL, context),
+      },
     {
       headline: 'Edit',
       icon: 'edit',

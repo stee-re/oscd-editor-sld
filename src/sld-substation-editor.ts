@@ -97,7 +97,9 @@ function isBay(element: Element) {
 }
 
 function preventDefault(e: MouseEvent) {
-  if (e.button === 1) e.preventDefault();
+  if (e.button === 1) {
+    e.preventDefault();
+  }
 }
 
 function isSelectable(element: Element, selectable: string[]) {
@@ -116,16 +118,29 @@ function getHighlightStyle(
   highlight: { id: string; style: Style }[],
 ): string {
   const style = highlight.find(h => identity(element) === h.id)?.style;
-  if (!style) return '';
+  if (!style) {
+    return '';
+  }
 
   let styleStr = '';
-  if (style?.fill) styleStr += `fill: ${style.fill}; `;
-  if (style?.fillOpacity) styleStr += `fill-opacity: ${style.fillOpacity}; `;
-  if (style?.stroke) styleStr += `stroke: ${style.stroke}; `;
-  if (style?.strokeWidth) styleStr += `stroke-width: ${style.strokeWidth}; `;
-  if (style?.strokeOpacity)
+  if (style?.fill) {
+    styleStr += `fill: ${style.fill}; `;
+  }
+  if (style?.fillOpacity) {
+    styleStr += `fill-opacity: ${style.fillOpacity}; `;
+  }
+  if (style?.stroke) {
+    styleStr += `stroke: ${style.stroke}; `;
+  }
+  if (style?.strokeWidth) {
+    styleStr += `stroke-width: ${style.strokeWidth}; `;
+  }
+  if (style?.strokeOpacity) {
     styleStr += `stroke-opacity: ${style.strokeOpacity}; `;
-  if (style?.rx) styleStr += `rx: ${style.rx}; `;
+  }
+  if (style?.rx) {
+    styleStr += `rx: ${style.rx}; `;
+  }
 
   return styleStr;
 }
@@ -143,14 +158,16 @@ function transformerHighlight(
     pos: [x, y],
   } = attributes(transformer);
   const nmWindings = transformer.querySelectorAll('TransformerWinding').length;
-  if (nmWindings === 3)
+  if (nmWindings === 3) {
     return svg`<rect x="${x - 0.8}" y="${
       y - 0.3
     }" width="2.6" height="2.6" style="${style}" pointer-events="none" />`;
-  if (nmWindings === 2)
+  }
+  if (nmWindings === 2) {
     return svg`<rect x="${x - 0.3}" y="${
       y - 0.3
     }" width="1.6" height="2.6" style="${style}" pointer-events="none" />`;
+  }
   return svg`<rect x="${x - 0.3}" y="${
     y - 0.3
   }" width="1.6" height="1.6" style="${style}" pointer-events="none" />`;
@@ -385,25 +402,45 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined {
-    if (!equipment) return undefined;
+    if (!equipment) {
+      return undefined;
+    }
     const topTerminal = equipment.querySelector('Terminal[name="T1"]');
     const bottomTerminal = equipment.querySelector('Terminal:not([name="T1"])');
     const oneSided = singleTerminal.has(equipment.getAttribute('type')!);
-    if (topTerminal && bottomTerminal) return undefined;
-    if (oneSided && (topTerminal || bottomTerminal)) return undefined;
-    if (oneSided) return 'T1';
-    if (topTerminal) return 'T2';
-    if (bottomTerminal) return 'T1';
+    if (topTerminal && bottomTerminal) {
+      return undefined;
+    }
+    if (oneSided && (topTerminal || bottomTerminal)) {
+      return undefined;
+    }
+    if (oneSided) {
+      return 'T1';
+    }
+    if (topTerminal) {
+      return 'T2';
+    }
+    if (bottomTerminal) {
+      return 'T1';
+    }
 
     const [mx, my] = [this.mouseX2f, this.mouseY2f];
     const {
       rot,
       pos: [x, y],
     } = attributes(equipment);
-    if (rot === 0 && my >= y + 0.5) return 'T2';
-    if (rot === 1 && mx < x + 0.5) return 'T2';
-    if (rot === 2 && my < y + 0.5) return 'T2';
-    if (rot === 3 && mx >= x + 0.5) return 'T2';
+    if (rot === 0 && my >= y + 0.5) {
+      return 'T2';
+    }
+    if (rot === 1 && mx < x + 0.5) {
+      return 'T2';
+    }
+    if (rot === 2 && my < y + 0.5) {
+      return 'T2';
+    }
+    if (rot === 3 && mx >= x + 0.5) {
+      return 'T2';
+    }
     return 'T1';
   }
 
@@ -441,7 +478,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             @click=${() => {
               const element = this.placing!;
               const [x, y] = this.renderedPosition(element);
-              if (!canPlaceAt(this.substation, element, x, y, 1, 1)) return;
+              if (!canPlaceAt(this.substation, element, x, y, 1, 1)) {
+                return;
+              }
 
               const parent =
                 Array.from(
@@ -474,16 +513,17 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let placingElement = svg``;
     if (this.placing) {
-      if (this.placing.tagName === 'VoltageLevel' || isBay(this.placing))
+      if (this.placing.tagName === 'VoltageLevel' || isBay(this.placing)) {
         placingElement = this.renderContainer(this.placing, true);
-      else if (this.placing.tagName === 'ConductingEquipment')
+      } else if (this.placing.tagName === 'ConductingEquipment') {
         placingElement = this.renderEquipment(this.placing, { preview: true });
-      else if (isIedReferenceElement(this.placing))
+      } else if (isIedReferenceElement(this.placing)) {
         placingElement = this.renderIed(this.placing, { preview: true });
-      else if (this.placing.tagName === 'PowerTransformer')
+      } else if (this.placing.tagName === 'PowerTransformer') {
         placingElement = this.renderPowerTransformer(this.placing, true);
-      else if (isBusBar(this.placing))
+      } else if (isBusBar(this.placing)) {
         placingElement = this.renderBusBar(this.placing);
+      }
     }
 
     let coordinates = html``;
@@ -567,7 +607,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         this.substation.querySelectorAll('ConductingEquipment'),
       )
         .filter(eq => eq !== from)
-        .find(eq => {
+        .find((eq) => {
           const {
             pos: [x, y],
           } = attributes(eq);
@@ -601,7 +641,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         path.push([x4, y4]);
         cleanPath(path);
         this.requestUpdate();
-        if (targetEq && toTerminal)
+        if (targetEq && toTerminal) {
           this.dispatchEvent(
             newConnectEvent({
               from,
@@ -611,6 +651,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               toTerminal,
             }),
           );
+        }
       }} />`,
       );
     }
@@ -669,7 +710,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         stroke-width="0.06"
         fill="none"
         @mousemove=${(e: MouseEvent) => {
-          if (this.disabled) return;
+          if (this.disabled) {
+            return;
+          }
 
           const [x, y] = this.svgCoordinates(e.clientX, e.clientY);
           this.mouseX = Math.floor(x);
@@ -716,8 +759,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         ${connectionPreview}
         ${this.connecting?.from.closest('Substation') === this.substation
           ? Array.from(
-              this.substation.querySelectorAll('ConductingEquipment'),
-            ).map(eq => this.renderEquipment(eq, { connect: true }))
+            this.substation.querySelectorAll('ConductingEquipment'),
+          ).map(eq => this.renderEquipment(eq, { connect: true }))
           : nothing}
         ${Array.from(this.substation.querySelectorAll('ConnectivityNode'))
           .filter(
@@ -860,7 +903,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                   'oscd-outlined-text-field',
                 ),
               ).every(textField => textField.checkValidity());
-              if (!valid) return;
+              if (!valid) {
+                return;
+              }
               const {
                 dim: [oldW, oldH],
               } = attributes(this.substation);
@@ -869,7 +914,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                 this.substationHeightUI,
               ].map(ui => parseInt(ui.value ?? '1', 10).toString());
               this.resizeSubstationUI.open = false;
-              if (newW === oldW.toString() && newH === oldH.toString()) return;
+              if (newW === oldW.toString() && newH === oldH.toString()) {
+                return;
+              }
               const resizeEdit = updateSLDAttributes(
                 this.substation,
                 this.nsp,
@@ -892,9 +939,12 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   renderLabel(element: Element, { preview = false } = {}) {
-    if (!this.showLabels) return nothing;
-    if (this.showIeds === false && isIedReferenceElement(element))
+    if (!this.showLabels) {
       return nothing;
+    }
+    if (this.showIeds === false && isIedReferenceElement(element)) {
+      return nothing;
+    }
 
     let deg = 0;
     let text: string | null | TemplateResult<2>[] =
@@ -908,7 +958,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     if (element.tagName === 'Text') {
       ({ weight, color } = attributes(element));
       deg = attributes(element).rot * 90;
-      if (element.textContent)
+      if (element.textContent) {
         text = element.textContent?.split(/\r?\n/).map(
           (line, i) =>
             svg`<tspan alignment-baseline="central"
@@ -917,15 +967,16 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                   ${line || '.'}
                 </tspan>`,
         );
-      else {
+      } else {
         text = '<Middle click to edit>';
         color = '#aaa';
         weight = 500;
       }
     }
 
-    if (isIedReferenceElement(element) && !this.placing && !this.placingLabel)
+    if (isIedReferenceElement(element) && !this.placing && !this.placingLabel) {
       color = this.resolvedIed(element) ? color : '#BB1326';
+    }
 
     const fontSize = element.tagName === 'ConductingEquipment' ? 0.45 : 0.6;
     let events = 'none';
@@ -942,7 +993,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     }
 
     let auxclick: ((e: MouseEvent) => void) | symbol = nothing;
-    if (!this.disabled)
+    if (!this.disabled) {
       auxclick = (e: MouseEvent) => {
         if (e.button === 1) {
           // middle mouse button
@@ -950,26 +1001,34 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             this.dispatchEvent(newSclEditDialogEvent(element));
           } else {
             const ied = this.resolvedIed(element);
-            if (ied) this.dispatchEvent(newEditIedEvent(ied));
+            if (ied) {
+              this.dispatchEvent(newEditIedEvent(ied));
+            }
           }
           e.preventDefault();
         }
       };
+    }
 
     let contextmenu: ((e: MouseEvent) => void) | symbol = nothing;
-    if (!this.disabled)
+    if (!this.disabled) {
       contextmenu = (e: MouseEvent) => {
         e.preventDefault();
-        if (!this.idle) return;
+        if (!this.idle) {
+          return;
+        }
         this.contextMenu?.open(this.contextMenuContext(element, e));
       };
+    }
 
     let id: typeof nothing | string = nothing;
     if (element.closest('Substation') === this.substation) {
-      if (element.localName !== 'Text' && !isIedReferenceElement(element))
+      if (element.localName !== 'Text' && !isIedReferenceElement(element)) {
         id = `${identity(element)}`;
-      if (isIedReferenceElement(element))
+      }
+      if (isIedReferenceElement(element)) {
         id = `${this.resolvedIed(element)?.getAttribute('name') ?? ''}`;
+      }
     }
     const classes = classMap({
       label: true,
@@ -997,7 +1056,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   renderContainer(bayOrVL: Element, preview = false): TemplateResult<2> {
     const isVL = bayOrVL.tagName === 'VoltageLevel';
-    if (this.placing === bayOrVL && !preview) return svg``;
+    if (this.placing === bayOrVL && !preview) {
+      return svg``;
+    }
 
     let [x, y] = this.renderedPosition(bayOrVL);
     const offset: Point = [this.mouseX - x, this.mouseY - y];
@@ -1009,36 +1070,47 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     const bottom = y + h - 1;
 
     let handleClick = (e: MouseEvent) => {
-      if (this.idle)
+      if (this.idle) {
         this.dispatchEvent(
           newStartPlaceEvent(
             e.shiftKey ? copyElementForPlacement(bayOrVL, this.nsp) : bayOrVL,
             offset,
           ),
         );
+      }
     };
     let invalid = false;
 
     let contextmenu = (e: MouseEvent) => {
       e.preventDefault();
-      if (!this.idle) return;
+      if (!this.idle) {
+        return;
+      }
       this.contextMenu?.open(this.contextMenuContext(bayOrVL, e));
     };
-    if (this.disabled) contextmenu = () => {};
+    if (this.disabled) {
+      contextmenu = () => {};
+    }
 
     let auxclick = ({ clientX, clientY, button }: MouseEvent) => {
-      if (button !== 1) return;
+      if (button !== 1) {
+        return;
+      }
       const mouse = this.svgCoordinates(clientX, clientY);
-      if (distance(mouse, [x, y]) < distance(mouse, [right, bottom]))
+      if (distance(mouse, [x, y]) < distance(mouse, [right, bottom])) {
         this.dispatchEvent(newStartResizeTLEvent(bayOrVL));
-      else this.dispatchEvent(newStartResizeBREvent(bayOrVL));
+      } else {
+        this.dispatchEvent(newStartResizeBREvent(bayOrVL));
+      }
     };
-    if (this.disabled) auxclick = () => {};
+    if (this.disabled) {
+      auxclick = () => {};
+    }
 
     if (this.resizingBR === bayOrVL) {
       w = Math.max(1, this.mouseX - x + 1);
       h = Math.max(1, this.mouseY - y + 1);
-      if (canResizeTo(this.substation, bayOrVL, w, h))
+      if (canResizeTo(this.substation, bayOrVL, w, h)) {
         handleClick = () =>
           this.dispatchEvent(
             newResizeEvent({
@@ -1047,7 +1119,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               element: bayOrVL,
             }),
           );
-      else invalid = true;
+      } else {
+        invalid = true;
+      }
     }
 
     if (this.resizingTL === bayOrVL) {
@@ -1055,7 +1129,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       h = Math.max(1, y + h - this.mouseY);
       x = Math.min(this.mouseX, right);
       y = Math.min(this.mouseY, bottom);
-      if (canResizeToTL(this.substation, bayOrVL, x, y, w, h))
+      if (canResizeToTL(this.substation, bayOrVL, x, y, w, h)) {
         handleClick = () =>
           this.dispatchEvent(
             newResizeTLEvent({
@@ -1066,17 +1140,21 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               element: bayOrVL,
             }),
           );
-      else invalid = true;
+      } else {
+        invalid = true;
+      }
     }
 
     if (this.placing === bayOrVL) {
       let parent: Element | undefined;
-      if (isVL) parent = this.substation;
-      else
+      if (isVL) {
+        parent = this.substation;
+      } else {
         parent = Array.from(
           this.substation.querySelectorAll(':root > Substation > VoltageLevel'),
         ).find(vl => containsRect(vl, x, y, w, h));
-      if (parent && canPlaceAt(this.substation, bayOrVL, x, y, w, h))
+      }
+      if (parent && canPlaceAt(this.substation, bayOrVL, x, y, w, h)) {
         handleClick = () =>
           this.dispatchEvent(
             newPlaceEvent({
@@ -1086,7 +1164,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               parent: parent!,
             }),
           );
-      else invalid = true;
+      } else {
+        invalid = true;
+      }
     }
 
     let placingTarget = svg``;
@@ -1094,17 +1174,19 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     if (
       (isVL && this.placing?.tagName === 'Bay') ||
       (!isVL && this.placing?.tagName === 'ConductingEquipment')
-    )
+    ) {
       placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
         @click=${handleClick} fill="url(#grid)" />`;
+    }
 
     if (
       this.resizingBR === bayOrVL ||
       this.resizingTL === bayOrVL ||
       (this.resizingBR?.parentElement === bayOrVL && isBusBar(this.resizingBR))
-    )
+    ) {
       resizingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
         @click=${handleClick || nothing} fill="url(#grid)" />`;
+    }
 
     const resizeBRHandle =
       this.idle && !this.disabled
@@ -1146,9 +1228,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     const highlighted = isToBeHighlighted(bayOrVL, this.highlight);
     const highlight = highlighted
       ? svg`<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${getHighlightStyle(
-          bayOrVL,
-          this.highlight,
-        )}" pointer-events="none" />`
+        bayOrVL,
+        this.highlight,
+      )}" pointer-events="none" />`
       : '';
 
     return svg`${highlight}<g id="${
@@ -1189,32 +1271,32 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       ${
         preview
           ? Array.from(bayOrVL.querySelectorAll('ConnectivityNode'))
-              .filter(child => child.getAttribute('name') !== 'grounded')
-              .map(cNode => this.renderConnectivityNode(cNode))
+            .filter(child => child.getAttribute('name') !== 'grounded')
+            .map(cNode => this.renderConnectivityNode(cNode))
           : nothing
       }
       ${
         preview
           ? Array.from(
-              bayOrVL.querySelectorAll(
-                'Bay, ConductingEquipment, PowerTransformer, Text',
+            bayOrVL.querySelectorAll(
+              'Bay, ConductingEquipment, PowerTransformer, Text',
+            ),
+          )
+            .concat(
+              Array.from(
+                bayOrVL.querySelector(
+                  ':scope > Private[type="OpenSCD-SLD-Layout"]',
+                )
+                  ? iedReferences(
+                    bayOrVL.querySelector(
+                      ':scope > Private[type="OpenSCD-SLD-Layout"]',
+                    )!,
+                  )
+                  : [],
               ),
             )
-              .concat(
-                Array.from(
-                  bayOrVL.querySelector(
-                    ':scope > Private[type="OpenSCD-SLD-Layout"]',
-                  )
-                    ? iedReferences(
-                        bayOrVL.querySelector(
-                          ':scope > Private[type="OpenSCD-SLD-Layout"]',
-                        )!,
-                      )
-                    : [],
-                ),
-              )
-              .concat(bayOrVL)
-              .map(element => this.renderLabel(element, { preview }))
+            .concat(bayOrVL)
+            .map(element => this.renderLabel(element, { preview }))
           : nothing
       }
       ${resizeTLhandle}
@@ -1255,9 +1337,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           this.placing !== winding.closest('PowerTransformer')) ||
         this.disabled
       )
-    )
+    ) {
       Object.entries(terminals).forEach(([name, point]) => {
-        if (!point) return;
+        if (!point) {
+          return;
+        }
         const [x, y] = point;
         const x1 = Number.isInteger(x * 2) ? x : x + 1;
         const y1 = Number.isInteger(y * 2) ? y : y + 1;
@@ -1265,15 +1349,21 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         const fill = terminal ? 'BB1326' : '12579B';
         ports.push(svg`<circle class="port" cx="${x}" cy="${y}" r="0.2" opacity="0.4"
               @contextmenu=${(e: MouseEvent) => {
-                if (terminal) return;
+                if (terminal) {
+                  return;
+                }
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (!this.idle) return;
+                if (!this.idle) {
+                  return;
+                }
                 this.groundTerminal(winding, name as 'T1' | 'T2' | 'N1' | 'N2');
               }}
               @click=${(e: MouseEvent) => {
                 e.stopImmediatePropagation();
-                if (!this.idle) return;
+                if (!this.idle) {
+                  return;
+                }
                 this.dispatchEvent(
                   newStartConnectEvent({
                     from: winding,
@@ -1288,6 +1378,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               fill="#${fill}"
               stroke="${groundable && !terminal ? '#F5E214' : fill}" />`);
       });
+    }
     let longArrow = false;
     let arcPath = svg``;
     const { flip, rot } = attributes(winding.parentElement!);
@@ -1298,15 +1389,19 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         to: [xt, yt],
         toCtl: [xtc, ytc],
       } = arc;
-      if (!flip && yfc < yf) longArrow = true;
-      if (flip && xfc > xf) longArrow = true;
+      if (!flip && yfc < yf) {
+        longArrow = true;
+      }
+      if (flip && xfc > xf) {
+        longArrow = true;
+      }
       arcPath = svg`<path d="M ${xf} ${yf} C ${xfc} ${yfc}, ${xtc} ${ytc}, ${xt} ${yt}" stroke="black" stroke-width="0.06" />`;
     }
     const tapChanger = winding.querySelector('TapChanger');
     const ltcArrow = tapChanger
       ? svg`<line x1="${cx - 0.8}" y1="${cy + 0.8}" x2="${cx + 0.8}" y2="${
-          cy - (longArrow ? 1 : 0.8)
-        }"
+        cy - (longArrow ? 1 : 0.8)
+      }"
               stroke="black" stroke-width="0.06" marker-end="url(#arrow)" />`
       : nothing;
     const zigZag =
@@ -1320,7 +1415,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return svg`<g class="winding"
         @contextmenu=${(e: MouseEvent) => {
           e.preventDefault();
-          if (!this.idle) return;
+          if (!this.idle) {
+            return;
+          }
           this.contextMenu?.open(this.contextMenuContext(winding, e));
         }}
     ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
@@ -1330,7 +1427,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     transformer: Element,
     preview = false,
   ): TemplateResult<2> {
-    if (this.placing === transformer && !preview) return svg``;
+    if (this.placing === transformer && !preview) {
+      return svg``;
+    }
     const windings = Array.from(transformer.children).filter(
       c => c.tagName === 'TransformerWinding',
     );
@@ -1344,7 +1443,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         : nothing;
 
     let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
-    if (this.placing === transformer)
+    if (this.placing === transformer) {
       handleClick = (e: MouseEvent) => {
         if (this.placing === transformer) {
           const parent =
@@ -1367,21 +1466,26 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           );
         }
 
-        if (!this.idle) return;
+        if (!this.idle) {
+          return;
+        }
 
         let placing = transformer;
-        if (e.shiftKey)
+        if (e.shiftKey) {
           placing = copyElementForPlacement(transformer, this.nsp);
+        }
         this.dispatchEvent(newStartPlaceEvent(placing, offset));
       };
-    else if (this.disabled && isSelectable(transformer, this.selectable))
+    } else if (this.disabled && isSelectable(transformer, this.selectable)) {
       handleClick = () => this.dispatchEvent(newSelectEvent(transformer));
-    else if (this.disabled || !this.idle) handleClick = () => {};
-    else {
+    } else if (this.disabled || !this.idle) {
+      handleClick = () => {};
+    } else {
       handleClick = (e: MouseEvent) => {
         let placing = transformer;
-        if (e.shiftKey)
+        if (e.shiftKey) {
           placing = copyElementForPlacement(transformer, this.nsp);
+        }
         this.dispatchEvent(newStartPlaceEvent(placing, offset));
       };
     }
@@ -1412,11 +1516,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       <g class="preview">${
         preview
           ? [
-              this.renderLabel(transformer, { preview }),
-              ...Array.from(transformer.querySelectorAll('Text')).map(text =>
-                this.renderLabel(text, { preview }),
-              ),
-            ]
+            this.renderLabel(transformer, { preview }),
+            ...Array.from(transformer.querySelectorAll('Text')).map(text =>
+              this.renderLabel(text, { preview }),
+            ),
+          ]
           : nothing
       }</g>`;
   }
@@ -1425,12 +1529,15 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     equipment: Element,
     { preview = false, connect = false } = {},
   ) {
-    if (this.placing === equipment && !preview) return svg``;
+    if (this.placing === equipment && !preview) {
+      return svg``;
+    }
     if (
       this.connecting?.from.closest('Substation') === this.substation &&
       !connect
-    )
+    ) {
       return svg``;
+    }
 
     const [x, y] = this.renderedPosition(equipment);
     const { flip, rot } = attributes(equipment);
@@ -1452,7 +1559,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let handleClick = (e: MouseEvent) => {
       let placing = equipment;
-      if (e.shiftKey) placing = copyElementForPlacement(equipment, this.nsp);
+      if (e.shiftKey) {
+        placing = copyElementForPlacement(equipment, this.nsp);
+      }
       this.dispatchEvent(newStartPlaceEvent(placing));
     };
 
@@ -1462,7 +1571,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           ':root > Substation > VoltageLevel > Bay',
         ),
       ).find(bay => !isBusBar(bay) && containsRect(bay, x, y, 1, 1));
-      if (parent && canPlaceAt(this.substation, equipment, x, y, 1, 1))
+      if (parent && canPlaceAt(this.substation, equipment, x, y, 1, 1)) {
         handleClick = () => {
           this.dispatchEvent(
             newPlaceEvent({
@@ -1473,14 +1582,17 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             }),
           );
         };
+      }
     }
 
-    if (this.disabled && !isSelectable(equipment, this.selectable))
+    if (this.disabled && !isSelectable(equipment, this.selectable)) {
       handleClick = () => {};
-    if (this.disabled && isSelectable(equipment, this.selectable))
+    }
+    if (this.disabled && isSelectable(equipment, this.selectable)) {
       handleClick = () => {
         this.dispatchEvent(newSelectEvent(equipment));
       };
+    }
 
     let auxclick = (e: MouseEvent) => {
       if (e.button === 1) {
@@ -1489,14 +1601,20 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         e.preventDefault();
       }
     };
-    if (this.disabled) auxclick = () => {};
+    if (this.disabled) {
+      auxclick = () => {};
+    }
 
     let contextmenu = (e: MouseEvent) => {
       e.preventDefault();
-      if (!this.idle) return;
+      if (!this.idle) {
+        return;
+      }
       this.contextMenu?.open(this.contextMenuContext(equipment, e));
     };
-    if (this.disabled) contextmenu = () => {};
+    if (this.disabled) {
+      contextmenu = () => {};
+    }
 
     const terminals = Array.from(equipment.children).filter(
       c => c.tagName === 'Terminal',
@@ -1605,9 +1723,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     const highlight = isToBeHighlighted(equipment, this.highlight)
       ? svg`<rect x="${x}" y="${y}" width="1" height="1" style="${getHighlightStyle(
-          equipment,
-          this.highlight,
-        )}" pointer-events="none" />`
+        equipment,
+        this.highlight,
+      )}" pointer-events="none" />`
       : '';
 
     return svg`${highlight}<g class="${classMap({
@@ -1650,11 +1768,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     <g class="preview">${
       preview
         ? [
-            this.renderLabel(equipment, { preview }),
-            ...Array.from(equipment.querySelectorAll('Text')).map(text =>
-              this.renderLabel(text, { preview }),
-            ),
-          ]
+          this.renderLabel(equipment, { preview }),
+          ...Array.from(equipment.querySelectorAll('Text')).map(text =>
+            this.renderLabel(text, { preview }),
+          ),
+        ]
         : nothing
     }</g>`;
   }
@@ -1663,8 +1781,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     referencedIed: Element,
     { preview = false } = {},
   ): SVGTemplateResult {
-    if (this.showIeds === false || (this.placing === referencedIed && !preview))
+    if (this.showIeds === false || (this.placing === referencedIed && !preview)) {
       return svg``;
+    }
 
     const [x, y] = this.renderedPosition(referencedIed);
     const name = this.resolvedIed(referencedIed)?.getAttribute('name');
@@ -1673,7 +1792,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     if (
       this.placing === referencedIed &&
       canPlaceAt(this.substation, referencedIed, x, y, 1, 1)
-    )
+    ) {
       handleClick = () => {
         const parent =
           Array.from(
@@ -1695,18 +1814,24 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           }),
         );
       };
-    else if (this.disabled && isSelectable(referencedIed, this.selectable))
+    } else if (this.disabled && isSelectable(referencedIed, this.selectable)) {
       handleClick = () => this.dispatchEvent(newSelectEvent(referencedIed));
-    else if (!this.idle || this.disabled) handleClick = () => {};
-    else
+    } else if (!this.idle || this.disabled) {
+      handleClick = () => {};
+    } else {
       handleClick = () => this.dispatchEvent(newStartPlaceEvent(referencedIed));
+    }
 
     let contextmenu = (e: MouseEvent) => {
       e.preventDefault();
-      if (!this.idle) return;
+      if (!this.idle) {
+        return;
+      }
       this.contextMenu?.open(this.contextMenuContext(referencedIed, e));
     };
-    if (this.disabled) contextmenu = () => {};
+    if (this.disabled) {
+      contextmenu = () => {};
+    }
 
     const clickthrough = !this.idle && this.placing !== referencedIed;
 
@@ -1747,7 +1872,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       const parent = Array.from(
         this.substation.querySelectorAll(':root > Substation > VoltageLevel'),
       ).find(vl => containsRect(vl, x, y, w, h));
-      if (parent)
+      if (parent) {
         this.dispatchEvent(
           newPlaceEvent({
             x,
@@ -1756,8 +1881,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             parent: parent!,
           }),
         );
+      }
     };
-    if (this.disabled) handleClick = () => {};
+    if (this.disabled) {
+      handleClick = () => {};
+    }
 
     let placingTarget = svg``;
     placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
@@ -1782,15 +1910,20 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   renderConnectivityNode(cNode: Element) {
     const priv = cNode.querySelector(`Private[type="${privType}"]`);
-    if (!priv) return nothing;
+    if (!priv) {
+      return nothing;
+    }
     const circles = [] as TemplateResult<2>[];
     const intersections = Object.entries(
       Array.from(priv.querySelectorAll('Vertex')).reduce(
         (record, vertex) => {
           const ret = record;
           const key = JSON.stringify(this.renderedPosition(vertex));
-          if (ret[key]) ret[key].push(vertex);
-          else ret[key] = [vertex];
+          if (ret[key]) {
+            ret[key].push(vertex);
+          } else {
+            ret[key] = [vertex];
+          }
           return ret;
         },
         {} as Record<string, Element[]>,
@@ -1815,7 +1948,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       (!this.resizingBR || (this.resizingBR === bay && isBusBar(bay)))
         ? 'all'
         : 'none';
-    sections.forEach(section => {
+    sections.forEach((section) => {
       const busBar = xmlBoolean(section.getAttributeNS(sldNs, 'bus'));
       const vertices = Array.from(
         section.getElementsByTagNameNS(sldNs, 'Vertex'),
@@ -1835,11 +1968,15 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           handleClick = () =>
             this.dispatchEvent(newStartPlaceEvent(bay, offset));
           handleAuxClick = ({ button }: MouseEvent) => {
-            if (button === 1) this.dispatchEvent(newStartResizeBREvent(bay));
+            if (button === 1) {
+              this.dispatchEvent(newStartResizeBREvent(bay));
+            }
           };
           handleContextMenu = (e: MouseEvent) => {
             e.preventDefault();
-            if (!this.idle) return;
+            if (!this.idle) {
+              return;
+            }
             this.contextMenu?.open(this.contextMenuContext(bay, e));
           };
         }
@@ -1847,8 +1984,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           if (
             section !==
             sections.find(s => xmlBoolean(s.getAttributeNS(sldNs, 'bus')))
-          )
+          ) {
             return;
+          }
           circles.length = 0;
           const {
             pos: [vX, vY],
@@ -1866,9 +2004,13 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               y2 = Math.max(y1, Math.min(maxY, this.mouseY + 0.5));
               x2 = x1;
             }
-            if (x1 === x2 && y1 === y2)
-              if (x2 >= maxX) y2 += 1;
-              else x2 += 1;
+            if (x1 === x2 && y1 === y2) {
+              if (x2 >= maxX) {
+                y2 += 1;
+              } else {
+                x2 += 1;
+              }
+            }
           }
           handleClick = () => {
             this.dispatchEvent(
@@ -1884,7 +2026,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               width="1" height="1" fill="none" pointer-events="${pointerEvents}"
               @click=${handleClick} />`);
         }
-        if (this.connecting && !this.disabled)
+        if (this.connecting && !this.disabled) {
           handleClick = () => {
             const { from, path, fromTerminal } = this.connecting!;
             if (
@@ -1893,8 +2035,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                 .querySelector(
                   `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
                 )
-            )
+            ) {
               return;
+            }
             const [[oldX1, oldY1], [oldX2, oldY2]] = path.slice(-2);
             const vertical = oldX1 === oldX2;
 
@@ -1926,6 +2069,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               }),
             );
           };
+        }
 
         lines.push(
           svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
@@ -1942,7 +2086,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         if (
           busBar ||
           (this.connecting && !vertices[i].hasAttributeNS(sldNs, 'uuid'))
-        )
+        ) {
           lines.push(
             svg`<rect x="${x1 - targetSize / 2}" y="${y1 - targetSize / 2}"
                   width="${targetSize}" height="${targetSize}"
@@ -1950,10 +2094,11 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                   @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
                   pointer-events="${pointerEvents}" fill="none" />`,
           );
+        }
         if (
           busBar ||
           (this.connecting && !vertices[i + 1].hasAttributeNS(sldNs, 'uuid'))
-        )
+        ) {
           lines.push(
             svg`<rect x="${x2 - targetSize / 2}" y="${y2 - targetSize / 2}"
                   width="${targetSize}" height="${targetSize}"
@@ -1961,6 +2106,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
                   @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
                   pointer-events="${pointerEvents}" fill="none" />`,
           );
+        }
         i += 1;
       }
     });

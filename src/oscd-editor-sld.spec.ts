@@ -455,11 +455,15 @@ async function waitForSubstationEditor(
     const el = element.shadowRoot?.querySelector(
       'sld-editor',
     ) as SldEditor | null;
-    if (!el?.shadowRoot) return false;
+    if (!el?.shadowRoot) {
+      return false;
+    }
     const sub = el.shadowRoot.querySelector(
       'sld-substation-editor',
     ) as SldSubstationEditor | null;
-    if (!sub?.shadowRoot) return false;
+    if (!sub?.shadowRoot) {
+      return false;
+    }
     sldEditor = el;
     sldSubstationEditor = sub;
     return true;
@@ -582,7 +586,7 @@ describe('SLD Editor', () => {
       Object.keys(expectedConductingEquipment).length,
     );
 
-    conductingEquipment.forEach(eq => {
+    conductingEquipment.forEach((eq) => {
       const key = `${eq.getAttribute('type')}:${eq.getAttribute('name')}`;
       const expected =
         expectedConductingEquipment[
@@ -634,8 +638,8 @@ describe('SLD Editor', () => {
     const substationTree = Array.from(
       element.doc.querySelectorAll(':root > Substation, :root > Substation *'),
     );
-    substationTree.forEach(node => {
-      oldLayoutAttributes.forEach(attr => {
+    substationTree.forEach((node) => {
+      oldLayoutAttributes.forEach((attr) => {
         expect(
           node.getAttributeNS(oldNs, attr),
           `${node.tagName} has esld:${attr}`,
@@ -796,10 +800,11 @@ describe('SLD Editor', () => {
   });
 
   it('does not zoom out past a positive minimum value', async () => {
-    for (let i = 0; i < 20; i += 1)
+    for (let i = 0; i < 20; i += 1) {
       element
         .shadowRoot!.querySelector<OscdIconButton>('[aria-label="Zoom Out"]')
         ?.click();
+    }
     expect(element.gridSize).to.be.greaterThan(0);
   });
 

@@ -29,7 +29,9 @@ export function canPlaceAt(
   w: number,
   h: number,
 ): boolean {
-  if (element.tagName === 'Substation') return true;
+  if (element.tagName === 'Substation') {
+    return true;
+  }
 
   const overlappingSibling = Array.from(
     root.querySelectorAll(`${element.localName}, PowerTransformer`),
@@ -51,9 +53,11 @@ export function canPlaceAt(
     isIedReferenceElement(element)
       ? containsRect(root, x, y, w, h)
       : Array.from(
-          root.querySelectorAll(parentTags[element.localName]!.join(',')),
-        ).find(parent => !isBusBar(parent) && containsRect(parent, x, y, w, h));
-  if (containingParent) return true;
+        root.querySelectorAll(parentTags[element.localName]!.join(',')),
+      ).find(parent => !isBusBar(parent) && containsRect(parent, x, y, w, h));
+  if (containingParent) {
+    return true;
+  }
   return false;
 }
 
@@ -71,14 +75,16 @@ export function canResizeTo(
   if (
     !canPlaceAt(root, element, x, y, w, h) &&
     canPlaceAt(root, element, x, y, oldW, oldH)
-  )
+  ) {
     return false;
+  }
 
   const lostChild = Array.from(element.children)
     .concat(iedReferences(element))
-    .find(child => {
-      if (!parentTags[child.localName]?.includes(element.localName))
+    .find((child) => {
+      if (!parentTags[child.localName]?.includes(element.localName)) {
         return false;
+      }
       const {
         pos: [cx, cy],
         dim: [cw, ch],
@@ -86,7 +92,9 @@ export function canResizeTo(
 
       return !contains([x, y, w, h], [cx, cy, cw, ch]);
     });
-  if (lostChild) return false;
+  if (lostChild) {
+    return false;
+  }
 
   return true;
 }
@@ -99,13 +107,16 @@ export function canResizeToTL(
   w: number,
   h: number,
 ): boolean {
-  if (!canPlaceAt(root, element, x, y, w, h)) return false;
+  if (!canPlaceAt(root, element, x, y, w, h)) {
+    return false;
+  }
 
   const lostChild = Array.from(element.children)
     .concat(iedReferences(element))
-    .find(child => {
-      if (!parentTags[child.localName]?.includes(element.localName))
+    .find((child) => {
+      if (!parentTags[child.localName]?.includes(element.localName)) {
         return false;
+      }
       const {
         pos: [cx, cy],
         dim: [cw, ch],
@@ -113,7 +124,9 @@ export function canResizeToTL(
 
       return !contains([x, y, w, h], [cx, cy, cw, ch]);
     });
-  if (lostChild) return false;
+  if (lostChild) {
+    return false;
+  }
 
   return true;
 }

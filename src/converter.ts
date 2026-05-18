@@ -53,9 +53,15 @@ function addVertexes(
   const x = vertex.getAttributeNS(oldNs, 'x');
   const y = vertex.getAttributeNS(oldNs, 'y');
   const uuid = vertex.getAttributeNS(oldNs, 'uuid');
-  if (x) newVertex.setAttributeNS(newNs, `${nsd}:x`, x);
-  if (y) newVertex.setAttributeNS(newNs, `${nsd}:y`, y);
-  if (uuid) newVertex.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
+  if (x) {
+    newVertex.setAttributeNS(newNs, `${nsd}:x`, x);
+  }
+  if (y) {
+    newVertex.setAttributeNS(newNs, `${nsd}:y`, y);
+  }
+  if (uuid) {
+    newVertex.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
+  }
 }
 
 function copySection(newPrivate: Element, section: Element, nsd: string): void {
@@ -66,7 +72,9 @@ function copySection(newPrivate: Element, section: Element, nsd: string): void {
   newPrivate.appendChild(newSection);
 
   const bus = section.getAttribute('bus');
-  if (bus) newSection.setAttributeNS(newNs, `${nsd}:bus`, bus);
+  if (bus) {
+    newSection.setAttributeNS(newNs, `${nsd}:bus`, bus);
+  }
 
   const vertices = Array.from(section.querySelectorAll(':scope > Vertex'));
   vertices.forEach(vertex => addVertexes(newSection, vertex, nsd));
@@ -77,7 +85,9 @@ function copyConnNodePrivate(connNode: Element, nsd: string): EditV2[] {
     ':scope > Private[type="Transpower-SLD-Vertices"]',
   );
 
-  if (!oldPrivate) return [];
+  if (!oldPrivate) {
+    return [];
+  }
 
   const newPrivate = createElement(connNode.ownerDocument!, 'Private', {
     type: 'OpenSCD-SLD-Layout',
@@ -111,11 +121,13 @@ function migrateOldIEDNames(substation: Element, nsd: string): EditV2[] {
     substation.querySelectorAll(':scope Private[type="OpenSCD-Linked-IEDs"]'),
   );
 
-  if (!oldIedPrivates) return [];
+  if (!oldIedPrivates) {
+    return [];
+  }
 
   const edits: EditV2[] = [];
 
-  oldIedPrivates.forEach(oldIedPrivate => {
+  oldIedPrivates.forEach((oldIedPrivate) => {
     const sldPrivateWithIEDs = createElement(
       oldIedPrivate.ownerDocument!,
       'Private',
@@ -135,9 +147,11 @@ function migrateOldIEDNames(substation: Element, nsd: string): EditV2[] {
           el.getAttributeNS(oldNs, 'ly') !== null),
     );
 
-    if (oldIedNames.length === 0) return;
+    if (oldIedNames.length === 0) {
+      return;
+    }
 
-    oldIedNames.forEach(oldIed => {
+    oldIedNames.forEach((oldIed) => {
       const name = oldIed.getAttributeNS(oldNs, 'name');
       const x = oldIed.getAttributeNS(oldNs, 'x');
       const y = oldIed.getAttributeNS(oldNs, 'y');
@@ -156,20 +170,29 @@ function migrateOldIEDNames(substation: Element, nsd: string): EditV2[] {
       const sclIed = name
         ? oldIed.ownerDocument!.querySelector(`:root > IED[name="${name}"]`)
         : null;
-      if (sclIed)
+      if (sclIed) {
         iedReference.setAttributeNS(
           newNs,
           `${nsd}:id`,
           String(identity(sclIed)),
         );
-      else if (name)
+      } else if (name) {
         iedReference.setAttributeNS(newNs, `${nsd}:id`, `IED[${name}]`);
+      }
       iedReference.setAttributeNS(newNs, `${nsd}:type`, 'IED');
 
-      if (x) sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
-      if (y) sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
-      if (lx) sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
-      if (ly) sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
+      if (x) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
+      }
+      if (y) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
+      }
+      if (lx) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
+      }
+      if (ly) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
+      }
 
       iedReference.appendChild(sldAttributes);
 
@@ -200,7 +223,9 @@ function migrateOldIEDNames(substation: Element, nsd: string): EditV2[] {
  */
 function migrateLegacyIedCoordinates(doc: XMLDocument, nsd: string): EditV2[] {
   const substation = doc.querySelector(':root > Substation');
-  if (!substation) return [];
+  if (!substation) {
+    return [];
+  }
 
   const oldLinkedIedNames = new Set(
     Array.from(
@@ -220,7 +245,9 @@ function migrateLegacyIedCoordinates(doc: XMLDocument, nsd: string): EditV2[] {
       ied.getAttributeNS(oldNs, 'ly') !== null,
   );
 
-  if (legacyIeds.length === 0) return [];
+  if (legacyIeds.length === 0) {
+    return [];
+  }
 
   const edits: EditV2[] = [];
   let targetPrivate = substation.querySelector(
@@ -240,7 +267,7 @@ function migrateLegacyIedCoordinates(doc: XMLDocument, nsd: string): EditV2[] {
     edits.push(insertPrivate);
   }
 
-  legacyIeds.forEach(ied => {
+  legacyIeds.forEach((ied) => {
     const iedName = ied.getAttribute('name');
     const x = ied.getAttributeNS(oldNs, 'x');
     const y = ied.getAttributeNS(oldNs, 'y');
@@ -263,10 +290,18 @@ function migrateLegacyIedCoordinates(doc: XMLDocument, nsd: string): EditV2[] {
         newNs,
         `${nsd}:SLDAttributes`,
       );
-      if (x) sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
-      if (y) sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
-      if (lx) sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
-      if (ly) sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
+      if (x) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
+      }
+      if (y) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
+      }
+      if (lx) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
+      }
+      if (ly) {
+        sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
+      }
 
       iedReference.appendChild(sldAttributes);
 
@@ -301,7 +336,9 @@ function noLayoutAttributes(element: Element): boolean {
 }
 
 function pushToPrivate(element: Element, nsd: string): EditV2 {
-  if (!noLayoutAttributes(element)) return [];
+  if (!noLayoutAttributes(element)) {
+    return [];
+  }
 
   const resetOldAttributes: SetAttributes = {
     element,
@@ -322,18 +359,42 @@ function pushToPrivate(element: Element, nsd: string): EditV2 {
 
   const [x, y, w, h, rot, lx, ly, kind, flip, color, weight, uuid] =
     attributes(element);
-  if (x) sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
-  if (y) sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
-  if (w) sldAttributes.setAttributeNS(newNs, `${nsd}:w`, w);
-  if (h) sldAttributes.setAttributeNS(newNs, `${nsd}:h`, h);
-  if (rot) sldAttributes.setAttributeNS(newNs, `${nsd}:rot`, rot);
-  if (lx) sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
-  if (ly) sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
-  if (kind) sldAttributes.setAttributeNS(newNs, `${nsd}:kind`, kind);
-  if (flip) sldAttributes.setAttributeNS(newNs, `${nsd}:flip`, flip);
-  if (color) sldAttributes.setAttributeNS(newNs, `${nsd}:color`, color);
-  if (weight) sldAttributes.setAttributeNS(newNs, `${nsd}:weight`, weight);
-  if (uuid) sldAttributes.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
+  if (x) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
+  }
+  if (y) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
+  }
+  if (w) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:w`, w);
+  }
+  if (h) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:h`, h);
+  }
+  if (rot) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:rot`, rot);
+  }
+  if (lx) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
+  }
+  if (ly) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
+  }
+  if (kind) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:kind`, kind);
+  }
+  if (flip) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:flip`, flip);
+  }
+  if (color) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:color`, color);
+  }
+  if (weight) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:weight`, weight);
+  }
+  if (uuid) {
+    sldAttributes.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
+  }
 
   const insertPrivate: EditV2 = {
     parent: element,

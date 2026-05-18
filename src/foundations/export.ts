@@ -47,7 +47,7 @@ function cleanXML(element: Element): void {
     element.querySelector('rect')?.remove();
   }
 
-  Array.from(element.childNodes).forEach(child => {
+  Array.from(element.childNodes).forEach((child) => {
     if (child.nodeType === 8) {
       element.removeChild(child);
     }

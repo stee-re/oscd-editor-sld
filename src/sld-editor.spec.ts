@@ -31,9 +31,9 @@ chai.Assertion.prototype.assert = function (
       const template = negate ? negateMsg : msg;
       const message = template
         ? template
-            .replace('#{this}', fmt(actual))
-            .replace('#{exp}', fmt(expected))
-            .replace('#{act}', fmt(actual))
+          .replace('#{this}', fmt(actual))
+          .replace('#{exp}', fmt(expected))
+          .replace('#{act}', fmt(actual))
         : `expected ${fmt(actual)} to equal ${fmt(expected)}`;
       throw new chai.AssertionError(
         message,
@@ -297,11 +297,13 @@ describe('SLD Editor', () => {
     const target =
       element.shadowRoot?.querySelector<HTMLElement>('#button, #item') ??
       element;
-    if (target !== element) target.click();
-    else
+    if (target !== element) {
+      target.click();
+    } else {
       element.dispatchEvent(
         new MouseEvent('click', { bubbles: true, composed: true }),
       );
+    }
   }
 
   function contextMenuItems(): OscdMenuItem[] {
@@ -1152,14 +1154,14 @@ describe('SLD Editor', () => {
         'oscd-scl-dialogs',
       ) as
         | {
-            edit: (editType: { element: Element }) => Promise<unknown[]>;
-          }
+          edit: (editType: { element: Element }) => Promise<unknown[]>;
+        }
         | undefined;
       expect(sclDialogs).to.exist;
 
       const editCalls: { element: Element }[] = [];
       const originalEdit = sclDialogs!.edit.bind(sclDialogs);
-      sclDialogs!.edit = async editType => {
+      sclDialogs!.edit = async (editType) => {
         editCalls.push(editType);
         return [];
       };
@@ -1193,14 +1195,14 @@ describe('SLD Editor', () => {
         'oscd-scl-dialogs',
       ) as
         | {
-            edit: (editType: { element: Element }) => Promise<unknown[]>;
-          }
+          edit: (editType: { element: Element }) => Promise<unknown[]>;
+        }
         | undefined;
       expect(sclDialogs).to.exist;
 
       const editCalls: { element: Element }[] = [];
       const originalEdit = sclDialogs!.edit.bind(sclDialogs);
-      sclDialogs!.edit = async editType => {
+      sclDialogs!.edit = async (editType) => {
         editCalls.push(editType);
         return [];
       };
@@ -1247,8 +1249,8 @@ describe('SLD Editor', () => {
         'oscd-scl-dialogs',
       ) as
         | {
-            edit: (editType: { element: Element }) => Promise<unknown[]>;
-          }
+          edit: (editType: { element: Element }) => Promise<unknown[]>;
+        }
         | undefined;
       expect(sclDialogs).to.exist;
 

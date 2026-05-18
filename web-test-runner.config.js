@@ -72,7 +72,7 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
   plugins: [
     visualRegressionPlugin({
       update: process.argv.includes('--update-visual-baseline'),
-      getImageDiff: options => {
+      getImageDiff: (options) => {
         const result = defaultGetImageDiff(options);
         if (result.diffPercentage < thresholdPercentage) {
           result.diffPercentage = 0;
