@@ -11,7 +11,7 @@ export {
   ringedEqTypes,
   singleTerminal,
 } from './foundations/equipment.js';
-export { isTransformerKind } from './foundations/transformer.js';
+export { isTransformerKind } from './foundations/sld-attributes.js';
 export {
   attributes,
   getSLDAttributes,
@@ -36,8 +36,8 @@ export {
   resolveIed,
 } from './foundations/ied.js';
 export type { EqType } from './foundations/equipment.js';
-export type { TransformerKind } from './foundations/transformer.js';
-export type { Attrs, Point, Style } from './foundations/types.js';
+export type { TransformerKind, Attrs, Style } from './foundations/sld-attributes.js';
+export type { Point } from './foundations/geometry.js';
 export {
   newConnectEvent,
   newPlaceEvent,

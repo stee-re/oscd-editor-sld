@@ -10,7 +10,7 @@ import {
 } from './sld-attributes.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
-import type { Point } from './types.js';
+import type { Point } from './geometry.js';
 
 function sections(element: Element): Element[] {
   return Array.from(

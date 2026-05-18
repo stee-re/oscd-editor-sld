@@ -37,7 +37,7 @@ import {
   newStartResizeBREvent,
 } from '../foundations/events.js';
 
-import type { Point } from '../foundations/types.js';
+import type { Point } from '../foundations/geometry.js';
 import type {
   ContextMenuAction,
   ContextMenuItem,
