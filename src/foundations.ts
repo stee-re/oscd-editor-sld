@@ -75,8 +75,11 @@ export type {
 export function uuid() {
   const digits = new Array(36);
   for (let i = 0; i < 36; i += 1) {
-    if ([8, 13, 18, 23].includes(i)) digits[i] = '-';
-    else digits[i] = Math.floor(Math.random() * 16);
+    if ([8, 13, 18, 23].includes(i)) {
+      digits[i] = '-';
+    } else {
+      digits[i] = Math.floor(Math.random() * 16);
+    }
   }
   digits[14] = 4;
   digits[19] &= ~(1 << 2);

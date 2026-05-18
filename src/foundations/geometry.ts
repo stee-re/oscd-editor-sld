@@ -67,7 +67,7 @@ function closestPointOnLine(p: Point, p1: Point, p2: Point): Point {
   let point = p1;
   const points = pointsOnLine(p1, p2);
 
-  points.forEach(candidate => {
+  points.forEach((candidate) => {
     if (distance(candidate, p) < distance(point, p)) {
       point = candidate;
     }

@@ -35,7 +35,7 @@ export function copyElementForPlacement(
     Array.from(element.querySelectorAll('ConnectivityNode')),
   );
 
-  terminals.forEach(terminal => {
+  terminals.forEach((terminal) => {
     const cNode = element.ownerDocument.querySelector(
       `ConnectivityNode[pathName="${terminal.getAttribute(
         'connectivityNode',
@@ -47,7 +47,7 @@ export function copyElementForPlacement(
   });
 
   const foreignCNodes = new Set<Element>();
-  cNodes.forEach(cNode => {
+  cNodes.forEach((cNode) => {
     const foreignTerminal = Array.from(
       element.ownerDocument.querySelectorAll(
         `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
@@ -62,7 +62,7 @@ export function copyElementForPlacement(
     }
   });
 
-  foreignCNodes.forEach(cNode => {
+  foreignCNodes.forEach((cNode) => {
     if (cNode.closest(element.tagName) === element) {
       if (isBusBar(cNode.closest('Bay')!)) {
         clone
@@ -80,7 +80,7 @@ export function copyElementForPlacement(
       }
     }
 
-    terminals.forEach(terminal => {
+    terminals.forEach((terminal) => {
       if (
         terminal.getAttribute('connectivityNode') ===
         cNode.getAttribute('pathName')
@@ -93,7 +93,7 @@ export function copyElementForPlacement(
   });
 
   Array.from(clone.querySelectorAll('Terminal, NeutralPoint')).forEach(
-    terminal => {
+    (terminal) => {
       const oldUUID = getSLDAttributes(terminal, 'uuid');
       if (!oldUUID) {
         return;
@@ -228,7 +228,7 @@ export function createDeleteContainerEdits(container: Element): EditV2[] {
   const edits: EditV2[] = [];
 
   Array.from(container.getElementsByTagName('ConnectivityNode')).forEach(
-    cNode => {
+    (cNode) => {
       if (
         Array.from(
           container.ownerDocument.querySelectorAll(
@@ -242,7 +242,7 @@ export function createDeleteContainerEdits(container: Element): EditV2[] {
   );
 
   Array.from(container.querySelectorAll('Terminal, NeutralPoint')).forEach(
-    terminal => {
+    (terminal) => {
       const cNode = container.ownerDocument.querySelector(
         `ConnectivityNode[pathName="${terminal.getAttribute(
           'connectivityNode',

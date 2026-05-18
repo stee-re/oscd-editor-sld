@@ -155,19 +155,26 @@ export function ptrIcon(
   }: { slot?: string; kind?: 'default' | 'auto' | 'earthing' } = {},
 ) {
   let path = svg``;
-  if (windings === 3) path = ptr3WPath;
-  else if (windings === 2) {
-    if (kind === 'auto') path = ptr2WAPath;
-    else path = ptr2WPath;
+  if (windings === 3) {
+    path = ptr3WPath;
+  } else if (windings === 2) {
+    if (kind === 'auto') {
+      path = ptr2WAPath;
+    } else {
+      path = ptr2WPath;
+    }
   } else if (windings === 1) {
-    if (kind === 'auto') path = ptr1WAPath;
-    else path = ptr1WPath;
+    if (kind === 'auto') {
+      path = ptr1WAPath;
+    } else {
+      path = ptr1WPath;
+    }
   }
   const zigZag =
     kind === 'earthing'
       ? svg`<g transform="${
-          windings > 1 ? zigZag2WTransform : nothing
-        }">${zigZagPath}</g>`
+        windings > 1 ? zigZag2WTransform : nothing
+      }">${zigZagPath}</g>`
       : nothing;
   return html`<svg
     viewBox="0.3 0.5 2.4 ${windings > 1 ? 3 : 2}"
@@ -560,8 +567,9 @@ const defaultEquipmentPath = svg`
 `;
 
 export function equipmentPath(equipmentType: string | null): TemplateResult<2> {
-  if (equipmentType && isEqType(equipmentType))
+  if (equipmentType && isEqType(equipmentType)) {
     return equipmentPaths[equipmentType]!;
+  }
   return defaultEquipmentPath;
 }
 

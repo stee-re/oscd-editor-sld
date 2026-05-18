@@ -72,7 +72,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
 
   @state()
   get showLabels(): boolean {
-    if (this.labelToggle) return this.labelToggle.selected;
+    if (this.labelToggle) {
+      return this.labelToggle.selected;
+    }
     return true;
   }
 
@@ -100,7 +102,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
 
   zoomOut() {
     this.gridSize -= 3;
-    if (this.gridSize < 2) this.gridSize = 2;
+    if (this.gridSize < 2) {
+      this.gridSize = 2;
+    }
   }
 
   startPlacing(element: Element | undefined) {
@@ -114,7 +118,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   }
 
   handleKeydown = ({ key }: KeyboardEvent) => {
-    if (key === 'Escape') this.reset();
+    if (key === 'Escape') {
+      this.reset();
+    }
   };
 
   connectedCallback() {
@@ -127,19 +133,20 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     window.removeEventListener('keydown', this.handleKeydown);
   }
 
-  updated(changedProperties: Map<string, unknown>) {
-    if (this.iedMenu)
-      this.iedMenu.anchorElement = this.iedMenu
-        .previousElementSibling as HTMLElement;
-    if (!changedProperties.has('doc')) return;
+  willUpdate(changedProperties: Map<string, unknown>) {
+    if (!changedProperties.has('doc')) {
+      return;
+    }
     const sldNsPrefix = this.doc.documentElement.lookupPrefix(sldNs);
-    if (sldNsPrefix) this.nsp = sldNsPrefix;
-    else
+    if (sldNsPrefix) {
+      this.nsp = sldNsPrefix;
+    } else {
       this.doc.documentElement.setAttributeNS(
         xmlnsNs,
         `xmlns:${this.nsp}`,
         sldNs,
       );
+    }
 
     [
       'Substation',
@@ -148,13 +155,20 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       'ConductingEquipment',
       'PowerTransformer',
       'TransformerWinding',
-    ].forEach(tag => {
+    ].forEach((tag) => {
       this.templateElements[tag] = this.doc.createElementNS(
         this.doc.documentElement.namespaceURI,
         tag,
       );
     });
     this.templateElements.BusBar = makeBusBar(this.doc, this.nsp);
+  }
+
+  updated() {
+    if (this.iedMenu) {
+      this.iedMenu.anchorElement = this.iedMenu
+        .previousElementSibling as HTMLElement;
+    }
   }
 
   convertSldAttributes() {
@@ -165,7 +179,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   /** Loads the file `event.target.files[0]` into [[`src`]] as a `blob:...`. */
   async importBayTypical(event: Event): Promise<void> {
     const file = (<HTMLInputElement | null>event.target)?.files?.item(0);
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const fileBlob = await file.text();
 
@@ -185,12 +201,15 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   }
 
   render() {
-    if (!this.doc) return html`<p>Please open an SCL document</p>`;
-    if (hasOldNamespace(this.doc))
+    if (!this.doc) {
+      return html`<p>Please open an SCL document</p>`;
+    }
+    if (hasOldNamespace(this.doc)) {
       return html`<oscd-text-button
         @click="${() => this.convertSldAttributes()}"
         >Convert SLD Layout</oscd-text-button
       >`;
+    }
 
     const ieds = Array.from(this.doc.querySelectorAll(':root > IED'));
     const substations = Array.from(
@@ -218,7 +237,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         const bRef = refForIed(b);
         const bIsUsed = !!bRef && !!getSLDAttributes(bRef, 'x');
 
-        if (aIsUsed !== bIsUsed) return aIsUsed ? -1 : 1;
+        if (aIsUsed !== bIsUsed) {
+          return aIsUsed ? -1 : 1;
+        }
 
         return aName.localeCompare(bName, undefined, {
           sensitivity: 'base',
@@ -235,9 +256,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
             ),
           ).find(bay => !isBusBar(bay))
             ? eqTypes
-                .map(
-                  eqType =>
-                    html`<oscd-fab
+              .map(
+                eqType =>
+                  html`<oscd-fab
                       size="small"
                       aria-label="Add ${eqType}"
                       title="Add ${eqType}"
@@ -249,8 +270,8 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                       }}
                       >${equipmentIcon(eqType)}</oscd-fab
                     >`,
-                )
-                .concat()
+              )
+              .concat()
             : nothing
         }${
           this.doc.querySelector(':root > Substation > VoltageLevel')
@@ -318,7 +339,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                         title="Add IED"
                         @click=${() => {
                           this._showIeds = true;
-                          if (this.iedMenu) this.iedMenu.open = true;
+                          if (this.iedMenu) {
+                            this.iedMenu.open = true;
+                          }
                         }}
                         ><oscd-icon slot="icon"
                           >developer_board</oscd-icon
@@ -340,7 +363,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                                 );
 
                                 this.dispatchEvent(newEditEventV2(edits));
-                                if (this.iedMenu) this.iedMenu.open = false;
+                                if (this.iedMenu) {
+                                  this.iedMenu.open = false;
+                                }
                               }}
                             >
                               <oscd-icon slot="start">delete</oscd-icon>
@@ -367,8 +392,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                                         ied,
                                         this.doc,
                                       );
-                                      if (this.iedMenu)
+                                      if (this.iedMenu) {
                                         this.iedMenu.open = false;
+                                      }
                                       this.startPlacing(element);
                                     }}
                                   >
@@ -403,13 +429,16 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                                           item.getAttribute('name') ===
                                           ied.getAttribute('name'),
                                       );
-                                      if (!foundIed) return;
+                                      if (!foundIed) {
+                                        return;
+                                      }
                                       const element = this.insertOrGetIed(
                                         foundIed,
                                         this.doc,
                                       );
-                                      if (this.iedMenu)
+                                      if (this.iedMenu) {
                                         this.iedMenu.open = false;
+                                      }
                                       this.startPlacing(element);
                                     }}
                                   >
@@ -590,7 +619,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                 ?selected=${this._showIeds}
                 @click=${() => {
                   this._showIeds = !this._showIeds;
-                  if (this.iedMenu) this.requestUpdate();
+                  if (this.iedMenu) {
+                    this.requestUpdate();
+                  }
                 }}
               >
                 <oscd-icon slot="selected">developer_board</oscd-icon>
@@ -633,7 +664,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
                 aria-label="About"
                 title="About"
                 @click=${() => {
-                  if (this.about) this.about.open = true;
+                  if (this.about) {
+                    this.about.open = true;
+                  }
                 }}
               >
                 <oscd-icon>info</oscd-icon>
@@ -658,7 +691,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       <div slot="actions">
         <oscd-text-button
           @click=${() => {
-            if (this.about) this.about.open = false;
+            if (this.about) {
+              this.about.open = false;
+            }
           }}
           >close</oscd-text-button
         >
@@ -671,7 +706,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       ref => ref.getAttributeNS(sldNs, 'id') === identity(ied),
     );
 
-    if (referencedIed) return referencedIed;
+    if (referencedIed) {
+      return referencedIed;
+    }
 
     const newIedReference = doc.createElementNS(sldNs, `${this.nsp}:Reference`);
     newIedReference.setAttributeNS(
@@ -692,8 +729,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     );
     const reference = getReference(parent, 'Substation');
     let index = 1;
-    while (this.doc.querySelector(`:root > Substation[name="S${index}"]`))
+    while (this.doc.querySelector(`:root > Substation[name="S${index}"]`)) {
       index += 1;
+    }
     node.setAttribute('name', `S${index}`);
     setSLDAttributes(node, this.nsp, { w: '50', h: '25' });
     this.dispatchEvent(newEditEventV2({ parent, node, reference }));

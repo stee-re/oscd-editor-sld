@@ -65,8 +65,9 @@ function cutSectionAt(
   if (
     vertexAtXY === vertices[0] ||
     vertexAtXY === vertices[vertices.length - 1]
-  )
+  ) {
     return [];
+  }
 
   const newSection = section.cloneNode(true) as Element;
   Array.from(newSection.getElementsByTagNameNS(sldNs, 'Vertex'))
@@ -110,8 +111,12 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   set docVersion(value: number) {
     this.connecting = undefined;
-    if (!this.resizingBR?.parentElement) this.resizingBR = undefined;
-    if (!this.placingLabel?.parentElement) this.placingLabel = undefined;
+    if (!this.resizingBR?.parentElement) {
+      this.resizingBR = undefined;
+    }
+    if (!this.placingLabel?.parentElement) {
+      this.placingLabel = undefined;
+    }
     this._docVersion = value;
   }
 
@@ -159,7 +164,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   };
 
   handleKeydown = ({ key }: KeyboardEvent) => {
-    if (key === 'Escape') this.reset();
+    if (key === 'Escape') {
+      this.reset();
+    }
   };
 
   connectedCallback() {
@@ -208,7 +215,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
         !!edit.attributes &&
         'name' in edit.attributes,
     ) as SetAttributes;
-    if (!iedNameEdit) return;
+    if (!iedNameEdit) {
+      return;
+    }
 
     const newIedName = iedNameEdit.attributes!.name!;
 
@@ -229,16 +238,20 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     );
   };
 
-  updated(changedProperties: Map<string, unknown>) {
-    if (!changedProperties.has('doc')) return;
+  willUpdate(changedProperties: Map<string, unknown>) {
+    if (!changedProperties.has('doc')) {
+      return;
+    }
     const sldNsPrefix = this.doc.documentElement.lookupPrefix(sldNs);
-    if (sldNsPrefix) this.nsp = sldNsPrefix;
-    else
+    if (sldNsPrefix) {
+      this.nsp = sldNsPrefix;
+    } else {
       this.doc.documentElement.setAttributeNS(
         xmlnsNs,
         `xmlns:${this.nsp}`,
         sldNs,
       );
+    }
   }
 
   reset() {
@@ -274,7 +287,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   }
 
   startPlacing(element: Element | undefined, offset: Point = [0, 0]) {
-    if (this.disabled) return;
+    if (this.disabled) {
+      return;
+    }
 
     this.reset();
     this.placing = element;
@@ -358,8 +373,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
         element.tagName === 'PowerTransformer' &&
         !getSLDAttributes(element, 'lx')
       ) {
-        if (rot < 2) lx += 1.5;
-        else {
+        if (rot < 2) {
+          lx += 1.5;
+        } else {
           lx -= 2;
           ly += 2;
         }
@@ -378,7 +394,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       );
     }
 
-    Array.from(element.querySelectorAll('Text')).forEach(text => {
+    Array.from(element.querySelectorAll('Text')).forEach((text) => {
       const {
         label: [textLX, textLY],
       } = attributes(text);
@@ -396,7 +412,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       ),
     )
       .concat(iedReferences(element))
-      .forEach(descendant => {
+      .forEach((descendant) => {
         const {
           pos: [descX, descY],
           label: [descLX, descLY],
@@ -431,10 +447,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
       if (groundedTerminals.length > 0) {
         const bayName = parent.closest('Bay')?.getAttribute('name');
-        if (!bayName)
+        if (!bayName) {
           groundedTerminals.forEach(terminal =>
             edits.push(...removeTerminal(terminal)),
           );
+        }
 
         let newCNode = parent.querySelector(
           `ConnectivityNode[name="grounded"]`,
@@ -466,7 +483,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
           .getAttribute('name')!;
         const connectivityNode = newCNode!.getAttribute('pathName');
 
-        groundedTerminals.forEach(terminal => {
+        groundedTerminals.forEach((terminal) => {
           edits.push({
             element: terminal,
             attributes: {
@@ -480,29 +497,31 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       }
     } else if (element.getRootNode() === this.doc) {
       Array.from(element.getElementsByTagName('ConnectivityNode')).forEach(
-        cNode => {
+        (cNode) => {
           if (
             Array.from(
               this.doc.querySelectorAll(
                 `Terminal[connectivityNode="${cNode.getAttribute('pathName')}"],
                      NeutralPoint[connectivityNode="${cNode.getAttribute(
-                       'pathName',
-                     )}"]`,
+              'pathName',
+            )}"]`,
               ),
             ).find(terminal => terminal.closest(element.tagName) !== element)
-          )
+          ) {
             edits.push(...removeNode(cNode));
+          }
         },
       );
       Array.from(element.querySelectorAll('Terminal, NeutralPoint')).forEach(
-        terminal => {
+        (terminal) => {
           const cNode = this.doc.querySelector(
             `ConnectivityNode[pathName="${terminal.getAttribute(
               'connectivityNode',
             )}"]`,
           );
-          if (cNode && cNode.closest(element.tagName) !== element)
+          if (cNode && cNode.closest(element.tagName) !== element) {
             edits.push(...removeNode(cNode));
+          }
         },
       );
     }
@@ -538,7 +557,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       const scl = this.doc.querySelector('SCL')!;
       const ieds = this.placing.ownerDocument.querySelectorAll(':root > IED');
 
-      ieds.forEach(ied => {
+      ieds.forEach((ied) => {
         this.dispatchEvent(newEditEventV2(insertIed(scl, ied)));
       });
 
@@ -565,20 +584,22 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
         });
       }
 
-      if (element.parentElement !== privateElement)
+      if (element.parentElement !== privateElement) {
         iedWrapEdits.push({
           parent: privateElement,
           node: element,
           reference: getReference(privateElement, element.localName),
         });
+      }
 
       if (
         oldParent?.tagName === 'Private' &&
         oldParent.getAttribute('type') === 'OpenSCD-SLD-Layout' &&
         oldParent.childElementCount === 1 &&
         oldParent !== privateElement
-      )
+      ) {
         iedWrapEdits.push({ node: oldParent });
+      }
     }
 
     edits.push(...iedWrapEdits);
@@ -588,9 +609,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     if (
       ['Bay', 'VoltageLevel'].includes(element.tagName) &&
       (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'))
-    )
+    ) {
       this.startResizingBottomRight(element);
-    else this.reset();
+    } else {
+      this.reset();
+    }
   }
 
   connectEquipment({
@@ -603,8 +626,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     if (
       from.tagName === 'TransformerWinding' &&
       to.tagName === 'TransformerWinding'
-    )
+    ) {
       return;
+    }
     const edits = [] as EditV2[];
     let cNode: Element;
     let connectivityNode: string;
@@ -653,14 +677,16 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     path.forEach(([x, y], i) => {
       const vertex = this.doc.createElementNS(sldNs, `${this.nsp}:Vertex`);
       setSLDAttributes(vertex, this.nsp, { x: x.toString(), y: y.toString() });
-      if (i === 0) setSLDAttributes(vertex, this.nsp, { uuid: fromTermUUID });
-      else if (i === path.length - 1 && to.tagName !== 'ConnectivityNode')
+      if (i === 0) {
+        setSLDAttributes(vertex, this.nsp, { uuid: fromTermUUID });
+      } else if (i === path.length - 1 && to.tagName !== 'ConnectivityNode') {
         setSLDAttributes(vertex, this.nsp, { uuid: toTermUUID });
+      }
       edits.push({ parent: section, node: vertex, reference: null });
     });
     if (to.tagName === 'ConnectivityNode') {
       const [x, y] = path[path.length - 1];
-      Array.from(priv.getElementsByTagNameNS(sldNs, 'Section')).find(s => {
+      Array.from(priv.getElementsByTagNameNS(sldNs, 'Section')).find((s) => {
         const sectionPath = Array.from(
           s.getElementsByTagNameNS(sldNs, 'Vertex'),
         ).map(v => attributes(v).pos);
@@ -733,10 +759,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   render() {
     return html`${Array.from(
-        this.doc.querySelectorAll(':root > Substation'),
-      ).map(
-        subs =>
-          html`<sld-substation-editor
+      this.doc.querySelectorAll(':root > Substation'),
+    ).map(
+      subs =>
+        html`<sld-substation-editor
             .doc=${this.doc}
             .docVersion=${this.docVersion}
             .substation=${subs}
@@ -816,6 +842,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
           ></sld-substation-editor>`,
-      )} <oscd-scl-dialogs></oscd-scl-dialogs>`;
+    )} <oscd-scl-dialogs></oscd-scl-dialogs>`;
   }
 }
