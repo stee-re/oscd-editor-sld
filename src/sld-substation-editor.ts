@@ -38,11 +38,15 @@ import {
 } from './icons.js';
 import {
   cleanPath,
-  contains,
   distance,
   findIntersection,
-  overlaps,
 } from './foundations/geometry.js';
+import { containsRect } from './foundations/element-geometry.js';
+import {
+  canPlaceAt,
+  canResizeTo,
+  canResizeToTL,
+} from './foundations/sld-placement.js';
 import {
   copyElementForPlacement,
   createGroundTerminalEdits,
@@ -91,42 +95,6 @@ import {
 } from './context-menu/sld-context-menu.js';
 
 import type { Point, Style } from './foundations/types.js';
-
-const parentTags: Partial<Record<string, string[]>> = {
-  ConductingEquipment: ['Bay'],
-  Bay: ['VoltageLevel'],
-  VoltageLevel: ['Substation'],
-  PowerTransformer: ['Bay', 'VoltageLevel', 'Substation'],
-  Reference: ['Bay', 'VoltageLevel', 'Substation'],
-};
-
-function containsRect(
-  element: Element,
-  x0: number,
-  y0: number,
-  w0: number,
-  h0: number,
-): boolean {
-  const {
-    pos: [x, y],
-    dim: [w, h],
-  } = attributes(element);
-  return contains([x, y, w, h], [x0, y0, w0, h0]);
-}
-
-function overlapsRect(
-  element: Element,
-  x0: number,
-  y0: number,
-  w0: number,
-  h0: number,
-): boolean {
-  const {
-    pos: [x, y],
-    dim: [w, h],
-  } = attributes(element);
-  return overlaps([x, y, w, h], [x0, y0, w0, h0]);
-}
 
 function isBay(element: Element) {
   return element.tagName === 'Bay' && !isBusBar(element);
@@ -352,90 +320,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return result;
   }
 
-  canPlaceAt(element: Element, x: number, y: number, w: number, h: number) {
-    if (element.tagName === 'Substation') return true;
-
-    const overlappingSibling = Array.from(
-      this.substation.querySelectorAll(
-        `${element.localName}, PowerTransformer`,
-      ),
-    )
-      .concat(iedReferences(this.substation))
-      .find(
-        sibling =>
-          sibling.closest(element.localName) !== element &&
-          overlapsRect(sibling, x, y, w, h) &&
-          !isBusBar(sibling),
-      );
-    if (overlappingSibling && !isBusBar(element)) {
-      return false;
-    }
-
-    const containingParent =
-      element.tagName === 'VoltageLevel' ||
-      element.tagName === 'PowerTransformer' ||
-      isIedReferenceElement(element)
-        ? containsRect(this.substation, x, y, w, h)
-        : Array.from(
-            this.substation.querySelectorAll(
-              parentTags[element.localName]!.join(','),
-            ),
-          ).find(
-            parent => !isBusBar(parent) && containsRect(parent, x, y, w, h),
-          );
-    if (containingParent) return true;
-    return false;
-  }
-
-  canResizeTo(element: Element, w: number, h: number) {
-    const {
-      pos: [x, y],
-      dim: [oldW, oldH],
-    } = attributes(element);
-
-    if (
-      !this.canPlaceAt(element, x, y, w, h) &&
-      this.canPlaceAt(element, x, y, oldW, oldH)
-    )
-      return false;
-
-    const lostChild = Array.from(element.children)
-      .concat(iedReferences(element))
-      .find(child => {
-        if (!parentTags[child.localName]?.includes(element.localName))
-          return false;
-        const {
-          pos: [cx, cy],
-          dim: [cw, ch],
-        } = attributes(child);
-
-        return !contains([x, y, w, h], [cx, cy, cw, ch]);
-      });
-    if (lostChild) return false;
-
-    return true;
-  }
-
-  canResizeToTL(element: Element, x: number, y: number, w: number, h: number) {
-    if (!this.canPlaceAt(element, x, y, w, h)) return false;
-
-    const lostChild = Array.from(element.children)
-      .concat(iedReferences(element))
-      .find(child => {
-        if (!parentTags[child.localName]?.includes(element.localName))
-          return false;
-        const {
-          pos: [cx, cy],
-          dim: [cw, ch],
-        } = attributes(child);
-
-        return !contains([x, y, w, h], [cx, cy, cw, ch]);
-      });
-    if (lostChild) return false;
-
-    return true;
-  }
-
   renderedLabelPosition(element: Element, { preview = false } = {}): Point {
     let {
       label: [x, y],
@@ -632,7 +516,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             @click=${() => {
               const element = this.placing!;
               const [x, y] = this.renderedPosition(element);
-              if (!this.canPlaceAt(element, x, y, 1, 1)) return;
+              if (!canPlaceAt(this.substation, element, x, y, 1, 1)) return;
 
               const parent =
                 Array.from(
@@ -689,7 +573,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       const [offsetX, offsetY] = this.placingOffset;
       const x = this.mouseX - offsetX;
       const y = this.mouseY - offsetY;
-      invalid = !this.canPlaceAt(this.placing, x, y, w0, h0);
+      invalid = !canPlaceAt(this.substation, this.placing, x, y, w0, h0);
       coordinates = html`${x},${y}`;
     }
 
@@ -700,7 +584,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       const newW = Math.max(1, this.mouseX - x + 1);
       const newH = Math.max(1, this.mouseY - y + 1);
       hidden = false;
-      invalid = !this.canResizeTo(this.resizingBR, newW, newH);
+      invalid = !canResizeTo(this.substation, this.resizingBR, newW, newH);
       coordinates = html`${newW}&times;${newH}`;
     }
 
@@ -714,7 +598,14 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       const newX = Math.min(this.mouseX, x + resH - 1);
       const newY = Math.min(this.mouseY, y + resW - 1);
       hidden = false;
-      invalid = !this.canResizeToTL(this.resizingTL, newX, newY, newW, newH);
+      invalid = !canResizeToTL(
+        this.substation,
+        this.resizingTL,
+        newX,
+        newY,
+        newW,
+        newH,
+      );
       coordinates = html`${newW}&times;${newH}`;
     }
 
@@ -991,7 +882,12 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               } = attributes(this.substation);
               if (
                 validity.valid &&
-                !this.canResizeTo(this.substation, parseInt(value, 10), oldH)
+                !canResizeTo(
+                  this.substation,
+                  this.substation,
+                  parseInt(value, 10),
+                  oldH,
+                )
               ) {
                 return { valid: false, rangeUnderflow: true };
               }
@@ -1012,7 +908,12 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
               } = attributes(this.substation);
               if (
                 validity.valid &&
-                !this.canResizeTo(this.substation, oldW, parseInt(value, 10))
+                !canResizeTo(
+                  this.substation,
+                  this.substation,
+                  oldW,
+                  parseInt(value, 10),
+                )
               ) {
                 return { valid: false, rangeUnderflow: true };
               }
@@ -1213,7 +1114,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     if (this.resizingBR === bayOrVL) {
       w = Math.max(1, this.mouseX - x + 1);
       h = Math.max(1, this.mouseY - y + 1);
-      if (this.canResizeTo(bayOrVL, w, h))
+      if (canResizeTo(this.substation, bayOrVL, w, h))
         handleClick = () =>
           this.dispatchEvent(
             newResizeEvent({
@@ -1230,7 +1131,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       h = Math.max(1, y + h - this.mouseY);
       x = Math.min(this.mouseX, right);
       y = Math.min(this.mouseY, bottom);
-      if (this.canResizeToTL(bayOrVL, x, y, w, h))
+      if (canResizeToTL(this.substation, bayOrVL, x, y, w, h))
         handleClick = () =>
           this.dispatchEvent(
             newResizeTLEvent({
@@ -1251,7 +1152,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         parent = Array.from(
           this.substation.querySelectorAll(':root > Substation > VoltageLevel'),
         ).find(vl => containsRect(vl, x, y, w, h));
-      if (parent && this.canPlaceAt(bayOrVL, x, y, w, h))
+      if (parent && canPlaceAt(this.substation, bayOrVL, x, y, w, h))
         handleClick = () =>
           this.dispatchEvent(
             newPlaceEvent({
@@ -1637,7 +1538,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           ':root > Substation > VoltageLevel > Bay',
         ),
       ).find(bay => !isBusBar(bay) && containsRect(bay, x, y, 1, 1));
-      if (parent && this.canPlaceAt(equipment, x, y, 1, 1))
+      if (parent && canPlaceAt(this.substation, equipment, x, y, 1, 1))
         handleClick = () => {
           this.dispatchEvent(
             newPlaceEvent({
@@ -1847,7 +1748,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
     if (
       this.placing === referencedIed &&
-      this.canPlaceAt(referencedIed, x, y, 1, 1)
+      canPlaceAt(this.substation, referencedIed, x, y, 1, 1)
     )
       handleClick = () => {
         const parent =

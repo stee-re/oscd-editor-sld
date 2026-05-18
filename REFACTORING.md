@@ -52,7 +52,7 @@ steps that preserve behavior and keep future options open.
 - [x] Extract menu builder methods into `sld-context-menu-factory.ts`
 - [x] Move `EditWizardDetail` & `newSclEditDialogEvent` to `foundations/events.ts`
 - [x] Delete dead code `sld-context-menu-item.ts`
-- [ ] Extract placement and resize validation helpers
+- [x] Extract placement and resize validation helpers
 - [ ] Extract edit builders from `sld-editor.ts`
 - [ ] Simplify `oscd-editor-sld.ts` root component rendering
 - [ ] Split large SVG renderers only after lower-risk extractions
@@ -78,6 +78,9 @@ steps that preserve behavior and keep future options open.
 - `src/context-menu/sld-context-menu-factory.ts` — all menu builder functions, `createContextMenuItems()` entry point
 - `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map
 - `src/foundations/events.ts` — `EditWizardDetail`, `newSclEditDialogEvent`, `newEditIedEvent`, and other SLD event factories
+- `src/foundations/geometry.ts` — pure rectangle/point math (Rect, Point tuples, no DOM)
+- `src/foundations/element-geometry.ts` — Element-aware geometry bridge (`containsRect`, `overlapsRect`)
+- `src/foundations/sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`)
 - `src/sld-substation-editor.ts` — registers `<sld-context-menu>`, delegates via `open()` on right-click
 
 ## Context-Menu Extraction (Completed)
@@ -125,11 +128,10 @@ The substation editor's only involvement: call `this.contextMenu.open(context)` 
 
 - `npm run format` passed.
 - `npm run test` passed with `127 passed, 0 failed`.
-- All context-menu refactoring commits landed on `feat_the-big-restructure`.
+- Placement/resize validation extraction committed on `feat_the-big-restructure`.
 - Known browser log warnings about Lit scheduling updates remain pre-existing and did not fail tests.
 
 ## Suggested Next Steps
 
-- Consider extracting placement/resize validation helpers as an independent workstream.
 - Consider extracting edit builders from `sld-editor.ts`.
 - Move `<oscd-scl-dialogs>` and its event handlers up from `sld-substation-editor` to `sld-editor` (see Follow-up section).

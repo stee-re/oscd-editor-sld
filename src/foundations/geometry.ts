@@ -1,3 +1,10 @@
+/**
+ * Pure rectangle and point math.
+ *
+ * All functions here operate on numeric tuples (Rect, Point) with no
+ * knowledge of DOM Elements or SCL structure.
+ */
+
 import type { Point } from './types.js';
 
 export type Rect = [number, number, number, number];
