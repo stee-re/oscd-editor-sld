@@ -1,9 +1,11 @@
 import { html, LitElement } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { property, query, state } from 'lit/decorators.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import { EditV2, SetAttributes } from '@openscd/oscd-api';
 import { getReference, insertIed } from '@openscd/scl-lib';
+
+import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
 import { SldSubstationEditor } from './sld-substation-editor.js';
 import {
@@ -20,7 +22,11 @@ import {
   setSLDAttributes,
   updateSLDAttributes,
 } from './foundations/sld-attributes.js';
-import { iedReferences, isIedReferenceElement } from './foundations/ied.js';
+import {
+  iedReferences,
+  isIedReferenceElement,
+  resolveIed,
+} from './foundations/ied.js';
 import { privType, sldNs, xmlnsNs } from './foundations/namespaces.js';
 
 import { uuid } from './foundations.js';
@@ -28,6 +34,8 @@ import { uuid } from './foundations.js';
 import type {
   ConnectDetail,
   ConnectEvent,
+  EditIedDetail,
+  EditSclDetail,
   PlaceEvent,
   PlaceLabelEvent,
   ResizeEvent,
@@ -87,7 +95,11 @@ function cutSectionAt(
 export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-substation-editor': SldSubstationEditor,
+    'oscd-scl-dialogs': OscdSclDialogs,
   };
+
+  @query('oscd-scl-dialogs')
+  sclDialogs!: OscdSclDialogs;
 
   @property({ type: Object }) doc!: XMLDocument;
 
@@ -153,12 +165,69 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('keydown', this.handleKeydown);
+    this.addEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
+    this.addEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('keydown', this.handleKeydown);
+    this.removeEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
+    this.removeEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
   }
+
+  private handleEditSclRequest = async (event: Event) => {
+    const detail = (event as CustomEvent<EditSclDetail>).detail;
+    const edits = await this.sclDialogs.edit(detail);
+
+    this.dispatchEvent(newEditEventV2(edits));
+  };
+
+  private handleEditIedRequest = async (event: Event) => {
+    const { element: sclIed } = (event as CustomEvent<EditIedDetail>).detail;
+    const edits = await this.sclDialogs.edit({ element: sclIed });
+
+    const iedReference = iedReferences(this.doc).find(
+      iedRef => resolveIed(iedRef) === sclIed,
+    );
+    if (!iedReference) {
+      this.dispatchEvent(
+        newEditEventV2([edits], {
+          title: 'Update IED',
+          squash: false,
+        }),
+      );
+      return;
+    }
+
+    const iedNameEdit = [...edits.flat()].find(
+      edit =>
+        'element' in edit &&
+        edit.element.tagName === 'IED' &&
+        'attributes' in edit &&
+        !!edit.attributes &&
+        'name' in edit.attributes,
+    ) as SetAttributes;
+    if (!iedNameEdit) return;
+
+    const newIedName = iedNameEdit.attributes!.name!;
+
+    const iedReferenceEdit: SetAttributes = {
+      element: iedReference,
+      attributesNS: {
+        [sldNs]: {
+          [`${this.nsp}:id`]: newIedName,
+        },
+      },
+    };
+
+    this.dispatchEvent(
+      newEditEventV2([edits, iedReferenceEdit], {
+        title: 'Update IED from dialog',
+        squash: false,
+      }),
+    );
+  };
 
   updated(changedProperties: Map<string, unknown>) {
     if (!changedProperties.has('doc')) return;
@@ -664,89 +733,89 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   render() {
     return html`${Array.from(
-      this.doc.querySelectorAll(':root > Substation'),
-    ).map(
-      subs =>
-        html`<sld-substation-editor
-          .doc=${this.doc}
-          .docVersion=${this.docVersion}
-          .substation=${subs}
-          .gridSize=${this.gridSize}
-          .resizingBR=${this.resizingBR}
-          .resizingTL=${this.resizingTL}
-          .placing=${this.placing}
-          .placingOffset=${this.placingOffset}
-          .placingLabel=${this.placingLabel}
-          .connecting=${this.connecting}
-          .showLabels=${this.showLabels}
-          .showIeds=${this.showIeds}
-          .disabled=${this.disabled}
-          .selectable=${this.selectable}
-          .highlight=${this.highlight}
-          @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
-            this.startResizingBottomRight(detail);
-          }}
-          @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
-            this.startResizingTopLeft(detail);
-          }}
-          @oscd-sld-start-place=${({
-            detail: { element, offset },
-          }: StartPlaceEvent) => {
-            this.startPlacing(element, offset);
-          }}
-          @oscd-sld-start-place-label=${({
-            detail: { element, offset },
-          }: StartPlaceEvent) => {
-            this.startPlacingLabel(element, offset);
-          }}
-          @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
-            this.startConnecting(detail);
-          }}
-          @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-            const resize = updateSLDAttributes(element, this.nsp, {
-              w: w.toString(),
-              h: h.toString(),
-            });
-            this.dispatchEvent(newEditEventV2(resize));
-            this.reset();
-          }}
-          @oscd-sld-resize-tl=${({
-            detail: { element, x, y, w, h },
-          }: ResizeTLEvent) => {
-            const {
-              pos: [oldX, oldY],
-              label: [oldLX, oldLY],
-            } = attributes(element);
-            let lx = oldLX;
-            let ly = oldLY;
-            if (lx === oldX && ly === oldY) {
-              lx += x - oldX;
-              ly += y - oldY;
-            }
+        this.doc.querySelectorAll(':root > Substation'),
+      ).map(
+        subs =>
+          html`<sld-substation-editor
+            .doc=${this.doc}
+            .docVersion=${this.docVersion}
+            .substation=${subs}
+            .gridSize=${this.gridSize}
+            .resizingBR=${this.resizingBR}
+            .resizingTL=${this.resizingTL}
+            .placing=${this.placing}
+            .placingOffset=${this.placingOffset}
+            .placingLabel=${this.placingLabel}
+            .connecting=${this.connecting}
+            .showLabels=${this.showLabels}
+            .showIeds=${this.showIeds}
+            .disabled=${this.disabled}
+            .selectable=${this.selectable}
+            .highlight=${this.highlight}
+            @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
+              this.startResizingBottomRight(detail);
+            }}
+            @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
+              this.startResizingTopLeft(detail);
+            }}
+            @oscd-sld-start-place=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacing(element, offset);
+            }}
+            @oscd-sld-start-place-label=${({
+              detail: { element, offset },
+            }: StartPlaceEvent) => {
+              this.startPlacingLabel(element, offset);
+            }}
+            @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
+              this.startConnecting(detail);
+            }}
+            @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
+              const resize = updateSLDAttributes(element, this.nsp, {
+                w: w.toString(),
+                h: h.toString(),
+              });
+              this.dispatchEvent(newEditEventV2(resize));
+              this.reset();
+            }}
+            @oscd-sld-resize-tl=${({
+              detail: { element, x, y, w, h },
+            }: ResizeTLEvent) => {
+              const {
+                pos: [oldX, oldY],
+                label: [oldLX, oldLY],
+              } = attributes(element);
+              let lx = oldLX;
+              let ly = oldLY;
+              if (lx === oldX && ly === oldY) {
+                lx += x - oldX;
+                ly += y - oldY;
+              }
 
-            const resize = updateSLDAttributes(element, this.nsp, {
-              x: x.toString(),
-              y: y.toString(),
-              w: w.toString(),
-              h: h.toString(),
-              lx: lx.toString(),
-              ly: ly.toString(),
-            });
+              const resize = updateSLDAttributes(element, this.nsp, {
+                x: x.toString(),
+                y: y.toString(),
+                w: w.toString(),
+                h: h.toString(),
+                lx: lx.toString(),
+                ly: ly.toString(),
+              });
 
-            this.dispatchEvent(newEditEventV2(resize));
-            this.reset();
-          }}
-          @oscd-sld-place=${({
-            detail: { element, parent, x, y },
-          }: PlaceEvent) => this.placeElement(element, parent, x, y)}
-          @oscd-sld-place-label=${({
-            detail: { element, x, y },
-          }: PlaceLabelEvent) => this.placeLabel(element, x, y)}
-          @oscd-sld-connect=${({ detail }: ConnectEvent) =>
-            this.connectEquipment(detail)}
-          @oscd-sld-rotate=${({ detail }: StartEvent) =>
-            this.rotateElement(detail)}
-        ></sld-substation-editor>`,
-    )}`;
+              this.dispatchEvent(newEditEventV2(resize));
+              this.reset();
+            }}
+            @oscd-sld-place=${({
+              detail: { element, parent, x, y },
+            }: PlaceEvent) => this.placeElement(element, parent, x, y)}
+            @oscd-sld-place-label=${({
+              detail: { element, x, y },
+            }: PlaceLabelEvent) => this.placeLabel(element, x, y)}
+            @oscd-sld-connect=${({ detail }: ConnectEvent) =>
+              this.connectEquipment(detail)}
+            @oscd-sld-rotate=${({ detail }: StartEvent) =>
+              this.rotateElement(detail)}
+          ></sld-substation-editor>`,
+      )} <oscd-scl-dialogs></oscd-scl-dialogs>`;
   }
 }

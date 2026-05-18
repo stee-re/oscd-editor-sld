@@ -94,15 +94,15 @@ The `<sld-context-menu>` component was extracted as a standalone web component t
 
 The component receives `doc` and `nsp` as properties. It does NOT depend on `sclDialogs`:
 
-- Most "Edit" actions dispatch `oscd-edit-wizard-request` (handled by the editor)
-- IED editing dispatches `oscd-edit-ied-request`, handled by `handleEditIedRequest()` on the editor
+- Most "Edit" actions dispatch `oscd-sld-edit-scl` (handled by the editor)
+- IED editing dispatches `oscd-sld-edit-ied`, handled by `handleEditIedRequest()` on the editor
 - Ground terminal failure dispatches an `sld-ground-hint` event (editor shows snackbar)
 
 The substation editor's only involvement: call `this.contextMenu.open(context)` on right-click.
 
 ## Follow-up (out of scope for current refactor)
 
-- Move `<oscd-scl-dialogs>` and its event handlers (`handleEditWizardRequest`, `handleEditIedRequest`) up from `sld-substation-editor` to `sld-editor`, alongside all other event handlers. Currently creates one listener per substation unnecessarily.
+- ~~Move `<oscd-scl-dialogs>` and its event handlers (`handleEditWizardRequest`, `handleEditIedRequest`) up from `sld-substation-editor` to `sld-editor`, alongside all other event handlers. Currently creates one listener per substation unnecessarily.~~ **Done.**
 
 ## Decisions Made
 
@@ -134,4 +134,3 @@ The substation editor's only involvement: call `this.contextMenu.open(context)` 
 ## Suggested Next Steps
 
 - Consider extracting edit builders from `sld-editor.ts`.
-- Move `<oscd-scl-dialogs>` and its event handlers up from `sld-substation-editor` to `sld-editor` (see Follow-up section).

@@ -14,7 +14,6 @@ import { classMap } from 'lit/directives/class-map.js';
 import { createRef, Ref, ref } from 'lit/directives/ref.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
-import { SetAttributes } from '@openscd/oscd-api';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 
 import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
@@ -24,7 +23,6 @@ import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton
 // TODO: Replace with oscd-ui notification when available
 import { SldSnackbar } from './sld-snackbar.js';
 import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
-import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
 import { identity } from '@openscd/scl-lib';
 import {
@@ -84,8 +82,6 @@ import {
   newStartPlaceLabelEvent,
   newStartResizeBREvent,
   newStartResizeTLEvent,
-  type EditIedDetail,
-  type EditWizardDetail,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
 import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
@@ -171,7 +167,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     // TODO: Replace with oscd-ui notification when available
     'sld-snackbar': SldSnackbar,
     'oscd-outlined-text-field': OscdOutlinedTextField,
-    'oscd-scl-dialogs': OscdSclDialogs,
     'sld-context-menu': SldContextMenu,
   };
 
@@ -249,9 +244,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   @query('sld-snackbar')
   groundHint!: SldSnackbar;
-
-  @query('oscd-scl-dialogs')
-  sclDialogs!: OscdSclDialogs;
 
   @query('sld-context-menu')
   contextMenu?: SldContextMenu;
@@ -378,79 +370,12 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('click', this.positionCoordinates);
-    //TODO consider moving this up to the sld-editor - unless there is a good reason these things should be managed at this level.
-    this.addEventListener(
-      'oscd-edit-wizard-request',
-      this.handleEditWizardRequest,
-    );
-    this.addEventListener('oscd-edit-ied-request', this.handleEditIedRequest);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('click', this.positionCoordinates);
-    this.removeEventListener(
-      'oscd-edit-wizard-request',
-      this.handleEditWizardRequest,
-    );
-    this.removeEventListener(
-      'oscd-edit-ied-request',
-      this.handleEditIedRequest,
-    );
   }
-
-  private handleEditWizardRequest = async (event: Event) => {
-    const detail = (event as CustomEvent<EditWizardDetail>).detail;
-    const edits = await this.sclDialogs.edit(detail);
-
-    this.dispatchEvent(newEditEventV2(edits));
-  };
-
-  private handleEditIedRequest = async (event: Event) => {
-    const { element: sclIed } = (event as CustomEvent<EditIedDetail>).detail;
-    const edits = await this.sclDialogs.edit({ element: sclIed });
-
-    const iedReference = iedReferences(this.doc).find(
-      iedRef => this.resolvedIed(iedRef) === sclIed,
-    );
-    if (!iedReference) {
-      this.dispatchEvent(
-        newEditEventV2([edits], {
-          title: 'Update IED',
-          squash: false,
-        }),
-      );
-      return;
-    }
-
-    const iedNameEdit = [...edits.flat()].find(
-      edit =>
-        'element' in edit &&
-        edit.element.tagName === 'IED' &&
-        'attributes' in edit &&
-        !!edit.attributes &&
-        'name' in edit.attributes,
-    ) as SetAttributes;
-    if (!iedNameEdit) return;
-
-    const newIedName = iedNameEdit.attributes!.name!;
-
-    const iedReferenceEdit: SetAttributes = {
-      element: iedReference,
-      attributesNS: {
-        [sldNs]: {
-          [`${this.nsp}:id`]: newIedName,
-        },
-      },
-    };
-
-    this.dispatchEvent(
-      newEditEventV2([edits, iedReferenceEdit], {
-        title: 'Update IED from dialog',
-        squash: false,
-      }),
-    );
-  };
 
   handleExport() {
     exportSVG({
@@ -963,7 +888,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         labelText="Only transformers within a bay may be grounded directly."
       >
       </sld-snackbar>
-      <oscd-scl-dialogs></oscd-scl-dialogs>
     </section>`;
   }
 
