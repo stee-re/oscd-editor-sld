@@ -1,7 +1,7 @@
 import { getReference } from '@openscd/scl-lib';
 
 import { isIedReferenceElement } from './ied.js';
-import { privType, sldNs } from './namespaces.js';
+import { privType, sldNs } from '../foundations.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
 import type { Point } from './geometry.js';
@@ -43,7 +43,10 @@ export function xmlBoolean(value?: string | null) {
 
 function sldAttributes(element: Element, nsPrefix?: string): Element | null {
   if (isIedReferenceElement(element)) {
-    const referenceSldAttrs = element.querySelector(':scope > SLDAttributes');
+    const referenceSldAttrs = Array.from(element.children).find(
+      child =>
+        child.localName === 'SLDAttributes' && child.namespaceURI === sldNs,
+    );
     if (referenceSldAttrs) {
       return referenceSldAttrs;
     }
@@ -59,9 +62,17 @@ function sldAttributes(element: Element, nsPrefix?: string): Element | null {
     return sldAttrs;
   }
 
-  const sldAttrs = element.querySelector(
-    `:scope > Private[type="${privType}"] > SLDAttributes`,
+  const priv = Array.from(element.children).find(
+    child =>
+      child.localName === 'Private' &&
+      child.getAttribute('type') === privType,
   );
+  const sldAttrs = priv
+    ? Array.from(priv.children).find(
+      child =>
+        child.localName === 'SLDAttributes' && child.namespaceURI === sldNs,
+    ) ?? null
+    : null;
 
   if (sldAttrs) {
     return sldAttrs;
@@ -71,13 +82,16 @@ function sldAttributes(element: Element, nsPrefix?: string): Element | null {
   }
 
   const doc = element.ownerDocument;
-  const priv = doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+  const privEl =
+    priv ?? doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
 
-  priv.setAttribute('type', privType);
-  element.insertBefore(priv, getReference(element, 'Private'));
+  if (!priv) {
+    privEl.setAttribute('type', privType);
+    element.insertBefore(privEl, getReference(element, 'Private'));
+  }
 
   const sldAttrsNew = doc.createElementNS(sldNs, `${nsPrefix}:SLDAttributes`);
-  priv.insertBefore(sldAttrsNew, null);
+  privEl.insertBefore(sldAttrsNew, null);
 
   return sldAttrsNew;
 }

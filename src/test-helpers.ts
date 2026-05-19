@@ -1,3 +1,43 @@
+import { sclNs, sldNs } from './foundations.js';
+
+/**
+ * Injects unnamespaced decoy attributes into a parsed SCL document.
+ *
+ * Every namespaced SLD attribute (e.g. `smth:x="3"`) gets an unnamespaced twin
+ * (`x="DECOY"`). Code that uses `getAttribute('x')` will get `"DECOY"`; code
+ * that correctly uses `getAttributeNS(sldNs, 'x')` gets the real value.
+ *
+ * This catches the realistic fragility of hand-edited SCL files or buggy
+ * serializers leaving unnamespaced attributes alongside namespaced ones.
+ */
+function injectAttributeDecoys(doc: XMLDocument): void {
+  const sldElements = [
+    ...Array.from(doc.getElementsByTagNameNS(sldNs, 'Section')),
+    ...Array.from(doc.getElementsByTagNameNS(sldNs, 'Vertex')),
+    ...Array.from(doc.getElementsByTagNameNS(sldNs, 'SLDAttributes')),
+  ];
+  for (const el of sldElements) {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.namespaceURI === sldNs) {
+        el.setAttribute(attr.localName, 'DECOY');
+      }
+    }
+  }
+}
+
+/** Creates an SCL XMLDocument with attribute decoys injected. */
+export function createSCLDoc(inner: string): XMLDocument {
+  const doc = new DOMParser().parseFromString(
+    `<?xml version="1.0" encoding="UTF-8"?>
+    <SCL xmlns="${sclNs}" xmlns:smth="${sldNs}" version="2007" revision="B">
+      ${inner}
+    </SCL>`,
+    'application/xml',
+  );
+  injectAttributeDecoys(doc);
+  return doc;
+}
+
 /**
  * Shared test utilities for computing viewport positions from SVG grid
  * coordinates. These helpers dynamically resolve pixel positions based on

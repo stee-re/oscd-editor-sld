@@ -1,7 +1,7 @@
 import { getReference } from '@openscd/scl-lib';
 
 import { isIedReferenceElement } from './ied.js';
-import { privType, sldNs } from './namespaces.js';
+import { privType, sldNs } from '../foundations.js';
 import {
   attributes,
   getSLDAttributes,
@@ -13,8 +13,13 @@ import type { EditV2 } from '@openscd/oscd-api';
 import type { Point } from './geometry.js';
 
 function sections(element: Element): Element[] {
-  return Array.from(
-    element.querySelectorAll(`:scope Private[type="${privType}"] > Section`),
+  const privates = element.querySelectorAll(
+    `:scope Private[type="${privType}"]`,
+  );
+  return Array.from(privates).flatMap(priv =>
+    Array.from(priv.children).filter(
+      child => child.localName === 'Section' && child.namespaceURI === sldNs,
+    ),
   );
 }
 
@@ -147,7 +152,7 @@ function healSectionCut(cut: Element): EditV2[] {
     return removeNode(cut.closest('ConnectivityNode')!);
   }
   const [busA, busB] = cutSections.map(section =>
-    xmlBoolean(section.getAttribute('bus')),
+    xmlBoolean(getSLDAttributes(section, 'bus')),
   );
   if (busA !== busB) {
     return [];

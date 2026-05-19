@@ -27,7 +27,7 @@ import {
   isIedReferenceElement,
   resolveIed,
 } from './foundations/ied.js';
-import { privType, sldNs, xmlnsNs } from './foundations/namespaces.js';
+import { privType, sldNs, xmlnsNs } from './foundations.js';
 
 import { uuid } from './foundations.js';
 

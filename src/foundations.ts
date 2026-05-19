@@ -1,10 +1,10 @@
-export {
-  privType,
-  sldNs,
-  svgNs,
-  xlinkNs,
-  xmlnsNs,
-} from './foundations/namespaces.js';
+export const privType = 'OpenSCD-SLD-Layout';
+export const sldNs = 'https://openscd.org/SCL/SSD/SLD/v0';
+export const xmlnsNs = 'http://www.w3.org/2000/xmlns/';
+export const svgNs = 'http://www.w3.org/2000/svg';
+export const xlinkNs = 'http://www.w3.org/1999/xlink';
+export const sclNs = 'http://www.iec.ch/61850/2003/SCL';
+
 export {
   eqTypes,
   isEqType,
