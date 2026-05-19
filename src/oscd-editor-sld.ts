@@ -27,7 +27,7 @@ import {
   iedReferences,
   unresolvedIedReferences,
 } from './foundations/ied.js';
-import { sldNs, xmlnsNs } from './foundations/namespaces.js';
+import { sldNs, xmlnsNs } from './foundations.js';
 import {
   getSLDAttributes,
   setSLDAttributes,

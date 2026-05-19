@@ -84,7 +84,7 @@ import {
   newStartResizeTLEvent,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
-import { privType, sldNs, svgNs, xlinkNs } from './foundations/namespaces.js';
+import { privType, sldNs, svgNs, xlinkNs } from './foundations.js';
 import {
   SldContextMenu,
   type MenuContext,

@@ -1,6 +1,6 @@
 import { identity } from '@openscd/scl-lib';
 
-import { privType, sldNs } from './namespaces.js';
+import { privType, sldNs } from '../foundations.js';
 
 import type { EditV2 } from '@openscd/oscd-api';
 
@@ -56,10 +56,16 @@ export function resolveIed(referencedIed: Element): Element | null {
 export function createRemoveIedReferenceEdit(referencedIed: Element): EditV2 {
   const sldLayoutPrivate = referencedIed.parentElement;
 
+  const sldChildren = sldLayoutPrivate
+    ? Array.from(sldLayoutPrivate.children).filter(
+      child => child.namespaceURI === sldNs,
+    )
+    : [];
+
   if (
     sldLayoutPrivate?.tagName === 'Private' &&
     sldLayoutPrivate.getAttribute('type') === privType &&
-    sldLayoutPrivate.childElementCount === 1
+    sldChildren.length === 1
   ) {
     return { node: sldLayoutPrivate };
   }

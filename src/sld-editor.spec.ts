@@ -67,7 +67,7 @@ import {
   setSLDAttributes,
 } from './foundations/sld-attributes.js';
 import { iedReferences, resolveIed } from './foundations/ied.js';
-import { sldNs } from './foundations/namespaces.js';
+import { sldNs } from './foundations.js';
 
 import { SldEditor } from './sld-editor.js';
 import {
