@@ -2,38 +2,33 @@ import { html, LitElement } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
-import { EditV2, SetAttributes } from '@openscd/oscd-api';
-import { getReference, insertIed } from '@openscd/scl-lib';
+import type { EditV2, SetAttributes } from '@openscd/oscd-api';
+import { insertIed } from '@openscd/scl-lib';
 
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
 import { SldSubstationEditor } from './sld-substation-editor.js';
+import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
 import {
-  busSections,
-  connectivityPath,
-  isBusBar,
-  removeNode,
-  removeTerminal,
-  reparentElement,
-} from './foundations/connectivity.js';
-import {
-  attributes,
-  getSLDAttributes,
-  updateSLDAttributes,
-} from './foundations/sld-attributes.js';
-import {
+  busBarVertexEdits,
   createConnectEdits,
   createPlaceLabelEdit,
   createResizeEdits,
   createResizeTLEdits,
   createRotateEdits,
+  disconnectExternalEdits,
+  rewireTerminalEdits,
+  shiftDescendantEdits,
+  shiftElementEdits,
+  shiftTextEdits,
+  wrapIedReferenceEdits,
 } from './foundations/edits.js';
 import {
   iedReferences,
   isIedReferenceElement,
   resolveIed,
 } from './foundations/ied.js';
-import { sldNs, xmlnsNs } from './foundations.js';
+import { reparentElement, sldNs, xmlnsNs } from './foundations.js';
 
 import type {
   ConnectDetail,
@@ -122,12 +117,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
   };
 
-  handleKeydown = ({ key }: KeyboardEvent) => {
-    if (key === 'Escape') {
-      this.reset();
-    }
-  };
-
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('keydown', this.handleKeydown);
@@ -141,6 +130,12 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.removeEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
     this.removeEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
   }
+
+  private handleKeydown = ({ key }: KeyboardEvent) => {
+    if (key === 'Escape') {
+      this.reset();
+    }
+  };
 
   private handleEditSclRequest = async (event: Event) => {
     const detail = (event as CustomEvent<EditSclDetail>).detail;
@@ -279,217 +274,36 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
   }
 
+  isNewBayOrVL(element: Element) : boolean {
+    return ['Bay', 'VoltageLevel'].includes(element.tagName) &&
+      (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'));
+
+  }
+
   placeElement(element: Element, parent: Element, x: number, y: number) {
+    const {
+      pos: [oldX, oldY],
+    } = attributes(element);
+    const dx = x - oldX;
+    const dy = y - oldY;
+
     const edits: EditV2[] = [];
+
     if (element.parentElement !== parent && !isIedReferenceElement(element)) {
       edits.push(...reparentElement(element, parent));
     }
 
-    const {
-      pos: [oldX, oldY],
-      label: [oldLX, oldLY],
-      rot,
-    } = attributes(element);
+    edits.push(...shiftElementEdits(element, x, y, this.nsp));
+    edits.push(...shiftTextEdits(element, dx, dy, this.nsp));
+    edits.push(...shiftDescendantEdits(element, dx, dy, this.nsp));
+    edits.push(...rewireTerminalEdits(element, parent, this.doc));
+    edits.push(...disconnectExternalEdits(element, this.doc));
+    edits.push(...busBarVertexEdits(element, x, y, this.nsp));
+    edits.push(...wrapIedReferenceEdits(element, parent, this.doc));
 
-    const dx = x - oldX;
-    const dy = y - oldY;
+    this.dispatchEvent(newEditEventV2(edits));
 
-    if (element.localName !== 'Vertex') {
-      let lx = oldLX;
-      let ly = oldLY;
-      if (
-        element.tagName === 'ConductingEquipment' &&
-        !getSLDAttributes(element, 'lx') &&
-        rot % 2 === 0
-      ) {
-        lx += 1;
-        ly += 1;
-      }
-      if (
-        element.tagName === 'PowerTransformer' &&
-        !getSLDAttributes(element, 'lx')
-      ) {
-        if (rot < 2) {
-          lx += 1.5;
-        } else {
-          lx -= 2;
-          ly += 2;
-        }
-      }
-      if (isIedReferenceElement(element) && !getSLDAttributes(element, 'lx')) {
-        lx += 1;
-        ly += 1;
-      }
-      edits.push(
-        updateSLDAttributes(element, this.nsp, {
-          x: x.toString(),
-          y: y.toString(),
-          lx: (lx + dx).toString(),
-          ly: (ly + dy).toString(),
-        }),
-      );
-    }
-
-    Array.from(element.querySelectorAll('Text')).forEach((text) => {
-      const {
-        label: [textLX, textLY],
-      } = attributes(text);
-
-      const newAttr = {
-        lx: (textLX + dx).toString(),
-        ly: (textLY + dy).toString(),
-      };
-      edits.push(updateSLDAttributes(text, this.nsp, newAttr));
-    });
-
-    Array.from(
-      element.querySelectorAll(
-        'Bay, ConductingEquipment, PowerTransformer, Vertex',
-      ),
-    )
-      .concat(iedReferences(element))
-      .forEach((descendant) => {
-        const {
-          pos: [descX, descY],
-          label: [descLX, descLY],
-        } = attributes(descendant);
-        const newAttributes: {
-          x: string;
-          y: string;
-          lx?: string;
-          ly?: string;
-        } = {
-          x: (descX + dx).toString(),
-          y: (descY + dy).toString(),
-        };
-        if (descendant.localName !== 'Vertex') {
-          newAttributes.lx = (descLX + dx).toString();
-          newAttributes.ly = (descLY + dy).toString();
-        }
-        edits.push(updateSLDAttributes(descendant, this.nsp, newAttributes));
-      });
-
-    if (
-      element.tagName === 'ConductingEquipment' ||
-      element.tagName === 'PowerTransformer'
-    ) {
-      Array.from(element.querySelectorAll('Terminal, NeutralPoint'))
-        .filter(terminal => terminal.getAttribute('cNodeName') !== 'grounded')
-        .forEach(terminal => edits.push(...removeTerminal(terminal)));
-
-      const groundedTerminals = Array.from(
-        element.querySelectorAll('Terminal, NeutralPoint'),
-      ).filter(terminal => terminal.getAttribute('cNodeName') === 'grounded');
-
-      if (groundedTerminals.length > 0) {
-        const bayName = parent.closest('Bay')?.getAttribute('name');
-        if (!bayName) {
-          groundedTerminals.forEach(terminal =>
-            edits.push(...removeTerminal(terminal)),
-          );
-        }
-
-        let newCNode = parent.querySelector(
-          `ConnectivityNode[name="grounded"]`,
-        );
-
-        if (!newCNode) {
-          newCNode = this.doc.createElementNS(
-            this.doc.documentElement.namespaceURI,
-            'ConnectivityNode',
-          );
-          newCNode.setAttribute('name', 'grounded');
-          newCNode.setAttribute(
-            'pathName',
-            connectivityPath(parent, 'grounded'),
-          );
-
-          edits.push({
-            node: newCNode,
-            parent,
-            reference: getReference(parent, 'ConnectivityNode'),
-          });
-        }
-
-        const voltageLevelName = parent
-          .closest('VoltageLevel')
-          ?.getAttribute('name');
-        const substationName = parent
-          .closest('Substation')!
-          .getAttribute('name')!;
-        const connectivityNode = newCNode!.getAttribute('pathName');
-
-        groundedTerminals.forEach((terminal) => {
-          edits.push({
-            element: terminal,
-            attributes: {
-              connectivityNode,
-              bayName,
-              voltageLevelName,
-              substationName,
-            },
-          });
-        });
-      }
-    } else if (element.getRootNode() === this.doc) {
-      Array.from(element.getElementsByTagName('ConnectivityNode')).forEach(
-        (cNode) => {
-          if (
-            Array.from(
-              this.doc.querySelectorAll(
-                `Terminal[connectivityNode="${cNode.getAttribute('pathName')}"],
-                     NeutralPoint[connectivityNode="${cNode.getAttribute(
-              'pathName',
-            )}"]`,
-              ),
-            ).find(terminal => terminal.closest(element.tagName) !== element)
-          ) {
-            edits.push(...removeNode(cNode));
-          }
-        },
-      );
-      Array.from(element.querySelectorAll('Terminal, NeutralPoint')).forEach(
-        (terminal) => {
-          const cNode = this.doc.querySelector(
-            `ConnectivityNode[pathName="${terminal.getAttribute(
-              'connectivityNode',
-            )}"]`,
-          );
-          if (cNode && cNode.closest(element.tagName) !== element) {
-            edits.push(...removeNode(cNode));
-          }
-        },
-      );
-    }
-
-    if (element.localName === 'Vertex') {
-      const bay = element.closest('Bay')!;
-      const sections = busSections(bay);
-      const section = sections[0];
-      const vertex = section.querySelector('Vertex')!;
-      const lastSection = sections[sections.length - 1];
-      const lastVertex = lastSection.querySelector('Vertex:last-of-type')!;
-      const {
-        pos: [x1, y1],
-      } = attributes(vertex);
-      const w = x - x1 + 1;
-      const h = y - y1 + 1;
-      if (isBusBar(bay)) {
-        edits.push(...removeNode(section.closest('ConnectivityNode')!));
-        edits.push(
-          updateSLDAttributes(lastVertex, this.nsp, {
-            x: x.toString(),
-            y: y.toString(),
-          }),
-        );
-        edits.push(
-          updateSLDAttributes(bay, this.nsp, {
-            w: w.toString(),
-            h: h.toString(),
-          }),
-        );
-      }
-    } else if (this.placingBayTypical && this.placing) {
+    if (this.placingBayTypical && this.placing) {
       const scl = this.doc.querySelector('SCL')!;
       const ieds = this.placing.ownerDocument.querySelectorAll(':root > IED');
 
@@ -500,52 +314,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       this.placingBayTypical = undefined;
     }
 
-    const oldParent = element.parentElement;
-
-    const iedWrapEdits: EditV2[] = [];
-    if (isIedReferenceElement(element)) {
-      let privateElement = parent.querySelector(
-        ':scope > Private[type="OpenSCD-SLD-Layout"]',
-      );
-      if (!privateElement) {
-        privateElement = this.doc.createElementNS(
-          this.doc.documentElement.namespaceURI,
-          'Private',
-        );
-        privateElement.setAttribute('type', 'OpenSCD-SLD-Layout');
-        iedWrapEdits.push({
-          parent,
-          node: privateElement,
-          reference: getReference(parent, 'Private'),
-        });
-      }
-
-      if (element.parentElement !== privateElement) {
-        iedWrapEdits.push({
-          parent: privateElement,
-          node: element,
-          reference: getReference(privateElement, element.localName),
-        });
-      }
-
-      if (
-        oldParent?.tagName === 'Private' &&
-        oldParent.getAttribute('type') === 'OpenSCD-SLD-Layout' &&
-        oldParent.childElementCount === 1 &&
-        oldParent !== privateElement
-      ) {
-        iedWrapEdits.push({ node: oldParent });
-      }
-    }
-
-    edits.push(...iedWrapEdits);
-
-    this.dispatchEvent(newEditEventV2(edits));
-
-    if (
-      ['Bay', 'VoltageLevel'].includes(element.tagName) &&
-      (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'))
-    ) {
+    if (this.isNewBayOrVL(element)) {
       this.startResizingBottomRight(element);
     } else {
       this.reset();

@@ -54,7 +54,7 @@ steps that preserve behavior and keep future options open.
 - [x] Delete dead code `sld-context-menu-item.ts`
 - [x] Extract placement and resize validation helpers
 - [x] Migrate `<sld-context-menu>` from raw `<menu>` to `oscd-menu`
-- [ ] Extract edit builders from `sld-editor.ts`
+- [x] Extract edit builders from `sld-editor.ts`
 - [ ] Simplify `oscd-editor-sld.ts` root component rendering
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
@@ -119,12 +119,13 @@ steps that preserve behavior and keep future options open.
 
 - `npm run format` passed.
 - `npm run test` passed with `352 passed, 0 failed`.
-- Integration tests updated
+- `sld-editor.ts` reduced from 848 → 369 lines.
+- `foundations/edits.ts` grew to 868 lines (split planned).
 
-## Edit Builder Extraction — Analysis
+## Edit Builder Extraction — Complete
 
-The next workstream is extracting edit builders out of `sld-editor.ts` (848 lines).
-The goal: `sld-editor.ts` becomes a thin orchestrator (state + event routing), while
+Edit builders extracted from `sld-editor.ts` (848 → 369 lines).
+`sld-editor.ts` is now a thin orchestrator (state + event routing), while
 edit-building logic lives as pure functions in `foundations/`.
 
 ### Foundations Structure Assessment
@@ -150,59 +151,8 @@ Current files are well-grouped by domain concept:
 `makeBusBar`). A future pass could move the edit builders into `edits.ts`, leaving
 connectivity as purely read-only. Not a prerequisite for the current work.
 
-### Naming: `edits.ts` is fine
+### Naming: `edits.ts` is fine (for now)
 
 The name is generic, but contextually clear (lives in `foundations/`, parallels
 `events.ts`). Alternatives considered: `sld-edit-builders.ts`, `sld-mutations.ts`,
 `edit-factories.ts` — none improve clarity enough to justify a rename.
-
-### Candidates in `sld-editor.ts`
-
-| Method | Lines | Destination | Complexity |
-|--------|-------|-------------|------------|
-| `cutSectionAt()` | 51–96 | `edits.ts` | Already a pure function at module top |
-| `rotateElement()` | 320–336 | `edits.ts` | Small — rotation + terminal removal |
-| `placeLabel()` | 338–345 | `edits.ts` | Trivial — single `updateSLDAttributes` |
-| Inline resize handlers | 801–834 | `edits.ts` | Small — `updateSLDAttributes` for w/h/x/y |
-| `placeElement()` | 347–618 | `edits.ts` (decomposed) | ~270 lines, 6+ sub-responsibilities |
-| `connectEquipment()` | 620–758 | New `sld-connect.ts` | ~140 lines, connectivity wiring |
-
-### Proposed file layout after extraction
-
-- **`edits.ts`** — gains: `createRotateEdits`, `createPlaceLabelEdit`,
-  `createResizeEdits`, `createResizeTLEdits`, and the decomposed sub-functions
-  of `placeElement` (place-grounding, place-descendants, place-ied-wrapper,
-  place-busbar-vertex).
-- **New `sld-connect.ts`** — `cutSectionAt` + `createConnectEdits`. Conceptually
-  "connectivity wiring" (creating sections/vertices/terminals). Adjacent to
-  `connectivity.ts` (which provides queries) but distinct because it *creates*
-  topology rather than querying/tearing it down.
-
-### `placeElement` decomposition
-
-This method is a grab-bag. It handles:
-1. Reparenting (if parent changed)
-2. Label offset defaults (per element type and rotation)
-3. Coordinate update for the element itself
-4. Cascading coordinate shifts to descendants (Bays, ConductingEquipment, Text, Vertices)
-5. Terminal disconnection + grounded terminal rewiring
-6. Bus-bar vertex special-casing
-7. IED Private wrapper creation/cleanup
-8. Bay-typical IED insertion
-
-Each of these can become a focused helper. The top-level `createPlaceEdits()`
-function composes them.
-
-### Approach
-
-- Extract one method at a time, smallest first (rotate → placeLabel → resize →
-  cutSectionAt → connectEquipment → placeElement).
-- Each extraction: create pure function, replace method body with call + dispatch,
-  add/move unit tests.
-- `placeElement` last — decompose into helpers as part of extraction.
-- Keep `sld-editor.ts` methods as thin wrappers:
-  ```ts
-  rotateElement(element: Element) {
-    this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
-  }
-  ```

@@ -1,13 +1,14 @@
 import { getReference } from '@openscd/scl-lib';
 
 import {
+  busSections,
   connectivityPath,
   isBusBar,
   removeNode,
   removeTerminal,
   reparentElement,
 } from './connectivity.js';
-import { iedReferences } from './ied.js';
+import { iedReferences, isIedReferenceElement } from './ied.js';
 import {
   attributes,
   getSLDAttributes,
@@ -333,7 +334,7 @@ export function createResizeTLEdits(
   });
 }
 
-function cutSectionAt(
+export function cutSectionAt(
   section: Element,
   index: number,
   [x, y]: Point,
@@ -516,3 +517,322 @@ export function createConnectEdits(
   }
   return edits;
 }
+
+export function shiftElementEdits(
+  element: Element,
+  x: number,
+  y: number,
+  nsp: string,
+): EditV2[] {
+  const {
+    pos: [oldX, oldY],
+    label: [oldLX, oldLY],
+    rot,
+  } = attributes(element);
+
+  const dx = x - oldX;
+  const dy = y - oldY;
+
+  if (element.localName === 'Vertex') {
+    return [];
+  }
+
+  let lx = oldLX;
+  let ly = oldLY;
+  if (
+    element.tagName === 'ConductingEquipment' &&
+    !getSLDAttributes(element, 'lx') &&
+    rot % 2 === 0
+  ) {
+    lx += 1;
+    ly += 1;
+  }
+  if (
+    element.tagName === 'PowerTransformer' &&
+    !getSLDAttributes(element, 'lx')
+  ) {
+    if (rot < 2) {
+      lx += 1.5;
+    } else {
+      lx -= 2;
+      ly += 2;
+    }
+  }
+  if (isIedReferenceElement(element) && !getSLDAttributes(element, 'lx')) {
+    lx += 1;
+    ly += 1;
+  }
+
+  return [
+    updateSLDAttributes(element, nsp, {
+      x: x.toString(),
+      y: y.toString(),
+      lx: (lx + dx).toString(),
+      ly: (ly + dy).toString(),
+    }),
+  ];
+}
+
+export function shiftTextEdits(
+  element: Element,
+  dx: number,
+  dy: number,
+  nsp: string,
+): EditV2[] {
+  return Array.from(element.querySelectorAll('Text')).map((text) => {
+    const {
+      label: [textLX, textLY],
+    } = attributes(text);
+    return updateSLDAttributes(text, nsp, {
+      lx: (textLX + dx).toString(),
+      ly: (textLY + dy).toString(),
+    });
+  });
+}
+
+export function shiftDescendantEdits(
+  element: Element,
+  dx: number,
+  dy: number,
+  nsp: string,
+): EditV2[] {
+  return Array.from(
+    element.querySelectorAll(
+      'Bay, ConductingEquipment, PowerTransformer, Vertex',
+    ),
+  )
+    .concat(iedReferences(element))
+    .map((descendant) => {
+      const {
+        pos: [descX, descY],
+        label: [descLX, descLY],
+      } = attributes(descendant);
+      const newAttributes: {
+        x: string;
+        y: string;
+        lx?: string;
+        ly?: string;
+      } = {
+        x: (descX + dx).toString(),
+        y: (descY + dy).toString(),
+      };
+      if (descendant.localName !== 'Vertex') {
+        newAttributes.lx = (descLX + dx).toString();
+        newAttributes.ly = (descLY + dy).toString();
+      }
+      return updateSLDAttributes(descendant, nsp, newAttributes);
+    });
+}
+
+export function rewireTerminalEdits(
+  element: Element,
+  parent: Element,
+  doc: XMLDocument,
+): EditV2[] {
+  if (
+    element.tagName !== 'ConductingEquipment' &&
+    element.tagName !== 'PowerTransformer'
+  ) {
+    return [];
+  }
+
+  const edits: EditV2[] = [];
+
+  Array.from(element.querySelectorAll('Terminal, NeutralPoint'))
+    .filter(terminal => terminal.getAttribute('cNodeName') !== 'grounded')
+    .forEach(terminal => edits.push(...removeTerminal(terminal)));
+
+  const groundedTerminals = Array.from(
+    element.querySelectorAll('Terminal, NeutralPoint'),
+  ).filter(terminal => terminal.getAttribute('cNodeName') === 'grounded');
+
+  if (groundedTerminals.length > 0) {
+    const bayName = parent.closest('Bay')?.getAttribute('name');
+    if (!bayName) {
+      groundedTerminals.forEach(terminal =>
+        edits.push(...removeTerminal(terminal)),
+      );
+    }
+
+    let newCNode = parent.querySelector(
+      `ConnectivityNode[name="grounded"]`,
+    );
+
+    if (!newCNode) {
+      newCNode = doc.createElementNS(
+        doc.documentElement.namespaceURI,
+        'ConnectivityNode',
+      );
+      newCNode.setAttribute('name', 'grounded');
+      newCNode.setAttribute(
+        'pathName',
+        connectivityPath(parent, 'grounded'),
+      );
+
+      edits.push({
+        node: newCNode,
+        parent,
+        reference: getReference(parent, 'ConnectivityNode'),
+      });
+    }
+
+    const voltageLevelName = parent
+      .closest('VoltageLevel')
+      ?.getAttribute('name');
+    const substationName = parent
+      .closest('Substation')!
+      .getAttribute('name')!;
+    const connectivityNode = newCNode!.getAttribute('pathName');
+
+    groundedTerminals.forEach((terminal) => {
+      edits.push({
+        element: terminal,
+        attributes: {
+          connectivityNode,
+          bayName,
+          voltageLevelName,
+          substationName,
+        },
+      });
+    });
+  }
+
+  return edits;
+}
+
+export function disconnectExternalEdits(
+  element: Element,
+  doc: XMLDocument,
+): EditV2[] {
+  if (
+    element.tagName === 'ConductingEquipment' ||
+    element.tagName === 'PowerTransformer'
+  ) {
+    return [];
+  }
+  if (element.getRootNode() !== doc) {
+    return [];
+  }
+
+  const edits: EditV2[] = [];
+
+  Array.from(element.getElementsByTagName('ConnectivityNode')).forEach(
+    (cNode) => {
+      if (
+        Array.from(
+          doc.querySelectorAll(
+            `Terminal[connectivityNode="${cNode.getAttribute('pathName')}"],
+                 NeutralPoint[connectivityNode="${cNode.getAttribute(
+          'pathName',
+        )}"]`,
+          ),
+        ).find(terminal => terminal.closest(element.tagName) !== element)
+      ) {
+        edits.push(...removeNode(cNode));
+      }
+    },
+  );
+
+  Array.from(element.querySelectorAll('Terminal, NeutralPoint')).forEach(
+    (terminal) => {
+      const cNode = doc.querySelector(
+        `ConnectivityNode[pathName="${terminal.getAttribute(
+          'connectivityNode',
+        )}"]`,
+      );
+      if (cNode && cNode.closest(element.tagName) !== element) {
+        edits.push(...removeNode(cNode));
+      }
+    },
+  );
+
+  return edits;
+}
+
+export function busBarVertexEdits(
+  element: Element,
+  x: number,
+  y: number,
+  nsp: string,
+): EditV2[] {
+  if (element.localName !== 'Vertex') {
+    return [];
+  }
+
+  const bay = element.closest('Bay')!;
+  const sections = busSections(bay);
+  const section = sections[0];
+  const vertex = section.querySelector('Vertex')!;
+  const lastSection = sections[sections.length - 1];
+  const lastVertex = lastSection.querySelector('Vertex:last-of-type')!;
+  const {
+    pos: [x1, y1],
+  } = attributes(vertex);
+  const w = x - x1 + 1;
+  const h = y - y1 + 1;
+
+  if (!isBusBar(bay)) {
+    return [];
+  }
+
+  return [
+    ...removeNode(section.closest('ConnectivityNode')!),
+    updateSLDAttributes(lastVertex, nsp, {
+      x: x.toString(),
+      y: y.toString(),
+    }),
+    updateSLDAttributes(bay, nsp, {
+      w: w.toString(),
+      h: h.toString(),
+    }),
+  ];
+}
+
+export function wrapIedReferenceEdits(
+  element: Element,
+  parent: Element,
+  doc: XMLDocument,
+): EditV2[] {
+  if (!isIedReferenceElement(element)) {
+    return [];
+  }
+
+  const edits: EditV2[] = [];
+  const oldParent = element.parentElement;
+
+  let privateElement = parent.querySelector(
+    ':scope > Private[type="OpenSCD-SLD-Layout"]',
+  );
+  if (!privateElement) {
+    privateElement = doc.createElementNS(
+      doc.documentElement.namespaceURI,
+      'Private',
+    );
+    privateElement.setAttribute('type', 'OpenSCD-SLD-Layout');
+    edits.push({
+      parent,
+      node: privateElement,
+      reference: getReference(parent, 'Private'),
+    });
+  }
+
+  if (element.parentElement !== privateElement) {
+    edits.push({
+      parent: privateElement,
+      node: element,
+      reference: getReference(privateElement, element.localName),
+    });
+  }
+
+  if (
+    oldParent?.tagName === 'Private' &&
+    oldParent.getAttribute('type') === 'OpenSCD-SLD-Layout' &&
+    oldParent.childElementCount === 1 &&
+    oldParent !== privateElement
+  ) {
+    edits.push({ node: oldParent });
+  }
+
+  return edits;
+}
+
