@@ -23,6 +23,12 @@ import {
   updateSLDAttributes,
 } from './foundations/sld-attributes.js';
 import {
+  createPlaceLabelEdit,
+  createResizeEdits,
+  createResizeTLEdits,
+  createRotateEdits,
+} from './foundations/edits.js';
+import {
   iedReferences,
   isIedReferenceElement,
   resolveIed,
@@ -318,30 +324,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   }
 
   rotateElement(element: Element) {
-    const { rot } = attributes(element);
-    const edits = [
-      updateSLDAttributes(element, this.nsp, {
-        rot: ((rot + 1) % 4).toString(),
-      }),
-    ];
-    if (
-      element.tagName === 'ConductingEquipment' ||
-      element.tagName === 'PowerTransformer'
-    ) {
-      Array.from(element.querySelectorAll('Terminal, NeutralPoint'))
-        .filter(terminal => terminal.getAttribute('cNodeName') !== 'grounded')
-        .forEach(terminal => edits.push(...removeTerminal(terminal)));
-    }
-    this.dispatchEvent(newEditEventV2(edits));
-  }
-
-  placeLabel(element: Element, x: number, y: number) {
-    const editV2 = updateSLDAttributes(element, this.nsp, {
-      lx: x.toString(),
-      ly: y.toString(),
-    });
-    this.dispatchEvent(newEditEventV2(editV2));
-    this.reset();
+    this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
   }
 
   placeElement(element: Element, parent: Element, x: number, y: number) {
@@ -799,37 +782,13 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
               this.startConnecting(detail);
             }}
             @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-              const resize = updateSLDAttributes(element, this.nsp, {
-                w: w.toString(),
-                h: h.toString(),
-              });
-              this.dispatchEvent(newEditEventV2(resize));
+              this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
               this.reset();
             }}
             @oscd-sld-resize-tl=${({
               detail: { element, x, y, w, h },
             }: ResizeTLEvent) => {
-              const {
-                pos: [oldX, oldY],
-                label: [oldLX, oldLY],
-              } = attributes(element);
-              let lx = oldLX;
-              let ly = oldLY;
-              if (lx === oldX && ly === oldY) {
-                lx += x - oldX;
-                ly += y - oldY;
-              }
-
-              const resize = updateSLDAttributes(element, this.nsp, {
-                x: x.toString(),
-                y: y.toString(),
-                w: w.toString(),
-                h: h.toString(),
-                lx: lx.toString(),
-                ly: ly.toString(),
-              });
-
-              this.dispatchEvent(newEditEventV2(resize));
+              this.dispatchEvent(newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)));
               this.reset();
             }}
             @oscd-sld-place=${({
@@ -837,7 +796,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             }: PlaceEvent) => this.placeElement(element, parent, x, y)}
             @oscd-sld-place-label=${({
               detail: { element, x, y },
-            }: PlaceLabelEvent) => this.placeLabel(element, x, y)}
+            }: PlaceLabelEvent) => {
+              this.dispatchEvent(newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)));
+              this.reset();
+            }}
             @oscd-sld-connect=${({ detail }: ConnectEvent) =>
               this.connectEquipment(detail)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
