@@ -160,7 +160,7 @@ The name is generic, but contextually clear (lives in `foundations/`, parallels
 
 | Method | Lines | Destination | Complexity |
 |--------|-------|-------------|------------|
-| `cutSectionAt()` | 51–96 | `edits.ts` or `sld-connect.ts` | Already a pure function at module top |
+| `cutSectionAt()` | 51–96 | `edits.ts` | Already a pure function at module top |
 | `rotateElement()` | 320–336 | `edits.ts` | Small — rotation + terminal removal |
 | `placeLabel()` | 338–345 | `edits.ts` | Trivial — single `updateSLDAttributes` |
 | Inline resize handlers | 801–834 | `edits.ts` | Small — `updateSLDAttributes` for w/h/x/y |
