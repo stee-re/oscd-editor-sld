@@ -156,3 +156,71 @@ connectivity as purely read-only. Not a prerequisite for the current work.
 The name is generic, but contextually clear (lives in `foundations/`, parallels
 `events.ts`). Alternatives considered: `sld-edit-builders.ts`, `sld-mutations.ts`,
 `edit-factories.ts` — none improve clarity enough to justify a rename.
+
+784 lines total. render() spans lines 203–701 — that's ~500 lines of template. That's the core problem.
+
+Breakdown of render()
+
+┌─────────┬──────────────────────────────────────┬─────┬─────────────────────────────────┐
+│ Lines   │ Section                              │ LOC │ Issue                           │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 204–212 │ Guard clauses                        │ 9   │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 214–248 │ IED data computation                 │ 35  │ Logic in render                 │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 253–275 │ Equipment FABs                       │ 22  │ Already uses eqTypes.map — OK   │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 277–301 │ BusBar + Bay FABs                    │ 24  │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 303–462 │ VoltageLevel + Import + IED menu     │ 160 │ Dense and deeply nested         │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 464–471 │ Substation FAB                       │ 8   │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 473–596 │ Power Transformer FABs ×6            │ 123 │ Highly repetitive               │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 598–651 │ Toggle + Zoom buttons                │ 53  │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 655–674 │ Cancel/About                         │ 20  │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 676–686 │ <sld-editor> child                   │ 10  │ Fine                            │
+├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
+│ 688–701 │ About dialog                         │ 14  │ Fine                            │
+└─────────┴──────────────────────────────────────┴─────┴─────────────────────────────────┘
+
+------------------------------------------------------------------------------------------------------------
+
+Top 3 opportunities
+
+1. Power Transformer FABs (lines 473–596) — 6 FABs that differ only by winding count (1/2/3) and kind ('auto'
+| 'earthing' | undefined). A single data-driven loop or factory function eliminates ~100 lines:
+
+ const transformerConfigs = [
+   { windings: 1, kind: 'auto', label: 'Single Winding Auto' },
+   { windings: 2, kind: 'auto', label: 'Two Winding Auto' },
+   ...
+ ];
+
+1. IED menu (lines 350–462) — Self-contained but deeply nested. Extract to a renderIedMenu() method or even a
+separate template helper. It handles 3 sections (delete unmatched, unused IEDs, used IEDs) that each have
+their own map/filter logic.
+
+2. Data computation (lines 214–248) — IED sorting/filtering runs every render. Could move to a dedicated
+method (e.g. get iedData()) to keep render() focused on template structure.
+
+------------------------------------------------------------------------------------------------------------
+
+Secondary opportunities
+
+- The entire <nav> toolbar (250–675) could be renderToolbar() — the component's actual layout is trivially
+
+<nav> + <sld-editor> + <dialog>.
+ - Several conditional ternaries (this.doc.querySelector(...) ? ... : nothing) repeat the same "does X exist
+in the doc" pattern — could be named booleans computed once at the top.
+
+------------------------------------------------------------------------------------------------------------
+
+Summary
+
+The low-hanging fruit is the transformer FABs (repetition) and the IED menu (complexity). Together those
+account for ~280 of the 500 template lines and could reduce render() to ~250 lines with no architectural
+change — just extraction of template helpers.
