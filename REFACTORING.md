@@ -53,29 +53,19 @@ steps that preserve behavior and keep future options open.
 - [x] Move `EditWizardDetail` & `newSclEditDialogEvent` to `foundations/events.ts`
 - [x] Delete dead code `sld-context-menu-item.ts`
 - [x] Extract placement and resize validation helpers
+- [x] Migrate `<sld-context-menu>` from raw `<menu>` to `oscd-menu`
 - [ ] Extract edit builders from `sld-editor.ts`
 - [ ] Simplify `oscd-editor-sld.ts` root component rendering
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
 
-## Current Notes
-
-- Context-menu refactoring complete and committed on `feat_the-big-restructure`.
-- `SldContextMenu` component (`src/context-menu/sld-context-menu.ts`) owns all menu rendering, positioning/overflow correction, scrim click-away, and Escape key handling. API is fire-and-forget via `open(context: MenuContext)`.
-- All 7 menu builder methods extracted to `src/context-menu/sld-context-menu-factory.ts` with a single entry point `createContextMenuItems(context)`. Helpers `flipElement`, `addTextTo`, `groundTerminal` also live there.
-- Types (`ContextMenuAction`, `ContextMenuDivider`, `ContextMenuHeader`, `ContextMenuItem`, `MenuContext`, `MenuItemContext`) exported from `src/context-menu/sld-context-menu.ts`.
-- `OscdSldIcon` component (`src/oscd-sld-icon.ts`) extends `OscdIcon` with an `SLD_ICONS` map for SLD-specific action icons (`sld_move`, `sld_resize`, `sld_resizeTL`, `sld_resizeBR`). Falls back to `OscdIcon` (SCL_ICONS → Material Symbols).
-- `sld-substation-editor.ts` now only registers `<sld-context-menu>` in scoped elements and calls `this.contextMenu?.open(...)` on right-click. No menu building or rendering logic remains there.
-- `EditWizardDetail`, `newSclEditDialogEvent`, and `newEditIedEvent` live in `src/foundations/events.ts`.
-- Old `MenuItem` type, `isMenuAction()` guard, and `sld-context-menu-item.ts` are all deleted.
-- The `headline` field on `ContextMenuAction` is `string` only (no `TemplateResult`).
-- Icon comparison Storybook stories added to oscd-ui for future discussion on icon consolidation (uncommitted in oscd-ui repo).
-
 ## Current File Layout
 
 - `src/context-menu/sld-context-menu.ts` — `SldContextMenu` component, discriminated union types, `MenuContext`, `MenuItemContext`
 - `src/context-menu/sld-context-menu-factory.ts` — all menu builder functions, `createContextMenuItems()` entry point
+- `src/context-menu/sld-context-menu.spec.ts` — component tests (rendered fixture, no mouse commands)
+- `src/context-menu/sld-context-menu-factory.spec.ts` — pure function tests for menu item generation
 - `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map
 - `src/foundations/events.ts` — `EditWizardDetail`, `newSclEditDialogEvent`, `newEditIedEvent`, and other SLD event factories
 - `src/foundations/geometry.ts` — pure rectangle/point math (Rect, Point tuples, no DOM)
@@ -83,54 +73,136 @@ steps that preserve behavior and keep future options open.
 - `src/foundations/sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`)
 - `src/sld-substation-editor.ts` — registers `<sld-context-menu>`, delegates via `open()` on right-click
 
-## Context-Menu Extraction (Completed)
+## Context-Menu Architecture
 
-The `<sld-context-menu>` component was extracted as a standalone web component that owns:
+`<sld-context-menu>` is a self-contained component. API: `open(context: MenuContext)` — fire and forget. It receives `doc` and `nsp` as properties but does NOT depend on `sclDialogs`.
 
-- All 7 menu builder methods (via `sld-context-menu-factory.ts`) and helpers (`flipElement`, `addTextTo`, `groundTerminal`)
-- Menu rendering, positioning, and overflow correction
-- Click-away (scrim) and Escape key handling
-- Its own open/close lifecycle via `open(context: MenuContext)` — fire and forget
+**Rendering:**
 
-The component receives `doc` and `nsp` as properties. It does NOT depend on `sclDialogs`:
+- Uses `<oscd-menu positioning="fixed" quick>` with a zero-size `#ctx-anchor` div positioned at the click location.
+- `menuHeaderHeight()` offsets the anchor upward so action items align with the cursor.
+- Separators: `<oscd-divider>` (styled by `oscd-menu` via `::slotted`).
+- Non-interactive headers: `<oscd-list-item type="text">`. NOT `oscd-menu-item disabled` (that signals "unavailable action").
 
-- Most "Edit" actions dispatch `oscd-sld-edit-scl` (handled by the editor)
-- IED editing dispatches `oscd-sld-edit-ied`, handled by `handleEditIedRequest()` on the editor
-- Ground terminal failure dispatches an `sld-ground-hint` event (editor shows snackbar)
+**Menu close:**
 
-The substation editor's only involvement: call `this.contextMenu.open(context)` on right-click.
+- Action click handlers explicitly clear `this.context`, removing items from DOM.
+- `@closed` event on `oscd-menu` handles outside-click and Escape.
+- Note: `oscd-menu-item`'s built-in `close-menu` event does NOT propagate under `ScopedElementsMixin` (tag-name mangling breaks the internal mechanism).
 
-## Follow-up (out of scope for current refactor)
+**Event dispatch:**
 
-- ~~Move `<oscd-scl-dialogs>` and its event handlers (`handleEditWizardRequest`, `handleEditIedRequest`) up from `sld-substation-editor` to `sld-editor`, alongside all other event handlers. Currently creates one listener per substation unnecessarily.~~ **Done.**
+- Most "Edit" actions dispatch `oscd-sld-edit-scl` (handled by the editor).
+- IED editing dispatches `oscd-sld-edit-ied`, handled by `handleEditIedRequest()`.
+- Ground terminal failure dispatches `sld-ground-hint` (editor shows snackbar).
+
+**Menu items:**
+
+- All 7 builder methods in `sld-context-menu-factory.ts` with entry point `createContextMenuItems(context)`.
+- Discriminated union on `type` field (`'action' | 'divider' | 'header'`). Actions default to `'action'` when `type` is omitted.
+- `headline` is `string` only (no `TemplateResult`).
 
 ## Decisions Made
 
-- All context menu items use a discriminated union on `type` field (`'action' | 'divider' | 'header'`). Actions default to `'action'` when `type` is omitted.
-- `OscdSldIcon` provides SLD-specific icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). This is a local solution pending the icon consolidation discussion.
-- Icon consolidation between SLD and oscd-ui's SCL_ICONS is deferred. Storybook comparison stories exist in oscd-ui for visual review.
-- Context menu is a self-contained component that dispatches events upward. It receives `doc` and `nsp` but NOT `sclDialogs`.
-- Avoid exported render helper functions that secretly require callers to register scoped child components.
-- Prefer actual internal components when templates need their own scoped dependencies.
-- Avoid adding new inline CSS during refactors unless the value is truly dynamic
-  or cannot cross a shadow DOM boundary cleanly.
+- `OscdSldIcon` provides SLD-specific icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). Icon consolidation with oscd-ui deferred; Storybook comparison stories exist.
+- Avoid exported render helper functions that secretly require callers to register scoped child components, instead prefer actual internal components when templates need their own scoped dependencies.
+- Avoid adding new inline CSS during refactors unless the value is truly dynamic or cannot cross a shadow DOM boundary cleanly.
 - Avoid passing `TemplateResult` through data shapes. Prefer plain strings for labels/headlines.
 
 ## Verification Requirements
 
-- After each refactor, run `npm run format`.
-- After each refactor, run `npm run test`.
-- `npm run format` should complete without remaining lint complaints.
-- `npm run test` should remain green.
-- If DOM snapshots intentionally change, update snapshots and then rerun `npm run test` normally.
+- After each refactor, run `npm run format` and `npm run test`.
+- Both should pass without complaints.
+- If DOM snapshots intentionally change, update snapshots with `--update-snapshots` then rerun normally.
 
 ## Last Verified State
 
 - `npm run format` passed.
-- `npm run test` passed with `127 passed, 0 failed`.
-- Placement/resize validation extraction committed on `feat_the-big-restructure`.
-- Known browser log warnings about Lit scheduling updates remain pre-existing and did not fail tests.
+- `npm run test` passed with `352 passed, 0 failed`.
+- Integration tests updated
 
-## Suggested Next Steps
+## Edit Builder Extraction — Analysis
 
-- Consider extracting edit builders from `sld-editor.ts`.
+The next workstream is extracting edit builders out of `sld-editor.ts` (848 lines).
+The goal: `sld-editor.ts` becomes a thin orchestrator (state + event routing), while
+edit-building logic lives as pure functions in `foundations/`.
+
+### Foundations Structure Assessment
+
+Current files are well-grouped by domain concept:
+
+| File | Lines | Responsibility | Notes |
+|------|-------|----------------|-------|
+| `geometry.ts` | 118 | Pure math (Rect, Point, contains, overlaps) | ✅ |
+| `element-geometry.ts` | 37 | Bridges geometry ↔ SCL elements | ✅ |
+| `sld-placement.ts` | 132 | Validation (`canPlaceAt`, `canResizeTo`) | ✅ read-only |
+| `equipment.ts` | 38 | Type constants & guards | ✅ |
+| `transformer.ts` | 258 | Rendering geometry for windings | ✅ |
+| `sld-attributes.ts` | 177 | Read/write SLD namespace attributes | ✅ |
+| `events.ts` | 214 | Custom event factories & types | ✅ |
+| `export.ts` | 98 | XML pretty-print & download | ✅ |
+| `ied.ts` | 74 | IED resolution + one edit builder | ✅ |
+| `connectivity.ts` | 433 | Mixed queries + edit builders | ⚠️ blurry boundary |
+| `edits.ts` | 260 | Pure edit builders (ground, flip, delete, copy) | ✅ |
+
+`connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`,
+`busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`,
+`makeBusBar`). A future pass could move the edit builders into `edits.ts`, leaving
+connectivity as purely read-only. Not a prerequisite for the current work.
+
+### Naming: `edits.ts` is fine
+
+The name is generic, but contextually clear (lives in `foundations/`, parallels
+`events.ts`). Alternatives considered: `sld-edit-builders.ts`, `sld-mutations.ts`,
+`edit-factories.ts` — none improve clarity enough to justify a rename.
+
+### Candidates in `sld-editor.ts`
+
+| Method | Lines | Destination | Complexity |
+|--------|-------|-------------|------------|
+| `cutSectionAt()` | 51–96 | `edits.ts` or `sld-connect.ts` | Already a pure function at module top |
+| `rotateElement()` | 320–336 | `edits.ts` | Small — rotation + terminal removal |
+| `placeLabel()` | 338–345 | `edits.ts` | Trivial — single `updateSLDAttributes` |
+| Inline resize handlers | 801–834 | `edits.ts` | Small — `updateSLDAttributes` for w/h/x/y |
+| `placeElement()` | 347–618 | `edits.ts` (decomposed) | ~270 lines, 6+ sub-responsibilities |
+| `connectEquipment()` | 620–758 | New `sld-connect.ts` | ~140 lines, connectivity wiring |
+
+### Proposed file layout after extraction
+
+- **`edits.ts`** — gains: `createRotateEdits`, `createPlaceLabelEdit`,
+  `createResizeEdits`, `createResizeTLEdits`, and the decomposed sub-functions
+  of `placeElement` (place-grounding, place-descendants, place-ied-wrapper,
+  place-busbar-vertex).
+- **New `sld-connect.ts`** — `cutSectionAt` + `createConnectEdits`. Conceptually
+  "connectivity wiring" (creating sections/vertices/terminals). Adjacent to
+  `connectivity.ts` (which provides queries) but distinct because it *creates*
+  topology rather than querying/tearing it down.
+
+### `placeElement` decomposition
+
+This method is a grab-bag. It handles:
+1. Reparenting (if parent changed)
+2. Label offset defaults (per element type and rotation)
+3. Coordinate update for the element itself
+4. Cascading coordinate shifts to descendants (Bays, ConductingEquipment, Text, Vertices)
+5. Terminal disconnection + grounded terminal rewiring
+6. Bus-bar vertex special-casing
+7. IED Private wrapper creation/cleanup
+8. Bay-typical IED insertion
+
+Each of these can become a focused helper. The top-level `createPlaceEdits()`
+function composes them.
+
+### Approach
+
+- Extract one method at a time, smallest first (rotate → placeLabel → resize →
+  cutSectionAt → connectEquipment → placeElement).
+- Each extraction: create pure function, replace method body with call + dispatch,
+  add/move unit tests.
+- `placeElement` last — decompose into helpers as part of extraction.
+- Keep `sld-editor.ts` methods as thin wrappers:
+  ```ts
+  rotateElement(element: Element) {
+    this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
+  }
+  ```
