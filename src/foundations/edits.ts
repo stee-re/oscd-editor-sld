@@ -258,3 +258,74 @@ export function createDeleteContainerEdits(container: Element): EditV2[] {
 
   return edits;
 }
+
+export function createRotateEdits(element: Element, nsp: string): EditV2[] {
+  const { rot } = attributes(element);
+  const edits: EditV2[] = [
+    updateSLDAttributes(element, nsp, {
+      rot: ((rot + 1) % 4).toString(),
+    }),
+  ];
+  if (
+    element.tagName === 'ConductingEquipment' ||
+    element.tagName === 'PowerTransformer'
+  ) {
+    Array.from(element.querySelectorAll('Terminal, NeutralPoint'))
+      .filter(terminal => terminal.getAttribute('cNodeName') !== 'grounded')
+      .forEach(terminal => edits.push(...removeTerminal(terminal)));
+  }
+  return edits;
+}
+
+export function createPlaceLabelEdit(
+  element: Element,
+  nsp: string,
+  x: number,
+  y: number,
+): EditV2 {
+  return updateSLDAttributes(element, nsp, {
+    lx: x.toString(),
+    ly: y.toString(),
+  });
+}
+
+export function createResizeEdits(
+  element: Element,
+  nsp: string,
+  w: number,
+  h: number,
+): EditV2 {
+  return updateSLDAttributes(element, nsp, {
+    w: w.toString(),
+    h: h.toString(),
+  });
+}
+
+export function createResizeTLEdits(
+  element: Element,
+  nsp: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): EditV2 {
+  const {
+    pos: [oldX, oldY],
+    label: [oldLX, oldLY],
+  } = attributes(element);
+  let lx = oldLX;
+  let ly = oldLY;
+  if (lx === oldX && ly === oldY) {
+    lx += x - oldX;
+    ly += y - oldY;
+  }
+
+  return updateSLDAttributes(element, nsp, {
+    x: x.toString(),
+    y: y.toString(),
+    w: w.toString(),
+    h: h.toString(),
+    lx: lx.toString(),
+    ly: ly.toString(),
+  });
+}
