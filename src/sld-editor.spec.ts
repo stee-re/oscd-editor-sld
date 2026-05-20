@@ -1,5 +1,5 @@
 import { html } from 'lit';
-import { fixture, expect, aTimeout, chai } from '@open-wc/testing';
+import { fixture, expect, aTimeout, waitUntil, chai } from '@open-wc/testing';
 
 // Monkey-patch chai's Assertion.prototype.assert to prevent infinite
 // serialization of DOM/XML nodes in error messages. Without this patch,
@@ -58,6 +58,7 @@ import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { identity } from '@openscd/scl-lib';
 import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
+import type { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import type { EditEventV2 } from '@openscd/oscd-api';
 import { SldSubstationEditor } from './sld-substation-editor.js';
@@ -284,11 +285,11 @@ describe('SLD Editor', () => {
     return target as Element;
   }
 
-  function contextMenu(): HTMLElement | null {
+  function contextMenu(): OscdMenu | null {
     return (
       getSldSubstationEditor(element)!
         .shadowRoot!.querySelector('sld-context-menu')
-        ?.shadowRoot?.querySelector<HTMLElement>('menu#sld-context-menu') ??
+        ?.shadowRoot?.querySelector<OscdMenu>('oscd-menu') ??
       null
     );
   }
@@ -317,6 +318,13 @@ describe('SLD Editor', () => {
     const items = contextMenuItems();
     const i = index >= 0 ? index : items.length + index;
     return items[i];
+  }
+
+  async function waitForMenuClose(): Promise<void> {
+    await waitUntil(
+      () => contextMenuItems().length === 0,
+      'context menu items did not clear',
+    );
   }
 
   function gridPos(gx: number, gy: number): [number, number] {
@@ -564,23 +572,26 @@ describe('SLD Editor', () => {
         ui: 'rect',
       });
 
-      // Move mouse to voltage level position [1,1] to establish coordinates
-      await sendMouse({ type: 'move', position: gridPos(...vlOrigin) });
+      // Move mouse to establish position, then open context menu with coordinates
+      const [cx, cy] = gridPos(...vlOrigin);
+      await sendMouse({ type: 'move', position: [cx, cy] });
       await element.updateComplete;
 
-      // Open context menu
       voltageRect.dispatchEvent(
         new PointerEvent('contextmenu', {
+          clientX: cx,
+          clientY: cy,
           bubbles: true,
           composed: true,
         }),
       );
-      await element.updateComplete;
+      await waitUntil(() => contextMenuItems().length > 0, 'menu items did not appear');
 
       // Select "Move" menu item
       const item = menuItem(2);
       clickInteractive(item);
       await sldSubstationEditor.updateComplete;
+      await waitForMenuClose();
 
       expect(element)
         .property('placing')
@@ -972,6 +983,7 @@ describe('SLD Editor', () => {
 
         clickInteractive(menuItem(1));
         await sldSubstationEditor.updateComplete;
+        await waitForMenuClose();
 
         await sendMouse({ type: 'click', position: gridPos(...eqTarget) });
         expect(sldAttribute(bus!, 'x')).to.equal('3');
@@ -1607,6 +1619,7 @@ describe('SLD Editor', () => {
       const item = menuItem(-5);
       clickInteractive(item);
       await element.updateComplete;
+      await waitForMenuClose();
 
       expect(sldAttribute(equipment!, 'x')).to.equal('4');
       expect(sldAttribute(equipment!, 'y')).to.equal('4');
@@ -2279,6 +2292,7 @@ describe('SLD Editor', () => {
             );
             await element.updateComplete;
             clickInteractive(menuItem(-6));
+            await waitForMenuClose();
             expect(
               element.doc.querySelector(
                 'ConductingEquipment SLDAttributes[*|x="3"][*|y="3"]',
@@ -2342,6 +2356,7 @@ describe('SLD Editor', () => {
 
             clickInteractive(menuItem(1));
             await sldSubstationEditor.updateComplete;
+            await waitForMenuClose();
 
             expect(sldAttribute(bus!, 'y')).to.equal(initialY);
             // Click to place at y=4: screenY = (4-1)*32 + 228 = 324

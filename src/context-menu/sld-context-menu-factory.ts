@@ -653,7 +653,7 @@ export function createContextMenuItems(
   context: MenuItemContext,
 ): ContextMenuItem[] {
   const { element } = context;
-  const items: ContextMenuItem[] = [{ type: 'divider' }];
+  const items: ContextMenuItem[] = [{ type: 'header', element: context.element}, { type: 'divider' }];
 
   if (element.tagName === 'ConductingEquipment') {
     items.push(...equipmentMenuItems(element, context));

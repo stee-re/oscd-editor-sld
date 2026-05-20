@@ -2,106 +2,102 @@
 export const snapshots = {};
 
 snapshots["SLD Editor given a voltage level opens a menu on voltage level right click"] = 
-`<menu
-  id="sld-context-menu"
-  style="top: -73px; left: 0px;"
+`<oscd-menu
+  aria-hidden="true"
+  positioning="fixed"
+  quick=""
 >
-  <oscd-list>
-    <oscd-list-item type="text">
-      <div slot="headline">
-        V1
-      </div>
-      <div
-        slot="supporting-text"
-        style="display: inline-block; max-width: 15em; overflow: hidden; text-overflow: ellipsis;"
-      >
-        some description
-      </div>
-    </oscd-list-item>
-    <li
-      divider=""
-      role="separator"
+  <oscd-list-item type="text">
+    <div slot="headline">
+      V1
+    </div>
+    <div
+      slot="supporting-text"
+      style="display: inline-block; max-width: 15em; overflow: hidden; text-overflow: ellipsis;"
     >
-    </li>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Resize
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        sld_resize
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Copy
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        copy_all
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Move
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        sld_move
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Move Label
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        text_rotation_none
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Add Text
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        title
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Edit
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        edit
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Delete
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        delete
-      </oscd-sld-icon>
-    </oscd-menu-item>
-  </oscd-list>
-</menu>
+      some description
+    </div>
+  </oscd-list-item>
+  <oscd-divider>
+  </oscd-divider>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Resize
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      sld_resize
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Copy
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      copy_all
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Move
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      sld_move
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Move Label
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      text_rotation_none
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Add Text
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      title
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Edit
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      edit
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Delete
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      delete
+    </oscd-sld-icon>
+  </oscd-menu-item>
+</oscd-menu>
 `;
 /* end snapshot SLD Editor given a voltage level opens a menu on voltage level right click */
 
@@ -430,161 +426,157 @@ snapshots["SLD Editor given conducting equipment copies equipment on shift click
 /* end snapshot SLD Editor given conducting equipment copies equipment on shift click */
 
 snapshots["SLD Editor given conducting equipment opens a menu on equipment right click"] = 
-`<menu
-  id="sld-context-menu"
-  style="top: 477px; left: 750px;"
+`<oscd-menu
+  aria-hidden="true"
+  positioning="fixed"
+  quick=""
 >
-  <oscd-list>
-    <oscd-list-item type="text">
-      <div slot="headline">
-        CBR1
-      </div>
-      <div
-        slot="supporting-text"
-        style="display: inline-block; max-width: 15em; overflow: hidden; text-overflow: ellipsis;"
-      >
-        CBR — CBR description
-      </div>
-    </oscd-list-item>
-    <li
-      divider=""
-      role="separator"
+  <oscd-list-item type="text">
+    <div slot="headline">
+      CBR1
+    </div>
+    <div
+      slot="supporting-text"
+      style="display: inline-block; max-width: 15em; overflow: hidden; text-overflow: ellipsis;"
     >
-    </li>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Connect right
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        east
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Ground right
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        chevron_right
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Connect left
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        west
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Ground left
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        chevron_left
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Mirror
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        flip
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Rotate
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        rotate_90_degrees_cw
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Copy
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        copy_all
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Move
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        sld_move
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Move Label
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        text_rotation_none
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Add Text
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        title
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Edit
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        edit
-      </oscd-sld-icon>
-    </oscd-menu-item>
-    <oscd-menu-item md-menu-item="">
-      <div slot="headline">
-        Delete
-      </div>
-      <oscd-sld-icon
-        aria-hidden="true"
-        slot="start"
-      >
-        delete
-      </oscd-sld-icon>
-    </oscd-menu-item>
-  </oscd-list>
-</menu>
+      CBR — CBR description
+    </div>
+  </oscd-list-item>
+  <oscd-divider>
+  </oscd-divider>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Connect right
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      east
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Ground right
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      chevron_right
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Connect left
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      west
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Ground left
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      chevron_left
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Mirror
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      flip
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Rotate
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      rotate_90_degrees_cw
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Copy
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      copy_all
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Move
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      sld_move
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Move Label
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      text_rotation_none
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Add Text
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      title
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Edit
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      edit
+    </oscd-sld-icon>
+  </oscd-menu-item>
+  <oscd-menu-item md-menu-item="">
+    <div slot="headline">
+      Delete
+    </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      delete
+    </oscd-sld-icon>
+  </oscd-menu-item>
+</oscd-menu>
 `;
 /* end snapshot SLD Editor given conducting equipment opens a menu on equipment right click */
 
