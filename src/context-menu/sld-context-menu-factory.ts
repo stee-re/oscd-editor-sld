@@ -13,9 +13,11 @@ import {
 import {
   connectionStartPoints,
   isBusBar,
+} from '../foundations/connectivity.js';
+import {
   removeTerminal,
   uniqueName,
-} from '../foundations/connectivity.js';
+} from '../foundations/connectivity-edits.js';
 import { singleTerminal } from '../foundations/equipment.js';
 import {
   createRemoveIedReferenceEdit,

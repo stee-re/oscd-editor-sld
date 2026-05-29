@@ -25,11 +25,13 @@ export {
   connectivityPath,
   isBusBar,
   makeBusBar,
+} from './foundations/connectivity.js';
+export {
   removeNode,
   removeTerminal,
   reparentElement,
   uniqueName,
-} from './foundations/connectivity.js';
+} from './foundations/connectivity-edits.js';
 export {
   iedReferences,
   isIedReferenceElement,
