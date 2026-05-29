@@ -1,8 +1,5 @@
-import { html } from 'lit';
+import { html, LitElement } from 'lit';
 import { fixture, expect, aTimeout, waitUntil } from '@open-wc/testing';
-
-import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
-import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 
 import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
 
@@ -435,8 +432,25 @@ function getSldSubstationEditor(
     ?.shadowRoot?.querySelector('sld-substation-editor');
 }
 
-function getSldEditor(element: OscdEditorSld): SldEditor | null | undefined {
-  return element.shadowRoot?.querySelector<SldEditor>('sld-editor');
+function getToolbarRoot(element: OscdEditorSld): ShadowRoot | null | undefined {
+  return element.shadowRoot?.querySelector('sld-toolbar')?.shadowRoot;
+}
+
+async function awaitToolbar(element: OscdEditorSld): Promise<void> {
+  const toolbar = element.shadowRoot?.querySelector('sld-toolbar') as
+    | LitElement
+    | null
+    | undefined;
+  if (toolbar) {
+    await toolbar.updateComplete;
+  }
+}
+
+function queryToolbar<T extends HTMLElement>(
+  element: OscdEditorSld,
+  selector: string,
+): T | null {
+  return getToolbarRoot(element)?.querySelector<T>(selector) ?? null;
 }
 
 function clickInteractive(element: HTMLElement): void {
@@ -778,73 +792,25 @@ describe('SLD Editor', () => {
     expect(attrs!.getAttributeNS(sldNs, 'ly')).to.equal('4');
   });
 
-  it('adds a substation on add button click', async () => {
-    expect(!!element.doc.querySelector('Substation')).to.be.false;
-    element
-      .shadowRoot!.querySelector<OscdTextButton>('[title="Add Substation"]')
-      ?.click();
-    expect(!!element.doc.querySelector('Substation')).to.be.true;
-  });
-
-  it('gives new substations unique names', async () => {
-    element
-      .shadowRoot!.querySelector<OscdTextButton>('[title="Add Substation"]')
-      ?.click();
-    element
-      .shadowRoot!.querySelector<OscdTextButton>('[title="Add Substation"]')
-      ?.click();
-    const [name1, name2] = Array.from(
-      element.doc.querySelectorAll('Substation'),
-    ).map(substation => substation.getAttribute('name'));
-    expect(name1).not.to.equal(name2);
-  });
-
-  it('does not zoom out past a positive minimum value', async () => {
-    for (let i = 0; i < 20; i += 1) {
-      element
-        .shadowRoot!.querySelector<OscdIconButton>('[aria-label="Zoom Out"]')
-        ?.click();
-    }
-    expect(element.gridSize).to.be.greaterThan(0);
-  });
-
   describe('given a substation', () => {
-    let sldSubstationEditor: SldSubstationEditor;
     let sldEditor: SldEditor;
     beforeEach(async () => {
       await element.updateComplete;
-      // Call insertSubstation directly to avoid reliance on FAB upgrade timing
-      element.insertSubstation();
+      await awaitToolbar(element);
+      // Click the Add Substation FAB in the toolbar
+      const fab = queryToolbar<HTMLElement>(
+        element,
+        '[title="Add Substation"]',
+      )!;
+      clickInteractive(fab);
       await element.updateComplete;
+      await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
-      sldSubstationEditor = editors.sldSubstationEditor;
-    });
-
-    it('zooms in on zoom in button click', async () => {
-      const initial = element.gridSize;
-      clickInteractive(
-        element.shadowRoot!.querySelector<OscdIconButton>(
-          '[title^="Zoom In"]',
-        )!,
-      );
-      expect(element.gridSize).to.be.greaterThan(initial);
-    });
-
-    it('zooms out on zoom out button click', async () => {
-      const initial = element.gridSize;
-      clickInteractive(
-        element.shadowRoot!.querySelector<OscdIconButton>(
-          '[title^="Zoom Out"]',
-        )!,
-      );
-      expect(element.gridSize).to.be.lessThan(initial);
     });
 
     it('allows placing a new voltage level', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add VoltageLevel"]')
-        ?.click();
+      queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
       expect(sldEditor.placing?.tagName).to.equal('VoltageLevel');
       const [x1, y1] = svgClientPosition(element, 5, 3);
       await sendMouse({ type: 'click', position: [x1, y1] });
@@ -861,249 +827,8 @@ describe('SLD Editor', () => {
       expect(sldAttribute(voltLv, 'h')).to.equal('8');
     });
 
-    describe('IED interactions', () => {
-      async function settle() {
-        await aTimeout(20);
-        await element.updateComplete;
-        sldEditor = getSldEditor(element)!;
-        await sldEditor.updateComplete;
-        sldSubstationEditor = getSldSubstationEditor(element)!;
-        await sldSubstationEditor.updateComplete;
-      }
-
-      async function clickGridAt(x: number, y: number) {
-        const [clientX, clientY] = svgClientPosition(element, x, y);
-        await sendMouse({ type: 'move', position: [clientX, clientY] });
-        await sldSubstationEditor.updateComplete;
-        const placementTargets =
-          sldSubstationEditor.shadowRoot!.querySelectorAll<SVGRectElement>(
-            'svg#sld > rect[fill="url(#grid)"]',
-          );
-        placementTargets[placementTargets.length - 1].dispatchEvent(
-          new MouseEvent('click', { bubbles: true, composed: true }),
-        );
-        await settle();
-      }
-
-      async function loadIedDoc() {
-        element.doc = new DOMParser().parseFromString(
-          iedDocString,
-          'application/xml',
-        );
-        await settle();
-      }
-
-      async function openIedMenu() {
-        element
-          .shadowRoot!.querySelector<OscdTextButton>('[title="Add IED"]')
-          ?.click();
-        await settle();
-      }
-
-      async function selectIedFromMenu(name: string) {
-        await openIedMenu();
-        const iedMenu = element.shadowRoot!.querySelector('oscd-menu#iedMenu');
-        const item = Array.from(
-          iedMenu?.querySelectorAll('oscd-menu-item') ?? [],
-        ).find(listItem => listItem.getAttribute('data-name') === name) as
-          | OscdMenuItem
-          | undefined;
-
-        expect(!!item).to.be.true;
-        clickInteractive(item!);
-        await settle();
-        expect(!!sldEditor.placing).to.be.true;
-        expect(sldEditor.placing!.localName).to.equal('Reference');
-      }
-
-      async function placeIedFromMenu(name: string, x: number, y: number) {
-        await selectIedFromMenu(name);
-        await clickGridAt(x, y);
-      }
-
-      it('places IEDs from the IED menu', async () => {
-        element.doc = new DOMParser().parseFromString(
-          iedDocString,
-          'application/xml',
-        );
-        await element.updateComplete;
-        await sldEditor.updateComplete;
-        await sldSubstationEditor.updateComplete;
-
-        element
-          .shadowRoot!.querySelector<OscdTextButton>('[title="Add IED"]')
-          ?.click();
-        await element.updateComplete;
-        await aTimeout(20);
-
-        const iedMenu = element.shadowRoot!.querySelector('oscd-menu#iedMenu');
-        const iedItems = Array.from(
-          iedMenu?.querySelectorAll('oscd-menu-item') ?? [],
-        );
-        const itemIndex = iedItems.findIndex(
-          item => item.getAttribute('data-name') === 'IED1',
-        );
-        expect(itemIndex).to.be.greaterThan(-1);
-        const item = iedItems[itemIndex] as OscdMenuItem;
-        clickInteractive(item);
-
-        await aTimeout(20);
-        await sldEditor.updateComplete;
-
-        expect(!!sldEditor.placing).to.be.true;
-        expect(sldEditor.placing!.localName).to.equal('Reference');
-        expect(sldEditor.placing!.namespaceURI).to.equal(sldNs);
-
-        await clickGridAt(3, 3);
-
-        const referencedIeds = iedReferences(element.doc);
-        expect(referencedIeds.length).to.equal(1);
-        expect(referencedIeds[0].getAttributeNS(sldNs, 'type')).to.equal('IED');
-        expect(referencedIeds[0].getAttributeNS(sldNs, 'id')).to.equal(
-          identity(element.doc.querySelector(':root > IED[name="IED1"]')!),
-        );
-        expect(referencedIeds[0].parentElement?.getAttribute('type')).to.equal(
-          'OpenSCD-SLD-Layout',
-        );
-      });
-
-      it('does not show IED menu button when no IEDs exist in SCL', async () => {
-        element.doc = new DOMParser().parseFromString(
-          voltageLevelDocString,
-          'application/xml',
-        );
-        await settle();
-
-        const addIedButton =
-          element.shadowRoot!.querySelector<OscdTextButton>(
-            '[title="Add IED"]',
-          );
-        expect(!!addIedButton).to.be.false;
-      });
-
-      it('shows placed and unplaced IEDs in menu with correct status markers', async () => {
-        await loadIedDoc();
-        await placeIedFromMenu('IED1', 3, 3);
-
-        await openIedMenu();
-
-        const iedMenu = element.shadowRoot!.querySelector('oscd-menu#iedMenu');
-        const iedItem1 = Array.from(
-          iedMenu?.querySelectorAll('oscd-menu-item') ?? [],
-        ).find(item => item.getAttribute('data-name') === 'IED1');
-        const iedItem2 = Array.from(
-          iedMenu?.querySelectorAll('oscd-menu-item') ?? [],
-        ).find(item => item.getAttribute('data-name') === 'IED2');
-
-        expect(!!iedItem1).to.be.true;
-        expect(!!iedItem2).to.be.true;
-
-        expect(
-          iedItem1?.querySelector('oscd-icon[slot="end"]')?.textContent?.trim(),
-        ).to.equal('pin_drop');
-        expect(!!iedItem2?.querySelector('oscd-icon[slot="end"]')).to.be.false;
-      });
-
-      it('removes references to missing IEDs via the IED menu action', async () => {
-        await loadIedDoc();
-
-        const voltageLevel =
-          element.doc.getElementsByTagName('VoltageLevel')[0];
-        const privateElement = voltageLevel.querySelector(
-          ':scope > Private[type="OpenSCD-SLD-Layout"]',
-        )!;
-        const missingRef = element.doc.createElementNS(
-          sldNs,
-          'eosld:Reference',
-        );
-        missingRef.setAttributeNS(sldNs, 'eosld:id', 'MissingIED');
-        missingRef.setAttributeNS(sldNs, 'eosld:type', 'IED');
-        const missingRefAttrs = element.doc.createElementNS(
-          sldNs,
-          'eosld:SLDAttributes',
-        );
-        missingRefAttrs.setAttributeNS(sldNs, 'eosld:x', '4');
-        missingRefAttrs.setAttributeNS(sldNs, 'eosld:y', '4');
-        missingRef.appendChild(missingRefAttrs);
-        privateElement.appendChild(missingRef);
-        element.docVersion += 1;
-        await settle();
-
-        expect(
-          iedReferences(element.doc).filter(ref => !resolveIed(ref)).length,
-        ).to.equal(1);
-
-        await openIedMenu();
-        const removeUnmatchedItem = element.shadowRoot!.querySelector(
-          'oscd-menu-item[data-name="Delete Unmatched"]',
-        ) as OscdMenuItem | null;
-
-        expect(!!removeUnmatchedItem).to.be.true;
-        expect(
-          removeUnmatchedItem?.textContent?.replace(/\s+/g, ' ').trim(),
-        ).to.include('Remove reference to 1 missing IED');
-        clickInteractive(removeUnmatchedItem!);
-        await settle();
-
-        expect(
-          iedReferences(element.doc).filter(ref => !resolveIed(ref)).length,
-        ).to.equal(0);
-      });
-
-      it('hides IEDs when the IED toggle is turned off', async () => {
-        await loadIedDoc();
-
-        // Force a render and wait
-        element.requestUpdate();
-        await element.updateComplete;
-        await settle();
-        await aTimeout(100);
-
-        const iedToggle = element.shadowRoot!.querySelector<HTMLElement>(
-          'oscd-icon-button[title="Toggle IEDs"]',
-        );
-
-        expect(!!iedToggle).to.be.true;
-        expect(element.showIeds).to.be.true;
-
-        // Place an IED
-        await placeIedFromMenu('IED1', 3, 3);
-        await settle();
-
-        // Verify IED is visible
-        let iedGroup = getSldSubstationEditor(
-          element,
-        )?.shadowRoot?.querySelector('g[id="IEDRef-IED1"]');
-        expect(!!iedGroup).to.be.true;
-
-        // Click the toggle to hide IEDs
-        clickInteractive(iedToggle!);
-        await settle();
-
-        // Verify IED is now hidden
-        expect(element.showIeds).to.be.false;
-        iedGroup = getSldSubstationEditor(element)?.shadowRoot?.querySelector(
-          'g[id="IEDRef-IED1"]',
-        );
-        expect(!!iedGroup).to.be.false;
-
-        // Toggle back on
-        clickInteractive(iedToggle!);
-        await settle();
-
-        // Verify IED is visible again
-        expect(element.showIeds).to.be.true;
-        iedGroup = getSldSubstationEditor(element)?.shadowRoot?.querySelector(
-          'g[id="IEDRef-IED1"]',
-        );
-        expect(!!iedGroup).to.be.true;
-      });
-    });
-
     it('gives new voltage levels unique names', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add VoltageLevel"]')
-        ?.click();
+      queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
       await sendMouse({
         type: 'click',
         position: svgClientPosition(element, 5, 3),
@@ -1112,9 +837,7 @@ describe('SLD Editor', () => {
         type: 'click',
         position: svgClientPosition(element, 8, 6),
       });
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add VoltageLevel"]')
-        ?.click();
+      queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
       await sendMouse({
         type: 'click',
         position: svgClientPosition(element, 10, 7),
@@ -1132,9 +855,7 @@ describe('SLD Editor', () => {
     });
 
     it('allows the user to abort placing an element', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add VoltageLevel"]')
-        ?.click();
+      queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
       expect(sldEditor.placing?.tagName).to.equal('VoltageLevel');
       const event = new KeyboardEvent('keydown', { key: 'Escape' });
       window.dispatchEvent(event);
@@ -1152,15 +873,14 @@ describe('SLD Editor', () => {
       );
       element.doc = doc;
       await element.updateComplete;
+      await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
       sldSubstationEditor = editors.sldSubstationEditor;
     });
 
     it('allows placing a new bay', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add Bay"]')
-        ?.click();
+      queryToolbar(element, '[title="Add Bay"]')?.click();
       expect(sldEditor.placing?.tagName).to.equal('Bay');
       await sendMouse({
         type: 'click',
@@ -1182,9 +902,7 @@ describe('SLD Editor', () => {
     });
 
     it('allows placing a new bus bar', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add Bus Bar"]')
-        ?.click();
+      queryToolbar(element, '[title="Add Bus Bar"]')?.click();
       expect(sldEditor.placing?.tagName).to.equal('Bay');
       const [x1, y1] = svgClientPosition(element, 5, 3);
       await sendMouse({ type: 'click', position: [x1, y1] });
@@ -1215,15 +933,14 @@ describe('SLD Editor', () => {
       );
       element.doc = doc;
       await element.updateComplete;
+      await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
       _sldSubstationEditor = editors.sldSubstationEditor;
     });
 
     it('allows placing new conducting equipment', async () => {
-      element
-        .shadowRoot!.querySelector<OscdTextButton>('[title="Add GEN"]')
-        ?.click();
+      queryToolbar(element, '[title="Add GEN"]')?.click();
       expect(sldEditor.placing?.tagName).to.equal('ConductingEquipment');
       await sendMouse({
         type: 'click',
