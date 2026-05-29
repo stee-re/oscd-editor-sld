@@ -55,23 +55,123 @@ steps that preserve behavior and keep future options open.
 - [x] Extract placement and resize validation helpers
 - [x] Migrate `<sld-context-menu>` from raw `<menu>` to `oscd-menu`
 - [x] Extract edit builders from `sld-editor.ts`
-- [ ] Simplify `oscd-editor-sld.ts` root component rendering
+- [x] Simplify `oscd-editor-sld.ts` root component rendering (toolbar extraction)
+- [x] Promise-based placement API in `sld-editor.ts`
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
 
 ## Current File Layout
 
+### Root & Editor
+
+- `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
+- `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
+- `src/sld-substation-editor.ts` (2173 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
+
+### Toolbar (`src/toolbar/`)
+
+- `src/toolbar/sld-toolbar.ts` (470 lines) — Layout compositor with data-driven FAB groups. Equipment, structural, transformer, and view-control sections. Owns the about dialog and `insertSubstation` logic.
+- `src/toolbar/sld-toolbar.spec.ts` — Unit tests: substation insertion, zoom events, placement events, view toggles, about/cancel
+- `src/toolbar/sld-ied-importer.ts` (93 lines) — FAB + hidden file input for bay typical import. Parses SCL, converts layout, emits placement event with IEDs.
+- `src/toolbar/sld-ied-importer.spec.ts` — Unit tests: FAB rendering, file input, event dispatch
+- `src/toolbar/sld-ied-menu.ts` (251 lines) — IED selection menu with 3 sections (unmatched refs, available IEDs, used IEDs). Emits `start-placing`.
+- `src/toolbar/sld-ied-menu.spec.ts` — Unit tests: menu items, status markers, start-placing event, remove unmatched
+
+### Context Menu (`src/context-menu/`)
+
 - `src/context-menu/sld-context-menu.ts` — `SldContextMenu` component, discriminated union types, `MenuContext`, `MenuItemContext`
 - `src/context-menu/sld-context-menu-factory.ts` — all menu builder functions, `createContextMenuItems()` entry point
 - `src/context-menu/sld-context-menu.spec.ts` — component tests (rendered fixture, no mouse commands)
 - `src/context-menu/sld-context-menu-factory.spec.ts` — pure function tests for menu item generation
-- `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map
-- `src/foundations/events.ts` — `EditWizardDetail`, `newSclEditDialogEvent`, `newEditIedEvent`, and other SLD event factories
+
+### Foundations (`src/foundations/`)
+
 - `src/foundations/geometry.ts` — pure rectangle/point math (Rect, Point tuples, no DOM)
 - `src/foundations/element-geometry.ts` — Element-aware geometry bridge (`containsRect`, `overlapsRect`)
 - `src/foundations/sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`)
-- `src/sld-substation-editor.ts` — registers `<sld-context-menu>`, delegates via `open()` on right-click
+- `src/foundations/equipment.ts` — Type constants & guards
+- `src/foundations/transformer.ts` — Rendering geometry for windings
+- `src/foundations/sld-attributes.ts` — Read/write SLD namespace attributes
+- `src/foundations/events.ts` — Custom event factories & types
+- `src/foundations/export.ts` — XML pretty-print & download
+- `src/foundations/ied.ts` — IED resolution + one edit builder
+- `src/foundations/connectivity.ts` — Mixed queries + edit builders (⚠️ blurry boundary)
+- `src/foundations/edits.ts` — Pure edit builders (ground, flip, delete, copy)
+
+### Other
+
+- `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map
+- `src/converter.ts` — SLD namespace conversion (old ↔ new format)
+
+## Toolbar Architecture
+
+The toolbar is extracted into three self-contained components, each with their own
+scoped element registrations.
+
+### `<sld-toolbar>`
+
+Layout compositor. Receives `doc`, `docVersion`, `nsp`, `templateElements`,
+`inAction`, `gridSize` as properties. Handles `insertSubstation` and the about
+dialog internally. Emits events upward:
+
+| Event | Detail | Purpose |
+|-------|--------|---------|
+| `start-placing` | `{ element }` | Equipment/structural/transformer FAB clicked |
+| `start-placing-typical` | `{ bayTypical, ieds }` | Bay typical imported (from ied-importer) |
+| `view-change` | `{ showLabels, showIeds }` | Toggle labels or IED visibility |
+| `zoom` | `{ direction: 'in' \| 'out' }` | Zoom in/out |
+| `cancel` | — | Cancel action |
+
+Data-driven transformer configs (`TransformerConfig[]`) replace 6 repetitive FAB
+blocks with a single config array + `createTransformerElement(config)` factory.
+
+### `<sld-ied-importer>`
+
+FAB + hidden file input. On file selection: parses SCL, runs `convertSldLayout()`,
+dispatches `EditV2` for conversion edits, then emits `start-placing-typical`
+with `{ bayTypical, ieds }`. The root component uses the promise-based placement
+API to await placement and then imports the IEDs.
+
+### `<sld-ied-menu>`
+
+Sectioned menu (unmatched refs, available IEDs, used IEDs). Contains
+`insertOrGetIedReference()` logic (moved from root). Emits `start-placing`
+with `{ element }` — handled by root as a regular placement.
+
+## Promise-Based Placement API
+
+`sld-editor.ts` exposes a promise-returning `startPlacing()`:
+
+```typescript
+type PlacementResult = { element: Element; parent: Element; x: number; y: number };
+
+startPlacing(element, offset?): Promise<PlacementResult | undefined>
+```
+
+**Resolution rules:**
+- `placeElement()` resolves with the result (successful placement)
+- `reset()` resolves with `undefined` (cancel / Escape)
+
+**Why promises over events:**
+- 1:1 correlation between initiator and completion — no ambiguity about "was this
+  event mine or someone else's?"
+- Eliminates special-case state (`placingBayTypical`) and its code paths
+- Fits naturally: downward calls (parent → child) are already imperative; upward
+  signals (child → parent) remain events
+
+**Usage pattern (bay typical import):**
+```typescript
+@start-placing-typical=${async ({ detail }) => {
+  const result = await this.sldEditor?.startPlacing(detail.bayTypical);
+  if (result) {
+    const scl = this.doc.querySelector('SCL')!;
+    detail.ieds.forEach(ied => {
+      this.dispatchEvent(newEditEventV2(insertIed(scl, ied)));
+    });
+  }
+}}
+```
 
 ## Context-Menu Architecture
 
@@ -108,6 +208,9 @@ steps that preserve behavior and keep future options open.
 - Avoid exported render helper functions that secretly require callers to register scoped child components, instead prefer actual internal components when templates need their own scoped dependencies.
 - Avoid adding new inline CSS during refactors unless the value is truly dynamic or cannot cross a shadow DOM boundary cleanly.
 - Avoid passing `TemplateResult` through data shapes. Prefer plain strings for labels/headlines.
+- Promise-based `startPlacing()` preferred over callbacks-in-events or generic placement-complete events. Maintains 1:1 correlation between placement request and result.
+- Test co-location: each component gets its own `.spec.ts` in the same directory. Parent specs test orchestration only, not child internals. When extracting code, tests move with it.
+- `docVersion` (incrementing number) must be passed to child components that depend on document content, because mutable `XMLDocument` references don't trigger Lit property changes.
 
 ## Verification Requirements
 
@@ -118,15 +221,18 @@ steps that preserve behavior and keep future options open.
 ## Last Verified State
 
 - `npm run format` passed.
-- `npm run test` passed with `352 passed, 0 failed`.
-- `sld-editor.ts` reduced from 848 → 369 lines.
-- `foundations/edits.ts` grew to 868 lines (split planned).
+- `npm run test` passed with `395 passed, 0 failed`.
+- `oscd-editor-sld.ts` reduced from 784 → 210 lines.
+- `sld-editor.ts` at 402 lines (was 848 before edit builder extraction).
+- `sld-toolbar.ts` at 470 lines (new, includes about dialog and insertSubstation).
+- Code coverage: 90.52%.
+- Test co-location: each toolbar component has its own `.spec.ts` alongside it.
 
 ## Edit Builder Extraction — Complete
 
-Edit builders extracted from `sld-editor.ts` (848 → 369 lines).
-`sld-editor.ts` is now a thin orchestrator (state + event routing), while
-edit-building logic lives as pure functions in `foundations/`.
+Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API).
+`sld-editor.ts` is now a thin orchestrator (state + event routing + promise-based placement),
+while edit-building logic lives as pure functions in `foundations/`.
 
 ### Foundations Structure Assessment
 
@@ -151,76 +257,33 @@ Current files are well-grouped by domain concept:
 `makeBusBar`). A future pass could move the edit builders into `edits.ts`, leaving
 connectivity as purely read-only. Not a prerequisite for the current work.
 
-### Naming: `edits.ts` is fine (for now)
+## Toolbar Extraction — Complete
 
-The name is generic, but contextually clear (lives in `foundations/`, parallels
-`events.ts`). Alternatives considered: `sld-edit-builders.ts`, `sld-mutations.ts`,
-`edit-factories.ts` — none improve clarity enough to justify a rename.
+The root component's ~500-line `render()` was decomposed into three components:
 
-784 lines total. render() spans lines 203–701 — that's ~500 lines of template. That's the core problem.
+| Before | After |
+|--------|-------|
+| `oscd-editor-sld.ts` 784 lines, ~500-line render | `oscd-editor-sld.ts` 210 lines, ~40-line render |
+| 6 repetitive transformer FAB blocks | Data-driven `TransformerConfig[]` array |
+| IED menu logic embedded in render | Self-contained `<sld-ied-menu>` component |
+| Bay typical import mixed into root | Self-contained `<sld-ied-importer>` component |
+| `placingBayTypical` special state | Promise-based `startPlacing()` with async/await |
+| About dialog in root | Toolbar-internal (no event needed) |
+| `insertSubstation` in root | Toolbar-internal (dispatches `EditV2` directly) |
+| 10 verbose `sld-toolbar-*` events | 5 clean short-name events |
 
-Breakdown of render()
+## Remaining Work
 
-┌─────────┬──────────────────────────────────────┬─────┬─────────────────────────────────┐
-│ Lines   │ Section                              │ LOC │ Issue                           │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 204–212 │ Guard clauses                        │ 9   │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 214–248 │ IED data computation                 │ 35  │ Logic in render                 │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 253–275 │ Equipment FABs                       │ 22  │ Already uses eqTypes.map — OK   │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 277–301 │ BusBar + Bay FABs                    │ 24  │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 303–462 │ VoltageLevel + Import + IED menu     │ 160 │ Dense and deeply nested         │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 464–471 │ Substation FAB                       │ 8   │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 473–596 │ Power Transformer FABs ×6            │ 123 │ Highly repetitive               │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 598–651 │ Toggle + Zoom buttons                │ 53  │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 655–674 │ Cancel/About                         │ 20  │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 676–686 │ <sld-editor> child                   │ 10  │ Fine                            │
-├─────────┼──────────────────────────────────────┼─────┼─────────────────────────────────┤
-│ 688–701 │ About dialog                         │ 14  │ Fine                            │
-└─────────┴──────────────────────────────────────┴─────┴─────────────────────────────────┘
+### Near-term (before module split)
 
-------------------------------------------------------------------------------------------------------------
+1. **Split large SVG renderers** — `sld-substation-editor.ts` at 2173 lines is the
+   elephant. This is the future viewer boundary and the biggest remaining complexity.
+2. **Clean up structural conventions** — consistent file naming, import ordering.
+3. **Consolidate test fixtures/helpers** — shared helpers scattered across spec files.
+4. **`connectivity.ts` boundary** — separate read-only queries from edit builders.
 
-Top 3 opportunities
+### Future (module split preparation)
 
-1. Power Transformer FABs (lines 473–596) — 6 FABs that differ only by winding count (1/2/3) and kind ('auto'
-| 'earthing' | undefined). A single data-driven loop or factory function eliminates ~100 lines:
-
- const transformerConfigs = [
-   { windings: 1, kind: 'auto', label: 'Single Winding Auto' },
-   { windings: 2, kind: 'auto', label: 'Two Winding Auto' },
-   ...
- ];
-
-1. IED menu (lines 350–462) — Self-contained but deeply nested. Extract to a renderIedMenu() method or even a
-separate template helper. It handles 3 sections (delete unmatched, unused IEDs, used IEDs) that each have
-their own map/filter logic.
-
-2. Data computation (lines 214–248) — IED sorting/filtering runs every render. Could move to a dedicated
-method (e.g. get iedData()) to keep render() focused on template structure.
-
-------------------------------------------------------------------------------------------------------------
-
-Secondary opportunities
-
-- The entire <nav> toolbar (250–675) could be renderToolbar() — the component's actual layout is trivially
-
-<nav> + <sld-editor> + <dialog>.
- - Several conditional ternaries (this.doc.querySelector(...) ? ... : nothing) repeat the same "does X exist
-in the doc" pattern — could be named booleans computed once at the top.
-
-------------------------------------------------------------------------------------------------------------
-
-Summary
-
-The low-hanging fruit is the transformer FABs (repetition) and the IED menu (complexity). Together those
-account for ~280 of the 500 template lines and could reduce render() to ~250 lines with no architectural
-change — just extraction of template helpers.
+1. Define viewer API boundary (SCL Element in, SVG + events out)
+2. Identify which foundations belong to viewer vs editor
+3. Design edit event API for editor → plugin communication

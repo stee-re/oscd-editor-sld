@@ -3,7 +3,6 @@ import { property, query, state } from 'lit/decorators.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import type { EditV2, SetAttributes } from '@openscd/oscd-api';
-import { insertIed } from '@openscd/scl-lib';
 
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
@@ -47,6 +46,13 @@ import type {
 import type { Point } from './foundations/geometry.js';
 import type { Style } from './foundations/sld-attributes.js';
 
+export type PlacementResult = {
+  element: Element;
+  parent: Element;
+  x: number;
+  y: number;
+};
+
 export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-substation-editor': SldSubstationEditor,
@@ -86,10 +92,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   @property({ type: Boolean })
   showIeds?: boolean;
 
-  public startPlacingBayTypical = (element: Element) => {
-    this.startPlacing(element);
-    this.placingBayTypical = element;
-  };
 
   @state() gridSize = 32;
 
@@ -100,9 +102,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   @state() resizingTL?: Element;
 
   @state() placing?: Element;
-
-  @state()
-  placingBayTypical?: Element;
 
   @state() placingOffset: Point = [0, 0];
 
@@ -214,6 +213,8 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.placing = undefined;
     this.placingLabel = undefined;
     this.connecting = undefined;
+    this._resolvePlacement?.(undefined);
+    this._resolvePlacement = undefined;
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: false }),
     );
@@ -240,9 +241,14 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  startPlacing(element: Element | undefined, offset: Point = [0, 0]) {
+  private _resolvePlacement?: (result: PlacementResult | undefined) => void;
+
+  startPlacing(
+    element: Element | undefined,
+    offset: Point = [0, 0],
+  ): Promise<PlacementResult | undefined> {
     if (this.disabled) {
-      return;
+      return Promise.resolve(undefined);
     }
 
     this.reset();
@@ -251,6 +257,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
+
+    return new Promise((resolve) => {
+      this._resolvePlacement = resolve;
+    });
   }
 
   startPlacingLabel(element: Element | undefined, offset: Point = [0, 0]) {
@@ -303,22 +313,16 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
     this.dispatchEvent(newEditEventV2(edits));
 
-    if (this.placingBayTypical && this.placing) {
-      const scl = this.doc.querySelector('SCL')!;
-      const ieds = this.placing.ownerDocument.querySelectorAll(':root > IED');
-
-      ieds.forEach((ied) => {
-        this.dispatchEvent(newEditEventV2(insertIed(scl, ied)));
-      });
-
-      this.placingBayTypical = undefined;
-    }
+    const resolve = this._resolvePlacement;
+    this._resolvePlacement = undefined;
 
     if (this.isNewBayOrVL(element)) {
       this.startResizingBottomRight(element);
     } else {
       this.reset();
     }
+
+    resolve?.({ element, parent, x, y });
   }
 
   connectEquipment(detail: ConnectDetail) {
@@ -333,11 +337,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     return html`${Array.from(
       this.doc.querySelectorAll(':root > Substation'),
     ).map(
-      subs =>
+      substation =>
         html`<sld-substation-editor
             .doc=${this.doc}
             .docVersion=${this.docVersion}
-            .substation=${subs}
+            .substation=${substation}
             .gridSize=${this.gridSize}
             .resizingBR=${this.resizingBR}
             .resizingTL=${this.resizingTL}
