@@ -5,12 +5,14 @@ import {
   isBusBar,
   makeBusBar,
   connectivityPath,
+  connectionStartPoints,
+} from './connectivity.js';
+import {
   uniqueName,
   removeNode,
   removeTerminal,
   reparentElement,
-  connectionStartPoints,
-} from './connectivity.js';
+} from './connectivity-edits.js';
 import { createSCLDoc } from '../test-helpers.js';
 import { sclNs } from '../foundations.js';
 

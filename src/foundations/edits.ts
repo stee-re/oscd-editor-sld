@@ -1,13 +1,11 @@
 import { getReference } from '@openscd/scl-lib';
 
+import { busSections, connectivityPath, isBusBar } from './connectivity.js';
 import {
-  busSections,
-  connectivityPath,
-  isBusBar,
   removeNode,
   removeTerminal,
   reparentElement,
-} from './connectivity.js';
+} from './connectivity-edits.js';
 import { iedReferences, isIedReferenceElement } from './ied.js';
 import {
   attributes,

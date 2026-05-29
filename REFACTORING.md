@@ -96,8 +96,9 @@ steps that preserve behavior and keep future options open.
 - `src/foundations/events.ts` — Custom event factories & types
 - `src/foundations/export.ts` — XML pretty-print & download
 - `src/foundations/ied.ts` — IED resolution + one edit builder
-- `src/foundations/connectivity.ts` — Mixed queries + edit builders (⚠️ blurry boundary)
-- `src/foundations/edits.ts` — Pure edit builders (ground, flip, delete, copy)
+- `src/foundations/connectivity.ts` — Queries (isBusBar, busSections, connectionStartPoints, connectivityPath, makeBusBar)
+- `src/foundations/connectivity-edits.ts` — Connectivity edit builders (removeNode, removeTerminal, reparentElement, uniqueName)
+- `src/foundations/edits.ts` — Pure edit builders (ground, flip, delete, copy, connect)
 
 ### Other
 
@@ -225,7 +226,8 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 - `oscd-editor-sld.ts` reduced from 784 → 210 lines.
 - `sld-editor.ts` at 402 lines (was 848 before edit builder extraction).
 - `sld-toolbar.ts` at 470 lines (new, includes about dialog and insertSubstation).
-- Code coverage: 90.52%.
+- `connectivity.ts` split: 106 lines (queries) + 334 lines (edits).
+- Code coverage: 90.74%.
 - Test co-location: each toolbar component has its own `.spec.ts` alongside it.
 
 ## Edit Builder Extraction — Complete
@@ -249,8 +251,9 @@ Current files are well-grouped by domain concept:
 | `events.ts` | 214 | Custom event factories & types | ✅ |
 | `export.ts` | 98 | XML pretty-print & download | ✅ |
 | `ied.ts` | 74 | IED resolution + one edit builder | ✅ |
-| `connectivity.ts` | 433 | Mixed queries + edit builders | ⚠️ blurry boundary |
-| `edits.ts` | 260 | Pure edit builders (ground, flip, delete, copy) | ✅ |
+| `connectivity.ts` | 106 | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`) | ✅ pure |
+| `connectivity-edits.ts` | 334 | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅ |
+| `edits.ts` | 838 | Pure edit builders (ground, flip, delete, copy, connect) | ✅ |
 
 `connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`,
 `busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`,
@@ -272,18 +275,145 @@ The root component's ~500-line `render()` was decomposed into three components:
 | `insertSubstation` in root | Toolbar-internal (dispatches `EditV2` directly) |
 | 10 verbose `sld-toolbar-*` events | 5 clean short-name events |
 
+## Connectivity Boundary Split — Complete
+
+`connectivity.ts` (433 lines) separated into:
+
+| File | Lines | Responsibility |
+|------|-------|----------------|
+| `connectivity.ts` | 106 | Pure read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`). No `EditV2` import. |
+| `connectivity-edits.ts` | 334 | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) + private helpers |
+
+`connectivity.ts` is now a clean read-only module suitable for the future viewer package — it
+has no dependency on `EditV2`, `@openscd/scl-lib`, or `./ied.js`.
+
+## `sld-substation-editor.ts` Analysis — The Elephant (2,173 lines)
+
+This is the single largest file and the future viewer extraction target. It mixes three
+concerns: SVG rendering, interaction state, and edit dispatch.
+
+### Structural breakdown
+
+| Method/Section | Lines | % | Responsibility |
+|----------------|-------|---|----------------|
+| `render()` | 483 | 22% | Main canvas composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
+| `renderEquipment()` | 251 | 12% | Single ConductingEquipment SVG symbol + click/context handlers |
+| `renderContainer()` | 251 | 12% | Bay or VoltageLevel rect + children + resize handles |
+| `renderConnectivityNode()` | 215 | 10% | Connection polylines between terminals |
+| `renderTransformerWinding()` | 116 | 5% | Winding circles + ports |
+| `renderLabel()` | 115 | 5% | Text labels with positioning logic |
+| `renderPowerTransformer()` | 101 | 5% | Transformer windings composition |
+| `renderIed()` | 84 | 4% | IED reference badges |
+| `renderBusBar()` | 45 | 2% | Busbar lines |
+| Properties/state/lifecycle | ~170 | 8% | 30+ properties, mouse state, coordinate transforms |
+| Utility methods | ~90 | 4% | `svgCoordinates`, `nearestOpenTerminal`, `groundTerminal`, `handleExport` |
+| Top-level helpers | ~80 | 4% | `isBay`, `isSelectable`, `getHighlightStyle`, `transformerHighlight` |
+| `static styles` | ~75 | 3% | CSS |
+
+### Three concerns interleaved
+
+1. **Pure SVG rendering** — Given an SCL element + display flags, produce SVG templates.
+   Most `render*` methods are effectively pure: they read element attributes and produce
+   `SVGTemplateResult`. No state mutation.
+
+2. **Interaction state machine** — Placement, resizing, connecting. The 483-line `render()`
+   is mostly interaction overlays: placing targets, invalid-placement feedback, connection
+   preview polylines, coordinate tooltip. This is editing logic, not viewing.
+
+3. **Edit dispatch** — `groundTerminal()`, context menu wiring, and various `@click`
+   handlers that build and dispatch `EditV2` events.
+
+### Recommended decomposition strategy
+
+**Phase A: Extract SVG renderers as pure template functions**
+
+Each `render*` method becomes a standalone function that receives a context object
+instead of referencing `this`. This is a low-risk mechanical extraction — behavior
+is preserved identically.
+
+| New module | Contains | Lines |
+|------------|----------|-------|
+| `renderers/equipment.ts` | `renderEquipment` + highlight helpers | ~280 |
+| `renderers/container.ts` | `renderContainer` | ~250 |
+| `renderers/connectivity.ts` | `renderConnectivityNode` | ~215 |
+| `renderers/transformer.ts` | `renderPowerTransformer` + `renderTransformerWinding` | ~220 |
+| `renderers/label.ts` | `renderLabel` | ~115 |
+| `renderers/ied.ts` | `renderIed` + `renderBusBar` | ~130 |
+
+Shared context interface:
+
+```typescript
+interface RenderContext {
+  mouseX: number; mouseY: number;
+  placing?: Element; placingOffset: Point;
+  disabled: boolean; showLabels: boolean; showIeds: boolean;
+  selectable: string[]; highlight: { id: string; style: Style }[];
+  nsp: string; substation: Element;
+}
+```
+
+**Result:** `sld-substation-editor.ts` reduced from ~2,173 → ~600 lines (properties,
+lifecycle, interaction orchestration, main `render()` compositing calls).
+
+**Phase B: Extract canvas-internal symbols**
+
+Move from `icons.ts` into a new `canvas-symbols.ts`:
+- `symbols` (SVG `<defs>` block with equipment symbols, grid patterns, markers)
+- `resizePath`, `resizeTLPath`, `resizeBRPath`
+- `zigZagPath`, `zigZag2WTransform`, `eqRingPath`
+
+These are only used by `sld-substation-editor.ts` — they are canvas internals, not
+shared icons. This removes `sld-substation-editor.ts`'s dependency on `icons.ts`.
+
+**Phase C: Separate interaction from rendering**
+
+The `render()` method's placing/resizing/connecting logic could become a Lit
+reactive controller or a separate interaction-layer component. This would create
+a clean viewer/editor boundary:
+
+- **Viewer**: takes SCL + display flags, renders static SVG, emits selection events
+- **Editor overlay**: adds placing targets, resize handles, connection previews
+
+This is the most complex phase and should come last.
+
+### Key challenge: shared context
+
+The render methods reference `this.mouseX`, `this.placing`, `this.placingOffset`,
+`this.disabled`, `this.showLabels`, etc. The extraction requires threading a context
+object. The interface is stable (the properties already exist) so this is mechanical
+but touches many lines.
+
+### `icons.ts` status
+
+`icons.ts` (723 lines) serves three unrelated consumers:
+
+| Consumer | Uses |
+|----------|------|
+| `sld-toolbar.ts` | `bayIcon`, `voltageLevelIcon`, `equipmentIcon`, `ptrIcon` (24×24 SVGs for FAB `slot="icon"`) |
+| `sld-context-menu.ts` | `bayGraphic`, `voltageLevelGraphic`, `equipmentGraphic`, `ptrIcon` (24×24 SVGs for `slot="graphic"`) |
+| `sld-substation-editor.ts` | `symbols`, `resizePath`, `resizeTLPath`, `resizeBRPath`, `zigZagPath`, `zigZag2WTransform`, `eqRingPath` |
+
+After Phase B, `icons.ts` would only serve toolbar + context menu (equipment/structural
+icons used in FABs and menu items). These could eventually be registered in `SLD_ICONS`
+and rendered via `<oscd-sld-icon>`, but that requires verifying `oscd-fab` and
+`oscd-menu-item` accept child icon components in their slots.
+
 ## Remaining Work
 
 ### Near-term (before module split)
 
-1. **Split large SVG renderers** — `sld-substation-editor.ts` at 2173 lines is the
-   elephant. This is the future viewer boundary and the biggest remaining complexity.
-2. **Clean up structural conventions** — consistent file naming, import ordering.
-3. **Consolidate test fixtures/helpers** — shared helpers scattered across spec files.
-4. **`connectivity.ts` boundary** — separate read-only queries from edit builders.
+1. **~Extract canvas symbols~ (Phase B)** — Move SVG defs/resize paths out of `icons.ts`
+   into `canvas-symbols.ts`. Quick win, removes cross-concern coupling.
+2. **Extract SVG renderers (Phase A)** — Biggest impact. Start with simplest
+   (`renderBusBar`, `renderLabel`) then work through the larger methods.
+3. **Separate interaction from rendering (Phase C)** — Create viewer/editor boundary.
+4. ~~**`connectivity.ts` boundary**~~ — ✅ Done. Split into queries + edit builders.
+5. **Clean up structural conventions** — consistent file naming, import ordering.
+6. **Consolidate test fixtures/helpers** — shared helpers scattered across spec files.
 
 ### Future (module split preparation)
 
 1. Define viewer API boundary (SCL Element in, SVG + events out)
 2. Identify which foundations belong to viewer vs editor
 3. Design edit event API for editor → plugin communication
+4. Decide whether `icons.ts` equipment paths should move into `SLD_ICONS` registry
