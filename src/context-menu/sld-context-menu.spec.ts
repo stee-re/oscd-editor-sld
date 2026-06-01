@@ -224,8 +224,9 @@ describe('SldContextMenu', () => {
         'oscd-list-item[type="text"]',
       );
       expect(header).to.not.be.null;
-      const icon = header!.querySelector('svg[slot="start"]');
+      const icon = header!.querySelector('oscd-sld-icon[slot="start"]');
       expect(icon).to.not.be.null;
+      expect(icon!.textContent!.trim()).to.equal('sld_ptr_3');
     });
 
     it('renders PowerTransformer header with 2-winding icon', async () => {
@@ -237,8 +238,9 @@ describe('SldContextMenu', () => {
         'oscd-list-item[type="text"]',
       );
       expect(header).to.not.be.null;
-      const icon = header!.querySelector('svg[slot="start"]');
+      const icon = header!.querySelector('oscd-sld-icon[slot="start"]');
       expect(icon).to.not.be.null;
+      expect(icon!.textContent!.trim()).to.equal('sld_ptr_2');
     });
 
     it('renders PowerTransformer header with 1-winding icon', async () => {
@@ -260,8 +262,9 @@ describe('SldContextMenu', () => {
         'oscd-list-item[type="text"]',
       );
       expect(header).to.not.be.null;
-      const icon = header!.querySelector('svg[slot="start"]');
+      const icon = header!.querySelector('oscd-sld-icon[slot="start"]');
       expect(icon).to.not.be.null;
+      expect(icon!.textContent!.trim()).to.equal('sld_ptr_1');
     });
 
     it('renders TransformerWinding header with winding icon', async () => {
@@ -273,8 +276,9 @@ describe('SldContextMenu', () => {
         'oscd-list-item[type="text"]',
       );
       expect(header).to.not.be.null;
-      const icon = header!.querySelector('svg[slot="start"]');
+      const icon = header!.querySelector('oscd-sld-icon[slot="start"]');
       expect(icon).to.not.be.null;
+      expect(icon!.textContent!.trim()).to.equal('sld_ptr_1');
     });
 
     it('renders Text header with title icon and textContent as detail', async () => {

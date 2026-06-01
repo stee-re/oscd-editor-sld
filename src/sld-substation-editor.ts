@@ -33,7 +33,7 @@ import {
   symbols,
   zigZag2WTransform,
   zigZagPath,
-} from './icons.js';
+} from './drawing/diagram-symbols.js';
 import {
   cleanPath,
   distance,

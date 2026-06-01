@@ -6,7 +6,7 @@
 - Preserve behavior unless explicitly changing it
 - Prefer small, testable, behavior-preserving extractions
 - Keep UI/component files focused on rendering and orchestration
-- After each refactor, run `npm run format` and `npm run test`; both should pass without remaining complaints
+- After each refactor, ask the maintainer to run `npm run format` and `npm run test`; both should pass without remaining complaints
 
 ## Guiding Star
 
@@ -57,6 +57,7 @@ steps that preserve behavior and keep future options open.
 - [x] Extract edit builders from `sld-editor.ts`
 - [x] Simplify `oscd-editor-sld.ts` root component rendering (toolbar extraction)
 - [x] Promise-based placement API in `sld-editor.ts`
+- [x] Extract diagram symbols and delete mixed-purpose `icons.ts`
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
@@ -104,6 +105,10 @@ steps that preserve behavior and keep future options open.
 
 - `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map
 - `src/converter.ts` — SLD namespace conversion (old ↔ new format)
+
+### Drawing (`src/drawing/`)
+
+- `src/drawing/diagram-symbols.ts` — Diagram SVG defs, grid patterns, markers, resize paths, transformer paths, and equipment symbol paths used by the rendered SLD diagram.
 
 ## Toolbar Architecture
 
@@ -184,6 +189,7 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 - `menuHeaderHeight()` offsets the anchor upward so action items align with the cursor.
 - Separators: `<oscd-divider>` (styled by `oscd-menu` via `::slotted`).
 - Non-interactive headers: `<oscd-list-item type="text">`. NOT `oscd-menu-item disabled` (that signals "unavailable action").
+- Header graphics use `<oscd-sld-icon slot="start">...`, matching `oscd-list-item`'s visible start slot. This intentionally corrects the old mixed slot behavior where some header SVG helpers used `slot="graphic"` and were not consistently visible.
 
 **Menu close:**
 
@@ -205,7 +211,8 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 ## Decisions Made
 
-- `OscdSldIcon` provides SLD-specific icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). Icon consolidation with oscd-ui deferred; Storybook comparison stories exist.
+- `OscdSldIcon` provides SLD-specific UI icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). It owns toolbar and context-menu icon rendering for SLD entities and actions.
+- Approved small UI correction: context-menu headers now render SLD entity icons through `<oscd-sld-icon slot="start">...`, so VoltageLevel and ConductingEquipment headers show the same kind of visible start icon as transformer headers. Snapshot updates are expected for this change.
 - Avoid exported render helper functions that secretly require callers to register scoped child components, instead prefer actual internal components when templates need their own scoped dependencies.
 - Avoid adding new inline CSS during refactors unless the value is truly dynamic or cannot cross a shadow DOM boundary cleanly.
 - Avoid passing `TemplateResult` through data shapes. Prefer plain strings for labels/headlines.
@@ -215,7 +222,7 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 ## Verification Requirements
 
-- After each refactor, run `npm run format` and `npm run test`.
+- After each refactor, ask the maintainer to run `npm run format` and `npm run test`.
 - Both should pass without complaints.
 - If DOM snapshots intentionally change, update snapshots with `--update-snapshots` then rerun normally.
 
@@ -296,7 +303,7 @@ concerns: SVG rendering, interaction state, and edit dispatch.
 
 | Method/Section | Lines | % | Responsibility |
 |----------------|-------|---|----------------|
-| `render()` | 483 | 22% | Main canvas composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
+| `render()` | 483 | 22% | Main diagram composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
 | `renderEquipment()` | 251 | 12% | Single ConductingEquipment SVG symbol + click/context handlers |
 | `renderContainer()` | 251 | 12% | Bay or VoltageLevel rect + children + resize handles |
 | `renderConnectivityNode()` | 215 | 10% | Connection polylines between terminals |
@@ -355,15 +362,17 @@ interface RenderContext {
 **Result:** `sld-substation-editor.ts` reduced from ~2,173 → ~600 lines (properties,
 lifecycle, interaction orchestration, main `render()` compositing calls).
 
-**Phase B: Extract canvas-internal symbols**
+**Phase B: Extract diagram symbols**
 
-Move from `icons.ts` into a new `canvas-symbols.ts`:
+Move diagram-specific SVG primitives into `drawing/diagram-symbols.ts`:
 - `symbols` (SVG `<defs>` block with equipment symbols, grid patterns, markers)
 - `resizePath`, `resizeTLPath`, `resizeBRPath`
 - `zigZagPath`, `zigZag2WTransform`, `eqRingPath`
+- `equipmentPath`
 
-These are only used by `sld-substation-editor.ts` — they are canvas internals, not
-shared icons. This removes `sld-substation-editor.ts`'s dependency on `icons.ts`.
+These are diagram renderer internals, not shared UI icons. This removes the
+large mixed-purpose `icons.ts` module and leaves UI icon rendering with
+`OscdSldIcon`.
 
 **Phase C: Separate interaction from rendering**
 
@@ -383,27 +392,27 @@ The render methods reference `this.mouseX`, `this.placing`, `this.placingOffset`
 object. The interface is stable (the properties already exist) so this is mechanical
 but touches many lines.
 
-### `icons.ts` status
+### Icon Ownership Status
 
-`icons.ts` (723 lines) serves three unrelated consumers:
+The former `icons.ts` served three unrelated consumers:
 
 | Consumer | Uses |
 |----------|------|
-| `sld-toolbar.ts` | `bayIcon`, `voltageLevelIcon`, `equipmentIcon`, `ptrIcon` (24×24 SVGs for FAB `slot="icon"`) |
-| `sld-context-menu.ts` | `bayGraphic`, `voltageLevelGraphic`, `equipmentGraphic`, `ptrIcon` (24×24 SVGs for `slot="graphic"`) |
-| `sld-substation-editor.ts` | `symbols`, `resizePath`, `resizeTLPath`, `resizeBRPath`, `zigZagPath`, `zigZag2WTransform`, `eqRingPath` |
+| `sld-toolbar.ts` | SLD entity/action icons for FAB `slot="icon"` |
+| `sld-context-menu.ts` | SLD entity/action icons for menu/list `slot="start"` |
+| `sld-substation-editor.ts` | Diagram `<defs>`, resize paths, transformer paths, equipment symbol paths |
 
-After Phase B, `icons.ts` would only serve toolbar + context menu (equipment/structural
-icons used in FABs and menu items). These could eventually be registered in `SLD_ICONS`
-and rendered via `<oscd-sld-icon>`, but that requires verifying `oscd-fab` and
-`oscd-menu-item` accept child icon components in their slots.
+Phase B resolves this by deleting `icons.ts`:
+
+- `src/drawing/diagram-symbols.ts` owns diagram renderer SVG primitives.
+- `src/oscd-sld-icon.ts` owns SLD UI icon names and rendering for toolbar/context-menu slots.
 
 ## Remaining Work
 
 ### Near-term (before module split)
 
-1. **~Extract canvas symbols~ (Phase B)** — Move SVG defs/resize paths out of `icons.ts`
-   into `canvas-symbols.ts`. Quick win, removes cross-concern coupling.
+1. **~Extract diagram symbols~ (Phase B)** — Move SVG defs/resize paths out of `icons.ts`
+   into `drawing/diagram-symbols.ts`, and move UI icon ownership to `OscdSldIcon`.
 2. **Extract SVG renderers (Phase A)** — Biggest impact. Start with simplest
    (`renderBusBar`, `renderLabel`) then work through the larger methods.
 3. **Separate interaction from rendering (Phase C)** — Create viewer/editor boundary.
@@ -416,4 +425,4 @@ and rendered via `<oscd-sld-icon>`, but that requires verifying `oscd-fab` and
 1. Define viewer API boundary (SCL Element in, SVG + events out)
 2. Identify which foundations belong to viewer vs editor
 3. Design edit event API for editor → plugin communication
-4. Decide whether `icons.ts` equipment paths should move into `SLD_ICONS` registry
+4. Decide whether SLD UI icons should eventually merge into oscd-ui/SCL icon registries

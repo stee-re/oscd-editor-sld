@@ -12,10 +12,10 @@ import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
 import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
 
+import { OscdSldIcon } from '../oscd-sld-icon.js';
 import { isBusBar } from '../foundations/connectivity.js';
 import { eqTypes } from '../foundations/equipment.js';
 import { setSLDAttributes } from '../foundations/sld-attributes.js';
-import { bayIcon, equipmentIcon, ptrIcon, voltageLevelIcon } from '../icons.js';
 
 import { SldIedImporter } from './sld-ied-importer.js';
 import { SldIedMenu } from './sld-ied-menu.js';
@@ -42,6 +42,10 @@ const transformerConfigs: TransformerConfig[] = [
   { windings: 1, kind: 'earthing', label: 'Single Winding Earthing Transformer' },
   { windings: 2, kind: 'earthing', label: 'Two Winding Earthing Transformer' },
 ];
+
+function transformerIconName({ windings, kind }: TransformerConfig): string {
+  return kind ? `sld_ptr_${windings}_${kind}` : `sld_ptr_${windings}`;
+}
 
 // --- Event for requesting element placement ---
 
@@ -72,6 +76,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
     'oscd-fab': OscdFab,
     'oscd-icon': OscdIcon,
     'oscd-icon-button': OscdIconButton,
+    'oscd-sld-icon': OscdSldIcon,
     'oscd-text-button': OscdTextButton,
     'sld-ied-importer': SldIedImporter,
     'sld-ied-menu': SldIedMenu,
@@ -194,7 +199,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
             element.setAttribute('type', eqType);
             this.startPlacing(element);
           }}
-          >${equipmentIcon(eqType)}</oscd-fab
+          ><oscd-sld-icon slot="icon">sld_equipment_${eqType}</oscd-sld-icon></oscd-fab
         >`,
     );
   }
@@ -226,7 +231,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
         }}
         style="--md-fab-container-color: #12579B; --md-fab-icon-color: white;"
       >
-        ${bayIcon}
+        <oscd-sld-icon slot="icon">sld_bay</oscd-sld-icon>
       </oscd-fab>`;
   }
 
@@ -246,7 +251,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
       }}
       style="--md-fab-container-color: #F5E214;"
     >
-      ${voltageLevelIcon}
+      <oscd-sld-icon slot="icon">sld_voltage_level</oscd-sld-icon>
     </oscd-fab>`;
   }
 
@@ -303,7 +308,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
             const element = this.createTransformerElement(config);
             this.startPlacing(element);
           }}
-          >${ptrIcon(config.windings, { kind: config.kind ?? 'default' })}</oscd-fab
+          ><oscd-sld-icon slot="icon">${transformerIconName(config)}</oscd-sld-icon></oscd-fab
         >`,
     );
   }
