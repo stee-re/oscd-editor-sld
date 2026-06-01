@@ -1,12 +1,7 @@
-import { html, nothing, svg, TemplateResult } from 'lit';
-import {
-  eqTypes,
-  isEqType,
-  ringedEqTypes,
-  singleTerminal,
-} from './foundations/equipment.js';
+import { svg, TemplateResult } from 'lit';
+import { eqTypes, isEqType } from '../foundations/equipment.js';
 
-import type { EqType } from './foundations/equipment.js';
+import type { EqType } from '../foundations/equipment.js';
 
 export const resizePath = svg`<path
   d="M120 616v-80h80v80h-80Zm0-160v-80h80v80h-80Zm0-160v-80h80v80h-80Zm160 0v-80h80v80h-80Zm160 640v-80h80v80h-80Zm0-640v-80h80v80h-80Zm160 640v-80h80v80h-80Zm160 0v-80h80v80h-80Zm0-160v-80h80v80h-80Zm0-160v-80h80v80h-80Zm0-160V296H600v-80h240v240h-80ZM120 936V696h80v160h160v80H120Z"
@@ -31,108 +26,6 @@ export const resizeTLPathAlt2 = svg`<path
 export const resizeBRPathAlt2 = svg`<path
   d="m 440,936 v -80 h 80 v 80 z m 160,0 v -80 h 80 v 80 z m 160,0 v -80 h 80 v 80 z m 0,-160 v -80 h 80 v 80 z m 0,-160 v -80 h 80 v 80 z m 0,-160 V 296 H 600 V 216 H 840 V 456 Z M 120,936 V 696 h 80 v 160 h 160 v 80 z" />`;
 
-export const movePath = svg`<path d="M480 976 310 806l57-57 73 73V616l-205-1 73 73-58 58L80 576l169-169 57 57-72 72h206V330l-73 73-57-57 170-170 170 170-57 57-73-73v206l205 1-73-73 58-58 170 170-170 170-57-57 73-73H520l-1 205 73-73 58 58-170 170Z"/>`;
-
-const voltageLevelPath = svg`<path
-    d="M 4 4 L 12.5 21 L 21 4"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="3"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />`;
-
-const bayPath = svg`<path
-    d="M 3 2 L 22 2"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 3 5 L 22 5"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 7 2 L 7 7.5"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 18 5 L 18 7.5"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 5.5 8.5 L 7 11 L 7 13 L 18 13 L 18 11 L 16.5 8.5"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 12.5 13 L 12.5 15"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 11 16 L 12.5 18.5 L 12.5 23"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />
-  <path
-    d="M 10.5 21 L 12.5 23 L 14.5 21"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    stroke-linecap="round"
-  />`;
-
-const ptr1WAPath = svg`
-  <circle fill="none" cx="1.5" cy="1.5" r="0.7"/>
-  <path fill="none" d="M 1.5 0.8 C 0.5 0.8, 0.4 1.3, 0.3 1.5"/>
-`;
-
-const ptr2WAPath = svg`
-  <circle fill="none" cx="1.5" cy="1.5" r="0.7"/>
-  <path fill="none" d="M 1.5 0.8 C 0.5 0.8, 0.4 1.3, 0.3 1.5"/>
-  <circle fill="none" cx="1.5" cy="2.5" r="0.7"/>
-`;
-
-const ptr1WPath = svg`
-  <circle fill="none" cx="1.5" cy="1.5" r="0.7"/>
-`;
-
-const ptr2WPath = svg`
-  <circle fill="none" cx="1.5" cy="1.5" r="0.7"/>
-  <circle fill="none" cx="1.5" cy="2.5" r="0.7"/>
-`;
-
-const ptr3WPath = svg`
-  <circle fill="none" cx="1.5" cy="1.5" r="0.7"/>
-  <circle fill="none" cx="2" cy="2.5" r="0.7"/>
-  <circle fill="none" cx="1" cy="2.5" r="0.7"/>
-`;
-
 const zigPath = svg`
   <line x1="1.5" y1="1.5" x2="1.5" y2="1.25" />
   <line transform="rotate(240 1.5 1.25)" x1="1.5" y1="1.5" x2="1.5" y2="1.25" />
@@ -146,84 +39,6 @@ export const zigZagPath = svg`
 
 export const zigZag2WTransform =
   'matrix(0.8, 0, 0, 0.8, 0.3, 0.3) translate(0 -0.1) rotate(-20 1.5 1.5)';
-
-export function ptrIcon(
-  windings: 1 | 2 | 3,
-  {
-    slot = 'icon',
-    kind = 'default',
-  }: { slot?: string; kind?: 'default' | 'auto' | 'earthing' } = {},
-) {
-  let path = svg``;
-  if (windings === 3) {
-    path = ptr3WPath;
-  } else if (windings === 2) {
-    if (kind === 'auto') {
-      path = ptr2WAPath;
-    } else {
-      path = ptr2WPath;
-    }
-  } else if (windings === 1) {
-    if (kind === 'auto') {
-      path = ptr1WAPath;
-    } else {
-      path = ptr1WPath;
-    }
-  }
-  const zigZag =
-    kind === 'earthing'
-      ? svg`<g transform="${
-        windings > 1 ? zigZag2WTransform : nothing
-      }">${zigZagPath}</g>`
-      : nothing;
-  return html`<svg
-    viewBox="0.3 0.5 2.4 ${windings > 1 ? 3 : 2}"
-    width="24"
-    height="24"
-    stroke="currentColor"
-    stroke-width="${windings > 1 ? 0.14 : 0.11}"
-    stroke-linecap="round"
-    slot="${slot}"
-  >
-    ${path} ${zigZag}
-  </svg>`;
-}
-
-export const voltageLevelIcon = html`<svg
-  viewBox="0 0 25 25"
-  width="24"
-  height="24"
-  slot="icon"
->
-  ${voltageLevelPath}
-</svg>`;
-
-export const voltageLevelGraphic = html`<svg
-  viewBox="0 0 25 25"
-  width="24"
-  height="24"
-  slot="graphic"
->
-  ${voltageLevelPath}
-</svg>`;
-
-export const bayIcon = html`<svg
-  viewBox="0 0 25 25"
-  width="24"
-  height="24"
-  slot="icon"
->
-  ${bayPath}
-</svg>`;
-
-export const bayGraphic = html`<svg
-  viewBox="0 0 25 25"
-  width="24"
-  height="24"
-  slot="graphic"
->
-  ${bayPath}
-</svg>`;
 
 const equipmentPaths: Record<EqType, TemplateResult<2>> = {
   CAB: svg`
@@ -250,13 +65,6 @@ const equipmentPaths: Record<EqType, TemplateResult<2>> = {
     />
   `,
   CAP: svg`
-  <path
-    d="M 6.5,10.1 H 18.5"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="1.5"
-    stroke-linecap="round"
-    />
   <path
     d="M 12.5,4 V 10.1"
     fill="none"
@@ -571,62 +379,6 @@ export function equipmentPath(equipmentType: string | null): TemplateResult<2> {
     return equipmentPaths[equipmentType]!;
   }
   return defaultEquipmentPath;
-}
-
-export function equipmentGraphic(
-  equipmentType: string | null,
-): TemplateResult<1> {
-  return html`<svg viewBox="0 0 25 25" width="24" height="24" slot="graphic">
-    <line
-      x1="12.5"
-      y1="0"
-      x2="12.5"
-      y2="4"
-      stroke="currentColor"
-      stroke-width="1.5"
-      stroke-linecap="round"
-    />
-    ${!equipmentType || !singleTerminal.has(equipmentType)
-      ? svg`<line
-      x1="12.5"
-      y1="21"
-      x2="12.5"
-      y2="25"
-      stroke="currentColor"
-      stroke-width="1.5"
-      stroke-linecap="round"
-    />`
-      : nothing}
-    ${equipmentPath(equipmentType)}
-    ${equipmentType && ringedEqTypes.has(equipmentType) ? eqRingPath : nothing}
-  </svg>`;
-}
-
-export function equipmentIcon(equipmentType: string): TemplateResult<1> {
-  return html`<svg viewBox="0 0 25 25" width="24" height="24" slot="icon">
-    <line
-      x1="12.5"
-      y1="0"
-      x2="12.5"
-      y2="4"
-      stroke="currentColor"
-      stroke-width="1.5"
-      stroke-linecap="round"
-    />
-    ${!singleTerminal.has(equipmentType)
-      ? svg`<line
-      x1="12.5"
-      y1="21"
-      x2="12.5"
-      y2="25"
-      stroke="currentColor"
-      stroke-width="1.5"
-      stroke-linecap="round"
-    />`
-      : nothing}
-    ${equipmentPath(equipmentType)}
-    ${ringedEqTypes.has(equipmentType) ? eqRingPath : nothing}
-  </svg>`;
 }
 
 function equipmentSymbol(equipmentType: string): TemplateResult<2> {

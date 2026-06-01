@@ -9,17 +9,23 @@ import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 
 import { OscdSldIcon } from '../oscd-sld-icon.js';
-import {
-  bayGraphic,
-  equipmentGraphic,
-  ptrIcon,
-  voltageLevelGraphic,
-} from '../icons.js';
 import { isBusBar } from '../foundations/connectivity.js';
 import { isIedReferenceElement } from '../foundations/ied.js';
 import { attributes } from '../foundations/sld-attributes.js';
 import { createContextMenuItems } from './sld-context-menu-factory.js';
 
+function renderSldStartIcon(icon: string): TemplateResult<1> {
+  return html`<oscd-sld-icon slot="start">${icon}</oscd-sld-icon>`;
+}
+
+function transformerIconName(
+  windings: 1 | 2 | 3,
+  kind?: 'default' | 'auto' | 'earthing',
+): string {
+  return kind && kind !== 'default'
+    ? `sld_ptr_${windings}_${kind}`
+    : `sld_ptr_${windings}`;
+}
 
 function renderDivider(): TemplateResult {
   return html`<oscd-divider></oscd-divider>`;
@@ -39,28 +45,30 @@ function renderHeader({ element }: ContextMenuHeader): TemplateResult {
     }
   }
 
-  let footerGraphic = equipmentGraphic(null);
+  let footerGraphic = renderSldStartIcon('sld_conducting_equipment');
   if (element.tagName === 'PowerTransformer') {
     const windings = element.querySelectorAll('TransformerWinding').length;
     const { kind } = attributes(element);
 
     if (windings === 3) {
-      footerGraphic = ptrIcon(3, { slot: 'start' });
+      footerGraphic = renderSldStartIcon(transformerIconName(3));
     } else if (windings === 2) {
-      footerGraphic = ptrIcon(2, { slot: 'start', kind });
+      footerGraphic = renderSldStartIcon(transformerIconName(2, kind));
     } else {
-      footerGraphic = ptrIcon(1, { slot: 'start', kind });
+      footerGraphic = renderSldStartIcon(transformerIconName(1, kind));
     }
   } else if (element.tagName === 'TransformerWinding') {
-    footerGraphic = ptrIcon(1, { slot: 'start' });
+    footerGraphic = renderSldStartIcon('sld_ptr_1');
   } else if (element.tagName === 'ConductingEquipment') {
-    footerGraphic = equipmentGraphic(type);
+    footerGraphic = renderSldStartIcon(
+      type ? `sld_equipment_${type}` : 'sld_conducting_equipment',
+    );
   } else if (element.tagName === 'Bay' && isBusBar(element)) {
     footerGraphic = html`<oscd-icon slot="start">horizontal_rule</oscd-icon>`;
   } else if (element.tagName === 'Bay') {
-    footerGraphic = bayGraphic;
+    footerGraphic = renderSldStartIcon('sld_bay');
   } else if (element.tagName === 'VoltageLevel') {
-    footerGraphic = voltageLevelGraphic;
+    footerGraphic = renderSldStartIcon('sld_voltage_level');
   } else if (isIedReferenceElement(element)) {
     name = 'IED';
     footerGraphic = html`<oscd-icon slot="start">developer_board</oscd-icon>`;

@@ -17,6 +17,12 @@ snapshots["SLD Editor given a voltage level opens a menu on voltage level right 
     >
       some description
     </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      sld_voltage_level
+    </oscd-sld-icon>
   </oscd-list-item>
   <oscd-divider>
   </oscd-divider>
@@ -441,6 +447,12 @@ snapshots["SLD Editor given conducting equipment opens a menu on equipment right
     >
       CBR — CBR description
     </div>
+    <oscd-sld-icon
+      aria-hidden="true"
+      slot="start"
+    >
+      sld_equipment_CBR
+    </oscd-sld-icon>
   </oscd-list-item>
   <oscd-divider>
   </oscd-divider>
