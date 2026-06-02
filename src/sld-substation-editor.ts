@@ -40,6 +40,7 @@ import { busBarArtifact } from './drawing/artifacts/bus-bar.js';
 import {
   iedReferenceArtifact,
 } from './drawing/artifacts/ied-reference.js';
+import { renderLabel as renderArtifactLabel } from './drawing/artifacts/label.js';
 import type {
   ArtifactRenderOptions,
   SldArtifactContext,
@@ -76,7 +77,6 @@ import {
 } from './foundations/ied.js';
 import {
   newConnectEvent,
-  newEditIedEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
   newResizeEvent,
@@ -86,7 +86,6 @@ import {
   newSelectEvent,
   newStartConnectEvent,
   newStartPlaceEvent,
-  newStartPlaceLabelEvent,
   newStartResizeBREvent,
   newStartResizeTLEvent,
 } from './foundations/events.js';
@@ -947,119 +946,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   renderLabel(element: Element, { preview = false } = {}) {
-    if (!this.showLabels) {
-      return nothing;
-    }
-    if (this.showIeds === false && isIedReferenceElement(element)) {
-      return nothing;
-    }
-
-    let deg = 0;
-    let text: string | null | TemplateResult<2>[] =
-      element.getAttribute('name') ||
-      this.resolvedIed(element)?.getAttribute('name') ||
-      element.getAttributeNS(sldNs, 'name');
-    let weight = 400;
-    let color = 'black';
-    const [x, y] = this.renderedLabelPosition(element, { preview });
-
-    if (element.tagName === 'Text') {
-      ({ weight, color } = attributes(element));
-      deg = attributes(element).rot * 90;
-      if (element.textContent) {
-        text = element.textContent?.split(/\r?\n/).map(
-          (line, i) =>
-            svg`<tspan alignment-baseline="central"
-                  x="${x + 0.1}" dy="${i === 0 ? nothing : '1.19em'}"
-                  visibility="${line ? nothing : 'hidden'}">
-                  ${line || '.'}
-                </tspan>`,
-        );
-      } else {
-        text = '<Middle click to edit>';
-        color = '#aaa';
-        weight = 500;
-      }
-    }
-
-    if (isIedReferenceElement(element) && !this.placing && !this.placingLabel) {
-      color = this.resolvedIed(element) ? color : '#BB1326';
-    }
-
-    const fontSize = element.tagName === 'ConductingEquipment' ? 0.45 : 0.6;
-    let events = 'none';
-
-    let handleClick: (() => void) | symbol = nothing;
-    if (this.idle && !this.disabled) {
-      events = 'all';
-      const offset = [this.mouseX2 - x - 0.5, this.mouseY2 - y + 0.5] as Point;
-      handleClick = () =>
-        this.dispatchEvent(newStartPlaceLabelEvent(element, offset));
-    } else if (this.disabled && isSelectable(element, this.selectable)) {
-      events = 'all';
-      handleClick = () => this.dispatchEvent(newSelectEvent(element));
-    }
-
-    let auxclick: ((e: MouseEvent) => void) | symbol = nothing;
-    if (!this.disabled) {
-      auxclick = (e: MouseEvent) => {
-        if (e.button === 1) {
-          // middle mouse button
-          if (!isIedReferenceElement(element)) {
-            this.dispatchEvent(newSclEditDialogEvent(element));
-          } else {
-            const ied = this.resolvedIed(element);
-            if (ied) {
-              this.dispatchEvent(newEditIedEvent(ied));
-            }
-          }
-          e.preventDefault();
-        }
-      };
-    }
-
-    let contextmenu: ((e: MouseEvent) => void) | symbol = nothing;
-    if (!this.disabled) {
-      contextmenu = (e: MouseEvent) => {
-        e.preventDefault();
-        if (!this.idle) {
-          return;
-        }
-        this.contextMenu?.open(this.contextMenuContext(element, e));
-      };
-    }
-
-    let id: typeof nothing | string = nothing;
-    if (element.closest('Substation') === this.substation) {
-      if (element.localName !== 'Text' && !isIedReferenceElement(element)) {
-        id = `${identity(element)}`;
-      }
-      if (isIedReferenceElement(element)) {
-        id = `${this.resolvedIed(element)?.getAttribute('name') ?? ''}`;
-      }
-    }
-    const classes = classMap({
-      label: true,
-      container:
-        (element.tagName === 'Bay' && !isBusBar(element)) ||
-        element.tagName === 'VoltageLevel',
-      disabled: this.disabled,
-      selectable: isSelectable(element, this.selectable),
-    });
-    return svg`<g class="${classes}" id="label:${id}"
-                 transform="rotate(${deg} ${x + 0.5} ${y - 0.5})">
-        <text x="${x + 0.1}" y="${y - 0.5}"
-          alignment-baseline="central"
-          @mousedown=${preventDefault}
-          @auxclick=${auxclick}
-          @click=${handleClick}
-          @contextmenu=${contextmenu}
-          pointer-events="${events}" fill="${color}" font-weight="${weight}"
-          font-size="${fontSize}px" font-family="Roboto, sans-serif"
-          style="cursor: default;">
-          ${text}
-        </text>
-      </g>`;
+    return renderArtifactLabel(element, this.artifactContext(), { preview });
   }
 
   renderContainer(bayOrVL: Element, preview = false): TemplateResult<2> {
@@ -1543,7 +1430,9 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       highlight: this.highlight,
       idle: this.idle,
       mouseX: this.mouseX,
+      mouseX2: this.mouseX2,
       mouseY: this.mouseY,
+      mouseY2: this.mouseY2,
       nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
       nsp: this.nsp,
       openContextMenu: (element, event) =>
@@ -1551,13 +1440,16 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       placing: this.placing,
       placingLabel: this.placingLabel,
       renderLabel: (element, options) => this.renderLabel(element, options),
+      renderConnectivityNode: element => this.renderConnectivityNode(element),
+      renderedLabelPosition: (element, options) =>
+        this.renderedLabelPosition(element, options),
       renderedPosition: element => this.renderedPosition(element),
       resizingBR: this.resizingBR,
       resizingTL: this.resizingTL,
       selectable: this.selectable,
       substation: this.substation,
-      renderConnectivityNode: element => this.renderConnectivityNode(element),
       view: {
+        showLabels: this.showLabels,
         showIeds: this.showIeds,
       },
     };

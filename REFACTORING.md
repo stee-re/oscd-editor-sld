@@ -62,6 +62,7 @@ steps that preserve behavior and keep future options open.
 - [x] Extract ConductingEquipment artifact descriptor
 - [x] Extract IED reference artifact descriptor
 - [x] Extract BusBar artifact descriptor
+- [x] Extract label renderer helper
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
@@ -117,6 +118,7 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/artifacts/conducting-equipment.ts` — ConductingEquipment artifact descriptor: state, actions, preview labels, and SVG rendering.
 - `src/drawing/artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, and SVG rendering.
 - `src/drawing/artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, and connectivity node composition.
+- `src/drawing/artifacts/label.ts` — Label renderer helper: label text, label events, unresolved IED label color, and label selection behavior.
 
 ## Toolbar Architecture
 
@@ -258,6 +260,18 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 - Code coverage: 90.81%.
 - Test co-location: each toolbar component has its own `.spec.ts` alongside it.
 
+Latest verification after BusBar extraction:
+
+- npm run format - by human - passed
+- `npm run format` - by human - passed - 395 tests
+- `./node_modules/.bin/tsc --noEmit` passed.
+
+Latest verification after label renderer extraction:
+
+- `npm run format` passed.
+- `./node_modules/.bin/tsc --noEmit` passed.
+- `npm run test` passed with `395 passed, 0 failed` and 90.76% coverage.
+
 ## Edit Builder Extraction — Complete
 
 Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API).
@@ -387,6 +401,7 @@ Current implemented wrappers:
 - `renderEquipment()` delegates to `conductingEquipmentArtifact`
 - `renderIed()` delegates to `iedReferenceArtifact`
 - `renderBusBar()` delegates to `busBarArtifact`
+- `renderLabel()` delegates to `drawing/artifacts/label.ts`
 
 The current `SldArtifactContext` is useful but must be kept disciplined. Shared
 context should contain truly common editor/render services only. Artifact-specific
