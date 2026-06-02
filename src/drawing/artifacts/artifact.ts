@@ -31,13 +31,15 @@ export type SldArtifactContext = {
     element: Element,
     options?: { preview?: boolean },
   ): SVGTemplateResult | typeof nothing;
+  renderConnectivityNode(element: Element): SVGTemplateResult | typeof nothing;
   renderedPosition(element: Element): Point;
-  resolveIedName(referencedIed: Element): string | null;
   resizingBR?: Element;
   resizingTL?: Element;
   selectable: string[];
-  showIeds?: boolean;
   substation: Element;
+  view: {
+    showIeds?: boolean;
+  };
 };
 
 export type SldArtifactDescriptor<TState, TActions> = {

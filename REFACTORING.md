@@ -61,6 +61,7 @@ steps that preserve behavior and keep future options open.
 - [x] Introduce functional artifact descriptor pattern
 - [x] Extract ConductingEquipment artifact descriptor
 - [x] Extract IED reference artifact descriptor
+- [x] Extract BusBar artifact descriptor
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
@@ -115,6 +116,7 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/artifacts/artifact.ts` — Shared functional artifact descriptor/context types.
 - `src/drawing/artifacts/conducting-equipment.ts` — ConductingEquipment artifact descriptor: state, actions, preview labels, and SVG rendering.
 - `src/drawing/artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, and SVG rendering.
+- `src/drawing/artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, and connectivity node composition.
 
 ## Toolbar Architecture
 
@@ -162,10 +164,12 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 ```
 
 **Resolution rules:**
+
 - `placeElement()` resolves with the result (successful placement)
 - `reset()` resolves with `undefined` (cancel / Escape)
 
 **Why promises over events:**
+
 - 1:1 correlation between initiator and completion — no ambiguity about "was this
   event mine or someone else's?"
 - Eliminates special-case state (`placingBayTypical`) and its code paths
@@ -173,6 +177,7 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
   signals (child → parent) remain events
 
 **Usage pattern (bay typical import):**
+
 ```typescript
 @start-placing-typical=${async ({ detail }) => {
   const result = await this.sldEditor?.startPlacing(detail.bayTypical);
@@ -250,14 +255,8 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 - `sld-editor.ts` at 402 lines (was 848 before edit builder extraction).
 - `sld-toolbar.ts` at 470 lines (new, includes about dialog and insertSubstation).
 - `connectivity.ts` split: 106 lines (queries) + 334 lines (edits).
-- Code coverage: 90.74%.
+- Code coverage: 90.81%.
 - Test co-location: each toolbar component has its own `.spec.ts` alongside it.
-
-Note: this last verified state predates the IED reference artifact extraction in
-this file's current working tree. The latest local quick check was
-`./node_modules/.bin/tsc --noEmit`, which passed after extracting
-`conducting-equipment.ts` and `ied-reference.ts`. Run `npm run format` and
-`npm run test` before committing or continuing with further extractions.
 
 ## Edit Builder Extraction — Complete
 
@@ -387,6 +386,7 @@ Current implemented wrappers:
 
 - `renderEquipment()` delegates to `conductingEquipmentArtifact`
 - `renderIed()` delegates to `iedReferenceArtifact`
+- `renderBusBar()` delegates to `busBarArtifact`
 
 The current `SldArtifactContext` is useful but must be kept disciplined. Shared
 context should contain truly common editor/render services only. Artifact-specific
@@ -395,13 +395,6 @@ factory.
 
 Open cleanup identified before the next extraction:
 
-- `resolveIedName` should not live on `SldArtifactContext`; it is IED-specific.
-  Move it into `drawing/artifacts/ied-reference.ts` using `resolveIed()` directly,
-  or introduce an IED-specific descriptor factory if retaining the editor's
-  `iedResolutionCache` is important.
-- Replace context-level `showIeds` with a generic view/display object, e.g.
-  `context.view = { showLabels, showIeds }`. This is a general view concern, not
-  an IED-specific service. Future view toggles should live there.
 - Avoid letting `SldArtifactContext` become a "world and its mother" bag. If an
   artifact needs something narrow and specific, keep that dependency local to
   that artifact rather than adding it to the shared context by default.
@@ -409,6 +402,7 @@ Open cleanup identified before the next extraction:
 **Phase B: Extract diagram symbols**
 
 Move diagram-specific SVG primitives into `drawing/diagram-symbols.ts`:
+
 - `symbols` (SVG `<defs>` block with equipment symbols, grid patterns, markers)
 - `resizePath`, `resizeTLPath`, `resizeBRPath`
 - `zigZagPath`, `zigZag2WTransform`, `eqRingPath`

@@ -36,6 +36,7 @@ import {
 import {
   conductingEquipmentArtifact,
 } from './drawing/artifacts/conducting-equipment.js';
+import { busBarArtifact } from './drawing/artifacts/bus-bar.js';
 import {
   iedReferenceArtifact,
 } from './drawing/artifacts/ied-reference.js';
@@ -1551,13 +1552,14 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       placingLabel: this.placingLabel,
       renderLabel: (element, options) => this.renderLabel(element, options),
       renderedPosition: element => this.renderedPosition(element),
-      resolveIedName: referencedIed =>
-        this.resolvedIed(referencedIed)?.getAttribute('name') ?? null,
       resizingBR: this.resizingBR,
       resizingTL: this.resizingTL,
       selectable: this.selectable,
-      showIeds: this.showIeds,
       substation: this.substation,
+      renderConnectivityNode: element => this.renderConnectivityNode(element),
+      view: {
+        showIeds: this.showIeds,
+      },
     };
   }
 
@@ -1598,49 +1600,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   renderBusBar(busBar: Element) {
-    const [x, y] = this.renderedPosition(busBar);
-    const {
-      dim: [w, h],
-    } = attributes(busBar);
-
-    let handleClick = () => {
-      const parent = Array.from(
-        this.substation.querySelectorAll(':root > Substation > VoltageLevel'),
-      ).find(vl => containsRect(vl, x, y, w, h));
-      if (parent) {
-        this.dispatchEvent(
-          newPlaceEvent({
-            x,
-            y,
-            element: busBar,
-            parent: parent!,
-          }),
-        );
-      }
-    };
-    if (this.disabled) {
-      handleClick = () => {};
-    }
-
-    let placingTarget = svg``;
-    placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-          pointer-events="all" fill="none"
-          @click=${handleClick}
-        />`;
-
-    return svg`<g class="bus preview" id="${
-      busBar.closest('Substation') === this.substation
-        ? identity(busBar)
-        : nothing
-    }">
-      <title>${busBar.getAttribute('name')}</title>
-      ${this.renderLabel(busBar)}
-      ${Array.from(busBar.querySelectorAll('Text')).map(text =>
-        this.renderLabel(text),
-      )}
-      ${this.renderConnectivityNode(busBar.querySelector('ConnectivityNode')!)}
-      ${placingTarget}
-    </g>`;
+    return this.renderArtifact(busBarArtifact, busBar);
   }
 
   renderConnectivityNode(cNode: Element) {

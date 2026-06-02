@@ -6,6 +6,7 @@ import { containsRect } from '../../foundations/element-geometry.js';
 import { canPlaceAt } from '../../foundations/sld-placement.js';
 import {
   isIedReferenceElement,
+  resolveIed,
 } from '../../foundations/ied.js';
 import {
   newPlaceEvent,
@@ -52,14 +53,14 @@ function iedReferenceState(
   { preview = false }: ArtifactRenderOptions = {},
 ): IedReferenceRenderState | undefined {
   if (
-    context.showIeds === false ||
+    context.view.showIeds === false ||
     (context.placing === referencedIed && !preview)
   ) {
     return undefined;
   }
 
   const [x, y] = context.renderedPosition(referencedIed);
-  const iedName = context.resolveIedName(referencedIed);
+  const iedName = resolveIed(referencedIed)?.getAttribute('name') ?? null;
 
   return {
     clickthrough: !context.idle && context.placing !== referencedIed,
