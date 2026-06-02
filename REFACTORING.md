@@ -58,6 +58,9 @@ steps that preserve behavior and keep future options open.
 - [x] Simplify `oscd-editor-sld.ts` root component rendering (toolbar extraction)
 - [x] Promise-based placement API in `sld-editor.ts`
 - [x] Extract diagram symbols and delete mixed-purpose `icons.ts`
+- [x] Introduce functional artifact descriptor pattern
+- [x] Extract ConductingEquipment artifact descriptor
+- [x] Extract IED reference artifact descriptor
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate duplicated test fixtures/helpers
@@ -109,6 +112,9 @@ steps that preserve behavior and keep future options open.
 ### Drawing (`src/drawing/`)
 
 - `src/drawing/diagram-symbols.ts` — Diagram SVG defs, grid patterns, markers, resize paths, transformer paths, and equipment symbol paths used by the rendered SLD diagram.
+- `src/drawing/artifacts/artifact.ts` — Shared functional artifact descriptor/context types.
+- `src/drawing/artifacts/conducting-equipment.ts` — ConductingEquipment artifact descriptor: state, actions, preview labels, and SVG rendering.
+- `src/drawing/artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, and SVG rendering.
 
 ## Toolbar Architecture
 
@@ -213,6 +219,16 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 - `OscdSldIcon` provides SLD-specific UI icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). It owns toolbar and context-menu icon rendering for SLD entities and actions.
 - Approved small UI correction: context-menu headers now render SLD entity icons through `<oscd-sld-icon slot="start">...`, so VoltageLevel and ConductingEquipment headers show the same kind of visible start icon as transformer headers. Snapshot updates are expected for this change.
+- Prefer functional artifact descriptors over artifact classes for the diagram
+  extraction. The class model (`SldConductingEquipment`, etc.) is coherent, but
+  the existing codebase already leans toward pure helpers, data-driven configs,
+  discriminated unions, and Lit template functions. Functional descriptors keep
+  dependencies explicit and avoid hidden coupling through class instances.
+- Artifact descriptors expose `matches`, `state`, `actions`, and `render`.
+  `SldSubstationEditor` remains the orchestration layer and provides an explicit
+  `SldArtifactContext`; artifacts must not receive the concrete editor instance.
+- Do not add `index.ts` barrel files for artifact modules. Import specific files
+  directly to avoid needless boilerplate and hidden coupling.
 - Avoid exported render helper functions that secretly require callers to register scoped child components, instead prefer actual internal components when templates need their own scoped dependencies.
 - Avoid adding new inline CSS during refactors unless the value is truly dynamic or cannot cross a shadow DOM boundary cleanly.
 - Avoid passing `TemplateResult` through data shapes. Prefer plain strings for labels/headlines.
@@ -236,6 +252,12 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 - `connectivity.ts` split: 106 lines (queries) + 334 lines (edits).
 - Code coverage: 90.74%.
 - Test co-location: each toolbar component has its own `.spec.ts` alongside it.
+
+Note: this last verified state predates the IED reference artifact extraction in
+this file's current working tree. The latest local quick check was
+`./node_modules/.bin/tsc --noEmit`, which passed after extracting
+`conducting-equipment.ts` and `ied-reference.ts`. Run `npm run format` and
+`npm run test` before committing or continuing with further extractions.
 
 ## Edit Builder Extraction — Complete
 
@@ -330,37 +352,59 @@ concerns: SVG rendering, interaction state, and edit dispatch.
 3. **Edit dispatch** — `groundTerminal()`, context menu wiring, and various `@click`
    handlers that build and dispatch `EditV2` events.
 
-### Recommended decomposition strategy
+### Current decomposition strategy
 
-**Phase A: Extract SVG renderers as pure template functions**
+**Phase A: Extract functional artifact descriptors**
 
-Each `render*` method becomes a standalone function that receives a context object
-instead of referencing `this`. This is a low-risk mechanical extraction — behavior
-is preserved identically.
+Each artifact type moves toward a functional descriptor in `src/drawing/artifacts/`.
+The descriptor owns artifact-specific state derivation, action wiring, and SVG
+composition. `SldSubstationEditor` builds a shared `SldArtifactContext` and calls
+`renderArtifact(descriptor, element, options)`.
 
 | New module | Contains | Lines |
 |------------|----------|-------|
-| `renderers/equipment.ts` | `renderEquipment` + highlight helpers | ~280 |
-| `renderers/container.ts` | `renderContainer` | ~250 |
-| `renderers/connectivity.ts` | `renderConnectivityNode` | ~215 |
-| `renderers/transformer.ts` | `renderPowerTransformer` + `renderTransformerWinding` | ~220 |
-| `renderers/label.ts` | `renderLabel` | ~115 |
-| `renderers/ied.ts` | `renderIed` + `renderBusBar` | ~130 |
+| `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering | ~460 |
+| `drawing/artifacts/artifact.ts` | Shared artifact descriptor/context types | ~60 |
+| `drawing/artifacts/container.ts` | Bay/VoltageLevel artifact descriptor | ~250 |
+| `drawing/artifacts/connectivity-node.ts` | ConnectivityNode artifact descriptor | ~215 |
+| `drawing/artifacts/power-transformer.ts` | PowerTransformer + TransformerWinding artifact descriptor | ~220 |
+| `drawing/artifacts/label.ts` | Label artifact descriptor/helper | ~115 |
+| `drawing/artifacts/ied-reference.ts` | IED reference artifact descriptor: state, actions, SVG rendering | ~185 |
+| `drawing/artifacts/bus-bar.ts` | BusBar artifact descriptor | ~45 |
 
-Shared context interface:
+Current descriptor shape:
 
 ```typescript
-interface RenderContext {
-  mouseX: number; mouseY: number;
-  placing?: Element; placingOffset: Point;
-  disabled: boolean; showLabels: boolean; showIeds: boolean;
-  selectable: string[]; highlight: { id: string; style: Style }[];
-  nsp: string; substation: Element;
+type SldArtifactDescriptor<TState, TActions> = {
+  matches(element: Element): boolean;
+  state(element, context, options?): TState | undefined;
+  actions(element, context, state): TActions;
+  render(element, state, actions, context, options?): SVGTemplateResult;
 }
 ```
 
-**Result:** `sld-substation-editor.ts` reduced from ~2,173 → ~600 lines (properties,
-lifecycle, interaction orchestration, main `render()` compositing calls).
+Current implemented wrappers:
+
+- `renderEquipment()` delegates to `conductingEquipmentArtifact`
+- `renderIed()` delegates to `iedReferenceArtifact`
+
+The current `SldArtifactContext` is useful but must be kept disciplined. Shared
+context should contain truly common editor/render services only. Artifact-specific
+needs should stay in the artifact module or be passed through an artifact-specific
+factory.
+
+Open cleanup identified before the next extraction:
+
+- `resolveIedName` should not live on `SldArtifactContext`; it is IED-specific.
+  Move it into `drawing/artifacts/ied-reference.ts` using `resolveIed()` directly,
+  or introduce an IED-specific descriptor factory if retaining the editor's
+  `iedResolutionCache` is important.
+- Replace context-level `showIeds` with a generic view/display object, e.g.
+  `context.view = { showLabels, showIeds }`. This is a general view concern, not
+  an IED-specific service. Future view toggles should live there.
+- Avoid letting `SldArtifactContext` become a "world and its mother" bag. If an
+  artifact needs something narrow and specific, keep that dependency local to
+  that artifact rather than adding it to the shared context by default.
 
 **Phase B: Extract diagram symbols**
 
@@ -413,12 +457,19 @@ Phase B resolves this by deleting `icons.ts`:
 
 1. **~Extract diagram symbols~ (Phase B)** — Move SVG defs/resize paths out of `icons.ts`
    into `drawing/diagram-symbols.ts`, and move UI icon ownership to `OscdSldIcon`.
-2. **Extract SVG renderers (Phase A)** — Biggest impact. Start with simplest
-   (`renderBusBar`, `renderLabel`) then work through the larger methods.
+2. **Extract SVG renderers (Phase A)** — Biggest impact. Start with
+   ConductingEquipment as the first functional artifact descriptor. Artifact
+   descriptors live in `drawing/artifacts/` and expose `matches`, `state`,
+   `actions`, and `render`. The editor supplies an explicit
+   `SldArtifactContext` and remains the orchestration layer. For now,
+   `SldSubstationEditor.renderArtifact()` is the generic descriptor invocation
+   path, with `renderEquipment()` and `renderIed()` kept as compatibility
+   wrappers.
 3. **Separate interaction from rendering (Phase C)** — Create viewer/editor boundary.
 4. ~~**`connectivity.ts` boundary**~~ — ✅ Done. Split into queries + edit builders.
 5. **Clean up structural conventions** — consistent file naming, import ordering.
 6. **Consolidate test fixtures/helpers** — shared helpers scattered across spec files.
+7. Refactor ALL themable styles (most notably colours) out into css variables (so developers using this plugin/future module) can override the colours used for the various artifacts. e.g. TopIndicator in equipment is hardcoded to #BB1326, we should probably expose this as --oscd-sld-equip-top-indicator-color:#BB1326; or something like that.
 
 ### Future (module split preparation)
 

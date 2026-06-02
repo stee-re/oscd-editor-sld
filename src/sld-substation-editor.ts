@@ -26,7 +26,6 @@ import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutl
 
 import { identity } from '@openscd/scl-lib';
 import {
-  eqRingPath,
   resizeBRPath,
   resizePath,
   resizeTLPath,
@@ -34,6 +33,17 @@ import {
   zigZag2WTransform,
   zigZagPath,
 } from './drawing/diagram-symbols.js';
+import {
+  conductingEquipmentArtifact,
+} from './drawing/artifacts/conducting-equipment.js';
+import {
+  iedReferenceArtifact,
+} from './drawing/artifacts/ied-reference.js';
+import type {
+  ArtifactRenderOptions,
+  SldArtifactContext,
+  SldArtifactDescriptor,
+} from './drawing/artifacts/artifact.js';
 import {
   cleanPath,
   distance,
@@ -57,11 +67,7 @@ import {
   xmlBoolean,
 } from './foundations/sld-attributes.js';
 import { transformerWindingMeasures } from './foundations/transformer.js';
-import {
-  isEqType,
-  ringedEqTypes,
-  singleTerminal,
-} from './foundations/equipment.js';
+import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
   isIedReferenceElement,
@@ -1526,341 +1532,69 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       }</g>`;
   }
 
+  private artifactContext(): SldArtifactContext {
+    return {
+      connecting: this.connecting,
+      disabled: this.disabled,
+      dispatch: event => this.dispatchEvent(event),
+      groundTerminal: (element, terminal) =>
+        this.groundTerminal(element, terminal),
+      highlight: this.highlight,
+      idle: this.idle,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+      nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
+      nsp: this.nsp,
+      openContextMenu: (element, event) =>
+        this.contextMenu?.open(this.contextMenuContext(element, event)),
+      placing: this.placing,
+      placingLabel: this.placingLabel,
+      renderLabel: (element, options) => this.renderLabel(element, options),
+      renderedPosition: element => this.renderedPosition(element),
+      resolveIedName: referencedIed =>
+        this.resolvedIed(referencedIed)?.getAttribute('name') ?? null,
+      resizingBR: this.resizingBR,
+      resizingTL: this.resizingTL,
+      selectable: this.selectable,
+      showIeds: this.showIeds,
+      substation: this.substation,
+    };
+  }
+
+  private renderArtifact<TState, TActions>(
+    descriptor: SldArtifactDescriptor<TState, TActions>,
+    element: Element,
+    options: ArtifactRenderOptions = {},
+  ): SVGTemplateResult {
+    const context = this.artifactContext();
+    const state = descriptor.state(element, context, options);
+    if (!state) {
+      return svg``;
+    }
+
+    return descriptor.render(
+      element,
+      state,
+      descriptor.actions(element, context, state),
+      context,
+      options,
+    );
+  }
+
   renderEquipment(
     equipment: Element,
-    { preview = false, connect = false } = {},
-  ) {
-    if (this.placing === equipment && !preview) {
-      return svg``;
-    }
-    if (
-      this.connecting?.from.closest('Substation') === this.substation &&
-      !connect
-    ) {
-      return svg``;
-    }
-
-    const [x, y] = this.renderedPosition(equipment);
-    const { flip, rot } = attributes(equipment);
-    const deg = 90 * rot;
-
-    const eqType = equipment.getAttribute('type')!;
-    const ringed = ringedEqTypes.has(eqType);
-    const symbol = isEqType(eqType) ? eqType : 'ConductingEquipment';
-    const icon = ringed
-      ? svg`<svg
-    viewBox="0 0 25 25"
-    width="1"
-    height="1"
-  >
-    ${eqRingPath}
-  </svg>`
-      : svg`<use href="#${symbol}" xlink:href="#${symbol}"
-              pointer-events="none" />`;
-
-    let handleClick = (e: MouseEvent) => {
-      let placing = equipment;
-      if (e.shiftKey) {
-        placing = copyElementForPlacement(equipment, this.nsp);
-      }
-      this.dispatchEvent(newStartPlaceEvent(placing));
-    };
-
-    if (this.placing === equipment) {
-      const parent = Array.from(
-        this.substation.querySelectorAll(
-          ':root > Substation > VoltageLevel > Bay',
-        ),
-      ).find(bay => !isBusBar(bay) && containsRect(bay, x, y, 1, 1));
-      if (parent && canPlaceAt(this.substation, equipment, x, y, 1, 1)) {
-        handleClick = () => {
-          this.dispatchEvent(
-            newPlaceEvent({
-              x,
-              y,
-              element: equipment,
-              parent,
-            }),
-          );
-        };
-      }
-    }
-
-    if (this.disabled && !isSelectable(equipment, this.selectable)) {
-      handleClick = () => {};
-    }
-    if (this.disabled && isSelectable(equipment, this.selectable)) {
-      handleClick = () => {
-        this.dispatchEvent(newSelectEvent(equipment));
-      };
-    }
-
-    let auxclick = (e: MouseEvent) => {
-      if (e.button === 1) {
-        // middle mouse button
-        this.dispatchEvent(newRotateEvent(equipment));
-        e.preventDefault();
-      }
-    };
-    if (this.disabled) {
-      auxclick = () => {};
-    }
-
-    let contextmenu = (e: MouseEvent) => {
-      e.preventDefault();
-      if (!this.idle) {
-        return;
-      }
-      this.contextMenu?.open(this.contextMenuContext(equipment, e));
-    };
-    if (this.disabled) {
-      contextmenu = () => {};
-    }
-
-    const terminals = Array.from(equipment.children).filter(
-      c => c.tagName === 'Terminal',
-    );
-    const topTerminal = terminals.find(t => t.getAttribute('name') === 'T1');
-    const bottomTerminal = terminals.find(t => t.getAttribute('name') !== 'T1');
-
-    const topConnector =
-      topTerminal ||
-      this.resizingBR ||
-      this.resizingTL ||
-      this.connecting ||
-      this.placingLabel ||
-      (this.placing && this.placing !== equipment) ||
-      this.disabled
-        ? nothing
-        : svg`<circle class="port" cx="0.5" cy="0" r="0.2" opacity="0.4"
-      fill="#BB1326" stroke="#F5E214" pointer-events="${
-        this.placing ? 'none' : nothing
-      }"
-    @click=${() =>
-      this.dispatchEvent(
-        newStartConnectEvent({
-          from: equipment,
-          fromTerminal: 'T1',
-          path: connectionStartPoints(equipment).T1,
-        }),
-      )}
-    @contextmenu=${(e: MouseEvent) => {
-      e.preventDefault();
-      this.groundTerminal(equipment, 'T1');
-    }}
-      />`;
-
-    const topIndicator =
-      !this.connecting ||
-      this.connecting.from === equipment ||
-      (this.connecting &&
-        this.mouseX === x &&
-        this.mouseY === y &&
-        this.nearestOpenTerminal(equipment) === 'T1') ||
-      topTerminal ||
-      this.disabled
-        ? nothing
-        : svg`<polygon points="0.3,0 0.7,0 0.5,0.4"
-                fill="#BB1326" opacity="0.4" />`;
-
-    const topGrounded =
-      topTerminal?.getAttribute('cNodeName') === 'grounded'
-        ? svg`<line x1="0.5" y1="-0.1" x2="0.5" y2="0.16" stroke="black"
-                stroke-width="0.06" marker-start="url(#grounded)" />`
-        : nothing;
-
-    const bottomConnector =
-      bottomTerminal ||
-      this.resizingBR ||
-      this.resizingTL ||
-      this.connecting ||
-      this.placingLabel ||
-      (this.placing && this.placing !== equipment) ||
-      singleTerminal.has(eqType) ||
-      this.disabled
-        ? nothing
-        : svg`<circle class="port" cx="0.5" cy="1" r="0.2" opacity="0.4"
-      fill="#BB1326" stroke="#F5E214" pointer-events="${
-        this.placing ? 'none' : nothing
-      }"
-    @click=${() =>
-      this.dispatchEvent(
-        newStartConnectEvent({
-          from: equipment,
-          fromTerminal: 'T2',
-          path: connectionStartPoints(equipment).T2,
-        }),
-      )}
-    @contextmenu=${(e: MouseEvent) => {
-      e.preventDefault();
-      this.groundTerminal(equipment, 'T2');
-    }}
-      />`;
-
-    const bottomIndicator =
-      !this.connecting ||
-      this.connecting.from === equipment ||
-      (this.connecting &&
-        this.mouseX === x &&
-        this.mouseY === y &&
-        this.nearestOpenTerminal(equipment) === 'T2') ||
-      bottomTerminal ||
-      singleTerminal.has(eqType) ||
-      this.disabled
-        ? nothing
-        : svg`<polygon points="0.3,1 0.7,1 0.5,0.6"
-                fill="#BB1326" opacity="0.4" />`;
-
-    const bottomGrounded =
-      bottomTerminal?.getAttribute('cNodeName') === 'grounded'
-        ? svg`<line x1="0.5" y1="1.1" x2="0.5" y2="0.84" stroke="black"
-                stroke-width="0.06" marker-start="url(#grounded)" />`
-        : nothing;
-
-    const clickthrough =
-      connect ||
-      (!this.idle && this.placing !== equipment) ||
-      (this.disabled && !isSelectable(equipment, this.selectable));
-
-    const highlight = isToBeHighlighted(equipment, this.highlight)
-      ? svg`<rect x="${x}" y="${y}" width="1" height="1" style="${getHighlightStyle(
-        equipment,
-        this.highlight,
-      )}" pointer-events="none" />`
-      : '';
-
-    return svg`${highlight}<g class="${classMap({
-      equipment: true,
-      preview: this.placing === equipment,
-      disabled: this.disabled,
-      selectable: isSelectable(equipment, this.selectable),
-    })}"
-    id="${
-      equipment.closest('Substation') === this.substation
-        ? identity(equipment)
-        : nothing
-    }"
-    transform="translate(${x} ${y}) rotate(${deg} 0.5 0.5)${
-      flip ? ' scale(-1,1) translate(-1 0)' : ''
-    }">
-      <title>${equipment.getAttribute('name')}</title>
-      ${icon}
-      ${
-        ringed
-          ? svg`<use transform="rotate(${-deg} 0.5 0.5)" pointer-events="none"
-                  href="#${symbol}" xlink:href="#${symbol}" />`
-          : nothing
-      }
-      <rect width="1" height="1" fill="none" pointer-events="${
-        clickthrough ? 'none' : 'all'
-      }"
-        @mousedown=${preventDefault}
-        @click=${handleClick}
-        @auxclick=${auxclick}
-        @contextmenu=${contextmenu}
-      />
-      ${topConnector}
-      ${topIndicator}
-      ${topGrounded}
-      ${bottomConnector}
-      ${bottomIndicator}
-      ${bottomGrounded}
-    </g>
-    <g class="preview">${
-      preview
-        ? [
-          this.renderLabel(equipment, { preview }),
-          ...Array.from(equipment.querySelectorAll('Text')).map(text =>
-            this.renderLabel(text, { preview }),
-          ),
-        ]
-        : nothing
-    }</g>`;
+    options: { preview?: boolean; connect?: boolean } = {},
+  ): SVGTemplateResult {
+    return this.renderArtifact(conductingEquipmentArtifact, equipment, options);
   }
 
   renderIed(
     referencedIed: Element,
     { preview = false } = {},
   ): SVGTemplateResult {
-    if (this.showIeds === false || (this.placing === referencedIed && !preview)) {
-      return svg``;
-    }
-
-    const [x, y] = this.renderedPosition(referencedIed);
-    const name = this.resolvedIed(referencedIed)?.getAttribute('name');
-
-    let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
-    if (
-      this.placing === referencedIed &&
-      canPlaceAt(this.substation, referencedIed, x, y, 1, 1)
-    ) {
-      handleClick = () => {
-        const parent =
-          Array.from(
-            this.substation.querySelectorAll(':scope > VoltageLevel > Bay'),
-          )
-            .concat(
-              Array.from(
-                this.substation.querySelectorAll(':scope > VoltageLevel'),
-              ),
-            )
-            .find(vlOrBay => containsRect(vlOrBay, x, y, 1, 1)) ||
-          this.substation;
-        this.dispatchEvent(
-          newPlaceEvent({
-            x,
-            y,
-            element: referencedIed,
-            parent,
-          }),
-        );
-      };
-    } else if (this.disabled && isSelectable(referencedIed, this.selectable)) {
-      handleClick = () => this.dispatchEvent(newSelectEvent(referencedIed));
-    } else if (!this.idle || this.disabled) {
-      handleClick = () => {};
-    } else {
-      handleClick = () => this.dispatchEvent(newStartPlaceEvent(referencedIed));
-    }
-
-    let contextmenu = (e: MouseEvent) => {
-      e.preventDefault();
-      if (!this.idle) {
-        return;
-      }
-      this.contextMenu?.open(this.contextMenuContext(referencedIed, e));
-    };
-    if (this.disabled) {
-      contextmenu = () => {};
-    }
-
-    const clickthrough = !this.idle && this.placing !== referencedIed;
-
-    return svg`<g class="${classMap({
-      ied: true,
-      preview: this.placing === referencedIed,
-      disabled: this.disabled,
-      selectable: isSelectable(referencedIed, this.selectable),
-    })}"
-      id="${
-        referencedIed.closest('Substation') === this.substation && name
-          ? `IEDRef-${name}`
-          : nothing
-      }"
-      transform="translate(${x} ${y})">
-      <title>${name}</title>
-      <use href="#IED" xlink:href="#IED" pointer-events="none" />
-      <rect width="1" height="1" fill="none" pointer-events="${
-        clickthrough ? 'none' : 'all'
-      }"
-        @mousedown=${preventDefault}
-        @click=${handleClick}
-        @contextmenu=${contextmenu}
-      />
-    </g>
-    <g class="preview">${
-      preview ? this.renderLabel(referencedIed, { preview }) : nothing
-    }</g>`;
+    return this.renderArtifact(iedReferenceArtifact, referencedIed, {
+      preview,
+    });
   }
 
   renderBusBar(busBar: Element) {
