@@ -1,27 +1,11 @@
 import { LitElement } from 'lit';
-import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
-import { OscdDialog } from '@omicronenergy/oscd-ui/dialog/OscdDialog.js';
-import { OscdFab } from '@omicronenergy/oscd-ui/fab/OscdFab.js';
-import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
-import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
-import { OscdList } from '@omicronenergy/oscd-ui/list/OscdList.js';
-import { OscdListItem } from '@omicronenergy/oscd-ui/list/OscdListItem.js';
-import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
-import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 import { SldEditor } from './sld-editor.js';
+import { SldToolbar } from './toolbar/sld-toolbar.js';
 declare const OscdEditorSld_base: typeof LitElement & import("@open-wc/scoped-elements/lit-element.js").ScopedElementsHostConstructor;
 export default class OscdEditorSld extends OscdEditorSld_base {
     static scopedElements: {
-        'oscd-text-button': typeof OscdTextButton;
-        'oscd-dialog': typeof OscdDialog;
-        'oscd-fab': typeof OscdFab;
-        'oscd-icon': typeof OscdIcon;
-        'oscd-icon-button': typeof OscdIconButton;
-        'oscd-list': typeof OscdList;
-        'oscd-list-item': typeof OscdListItem;
-        'oscd-menu': typeof OscdMenu;
-        'oscd-menu-item': typeof OscdMenuItem;
         'sld-editor': typeof SldEditor;
+        'sld-toolbar': typeof SldToolbar;
     };
     doc: XMLDocument;
     docVersion: number;
@@ -29,28 +13,25 @@ export default class OscdEditorSld extends OscdEditorSld_base {
     nsp: string;
     templateElements: Record<string, Element>;
     inAction: boolean;
+    private _showLabels;
     get showLabels(): boolean;
     private _showIeds;
     get showIeds(): boolean;
-    labelToggle?: OscdIconButton;
-    about?: OscdDialog;
-    iedMenu?: OscdMenu;
     sldEditor?: SldEditor;
-    bayTypicalFileInput?: HTMLInputElement;
     zoomIn(): void;
     zoomOut(): void;
     startPlacing(element: Element | undefined): void;
+    startBayTypicalPlacing({ bayTypical, ieds }: {
+        bayTypical: Element;
+        ieds: Element[];
+    }): Promise<void>;
     reset(): void;
     handleKeydown: ({ key }: KeyboardEvent) => void;
     connectedCallback(): void;
     disconnectedCallback(): void;
-    updated(changedProperties: Map<string, unknown>): void;
+    willUpdate(changedProperties: Map<string, unknown>): void;
     convertSldAttributes(): void;
-    /** Loads the file `event.target.files[0]` into [[`src`]] as a `blob:...`. */
-    importBayTypical(event: Event): Promise<void>;
     render(): import("lit-html").TemplateResult<1>;
-    insertOrGetIed(ied: Element, doc: XMLDocument): Element;
-    insertSubstation(): void;
     static styles: import("lit").CSSResult;
 }
 export {};

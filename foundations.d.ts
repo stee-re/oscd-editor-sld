@@ -1,0 +1,18 @@
+export declare const privType = "OpenSCD-SLD-Layout";
+export declare const sldNs = "https://openscd.org/SCL/SSD/SLD/v0";
+export declare const xmlnsNs = "http://www.w3.org/2000/xmlns/";
+export declare const svgNs = "http://www.w3.org/2000/svg";
+export declare const xlinkNs = "http://www.w3.org/1999/xlink";
+export declare const sclNs = "http://www.iec.ch/61850/2003/SCL";
+export { eqTypes, isEqType, ringedEqTypes, singleTerminal, } from './foundations/equipment.js';
+export { isTransformerKind } from './foundations/sld-attributes.js';
+export { attributes, getSLDAttributes, setSLDAttributes, updateSLDAttributes, xmlBoolean, } from './foundations/sld-attributes.js';
+export { busSections, connectionStartPoints, connectivityPath, isBusBar, makeBusBar, } from './foundations/connectivity.js';
+export { removeNode, removeTerminal, reparentElement, uniqueName, } from './foundations/connectivity-edits.js';
+export { iedReferences, isIedReferenceElement, resolveIed, } from './foundations/ied.js';
+export type { EqType } from './foundations/equipment.js';
+export type { TransformerKind, Attrs, Style } from './foundations/sld-attributes.js';
+export type { Point } from './foundations/geometry.js';
+export { newConnectEvent, newPlaceEvent, newPlaceLabelEvent, newResizeEvent, newResizeTLEvent, newRotateEvent, newSelectEvent, newStartConnectEvent, newStartPlaceEvent, newStartPlaceLabelEvent, newStartResizeBREvent, newStartResizeTLEvent, } from './foundations/events.js';
+export type { ConnectDetail, ConnectEvent, PlaceDetail, PlaceEvent, PlaceLabelDetail, PlaceLabelEvent, ResizeDetail, ResizeEvent, ResizeTLDetail, ResizeTLEvent, SelectDetail, SelectEvent, StartConnectDetail, StartConnectEvent, StartEvent, StartPlaceDetail, StartPlaceEvent, } from './foundations/events.js';
+export declare function uuid(): string;

@@ -1,3 +1,5 @@
+/** Creates an SCL XMLDocument with attribute decoys injected. */
+export declare function createSCLDoc(inner: string): XMLDocument;
 /**
  * Shared test utilities for computing viewport positions from SVG grid
  * coordinates. These helpers dynamically resolve pixel positions based on

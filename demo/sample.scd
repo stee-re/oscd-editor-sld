@@ -20,6 +20,12 @@
           <eosld:SLDAttributes eosld:x="2" eosld:y="2" eosld:lx="2" eosld:ly="2" eosld:w="11" eosld:h="20"/>
         </Private>
       </Bay>
+      <ConductingEquipment name="OrphanCBR" type="CBR">
+        <Private type="OpenSCD-SLD-Layout">
+          <eosld:SLDAttributes eosld:x="30" eosld:y="10" eosld:lx="30" eosld:ly="9"/>
+        </Private>
+        <Terminal name="T1" cNodeName="grounded"/>
+      </ConductingEquipment>
     </VoltageLevel>
   </Substation>
   <IED name="test" manufacturer="OpenSCD">

@@ -1,0 +1,30 @@
+import type { EditV2 } from '@openscd/oscd-api';
+import type { Point } from './geometry.js';
+export type Style = {
+    fill?: string;
+    fillOpacity?: number | string;
+    stroke?: string;
+    strokeWidth?: number | string;
+    strokeOpacity?: number | string;
+    rx?: string | number;
+};
+declare const transformerKinds: readonly ["default", "auto", "earthing"];
+export type TransformerKind = (typeof transformerKinds)[number];
+export declare function isTransformerKind(kind: string | null): kind is TransformerKind;
+export type Attrs = {
+    pos: Point;
+    dim: Point;
+    label: Point;
+    flip: boolean;
+    rot: 0 | 1 | 2 | 3;
+    bus: boolean;
+    weight: number;
+    color: string;
+    kind: TransformerKind;
+};
+export declare function xmlBoolean(value?: string | null): boolean;
+export declare function setSLDAttributes(element: Element, nsPrefix: string, values: Record<string, string>): void;
+export declare function updateSLDAttributes(element: Element, nsPrefix: string, values: Partial<Record<string, string | null>>): EditV2;
+export declare function getSLDAttributes(element: Element, key: string): string | null;
+export declare function attributes(element: Element): Attrs;
+export {};
