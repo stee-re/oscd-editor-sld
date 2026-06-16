@@ -1,6 +1,5 @@
 import { nothing, svg, type SVGTemplateResult } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
-import { identity } from '@openscd/scl-lib';
 
 import { containsRect } from '../../foundations/element-geometry.js';
 import { canPlaceAt } from '../../foundations/sld-placement.js';
@@ -15,6 +14,7 @@ import {
 } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
+import { isSelectable } from './highlight.js';
 import type {
   ArtifactRenderOptions,
   SldArtifactDescriptor,
@@ -41,10 +41,6 @@ function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
     e.preventDefault();
   }
-}
-
-function isSelectable(element: Element, selectable: string[]) {
-  return selectable.some(sel => identity(element) === sel);
 }
 
 function iedReferenceState(

@@ -17,6 +17,7 @@ import {
 import { sldNs } from '../../foundations.js';
 
 import type { Point } from '../../foundations/geometry.js';
+import { isSelectable } from './highlight.js';
 import type {
   ArtifactRenderOptions,
   SldSharedContext,
@@ -35,10 +36,6 @@ function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
     e.preventDefault();
   }
-}
-
-function isSelectable(element: Element, selectable: string[]) {
-  return selectable.some(sel => identity(element) === sel);
 }
 
 function labelText(
