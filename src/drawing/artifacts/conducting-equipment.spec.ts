@@ -1,0 +1,170 @@
+import { expect } from '@open-wc/testing';
+import { identity } from '@openscd/scl-lib';
+
+import { conductingEquipmentArtifact } from './conducting-equipment.js';
+import { makeArtifactContext, renderToSvg } from './test-context.js';
+import { createSCLDoc } from '../../test-helpers.js';
+
+function equipmentDoc() {
+  return createSCLDoc(`
+    <Substation name="S1">
+      <Private type="OpenSCD-SLD-Layout">
+        <smth:SLDAttributes smth:w="50" smth:h="25"/>
+      </Private>
+      <VoltageLevel name="V1">
+        <Private type="OpenSCD-SLD-Layout">
+          <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="20" smth:h="20"/>
+        </Private>
+        <Bay name="B1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="2" smth:y="2" smth:w="10" smth:h="10"/>
+          </Private>
+          <ConductingEquipment name="QA1" type="CBR">
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3"/>
+            </Private>
+          </ConductingEquipment>
+        </Bay>
+      </VoltageLevel>
+    </Substation>
+  `);
+}
+
+describe('conductingEquipmentArtifact', () => {
+  let doc: XMLDocument;
+  let equipment: Element;
+  let substation: Element;
+  let bay: Element;
+
+  beforeEach(() => {
+    doc = equipmentDoc();
+    equipment = doc.querySelector('ConductingEquipment')!;
+    substation = doc.querySelector('Substation')!;
+    bay = doc.querySelector('Bay')!;
+  });
+
+  describe('matches', () => {
+    it('matches a ConductingEquipment element', () => {
+      expect(conductingEquipmentArtifact.matches(equipment)).to.be.true;
+    });
+
+    it('does not match other elements', () => {
+      expect(conductingEquipmentArtifact.matches(bay)).to.be.false;
+    });
+  });
+
+  describe('state', () => {
+    it('is undefined while placing itself without preview', () => {
+      const context = makeArtifactContext({ placing: equipment, substation });
+      expect(conductingEquipmentArtifact.state(equipment, context)).to.be
+        .undefined;
+    });
+
+    it('derives position, ports and flags for a terminal-less device', () => {
+      const context = makeArtifactContext({ substation });
+      const state = conductingEquipmentArtifact.state(equipment, context)!;
+      expect(state.position).to.deep.equal([3, 3]);
+      expect(state.canShowTopPort).to.be.true;
+      expect(state.canShowBottomPort).to.be.true;
+      expect(state.placingSelf).to.be.false;
+      expect(state.diagramElementId).to.equal(`${identity(equipment)}`);
+    });
+
+    it('marks placingSelf when previewing the placed device', () => {
+      const context = makeArtifactContext({ placing: equipment, substation });
+      const state = conductingEquipmentArtifact.state(equipment, context, {
+        preview: true,
+      })!;
+      expect(state.placingSelf).to.be.true;
+    });
+  });
+
+  describe('actions', () => {
+    function actionsFor(context = makeArtifactContext({ substation })) {
+      const state = conductingEquipmentArtifact.state(equipment, context, {
+        preview: true,
+      })!;
+      return conductingEquipmentArtifact.actions(equipment, context, state);
+    }
+
+    it('starts placement of the device on plain click', () => {
+      const context = makeArtifactContext({ substation });
+      actionsFor(context).onClick(new MouseEvent('click'));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-place',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.element).to.equal(equipment);
+    });
+
+    it('starts placement of a copy on shift-click', () => {
+      const context = makeArtifactContext({ substation });
+      actionsFor(context).onClick(new MouseEvent('click', { shiftKey: true }));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-place',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.element).to.not.equal(equipment);
+      expect(event.detail.element.getAttribute('type')).to.equal('CBR');
+    });
+
+    it('places into the containing bay while placing itself', () => {
+      const context = makeArtifactContext({ placing: equipment, substation });
+      actionsFor(context).onClick(new MouseEvent('click'));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-place',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.parent).to.equal(bay);
+    });
+
+    it('rotates on middle-button auxclick', () => {
+      const context = makeArtifactContext({ substation });
+      actionsFor(context).onAuxClick(new MouseEvent('auxclick', { button: 1 }));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-rotate',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail).to.equal(equipment);
+    });
+
+    it('grounds terminals through the context callback', () => {
+      const context = makeArtifactContext({ substation });
+      const actions = actionsFor(context);
+      actions.onGroundTop(new MouseEvent('contextmenu'));
+      actions.onGroundBottom(new MouseEvent('contextmenu'));
+      expect(context.grounded).to.deep.equal([
+        { element: equipment, terminal: 'T1' },
+        { element: equipment, terminal: 'T2' },
+      ]);
+    });
+
+    it('starts a connection from a terminal', () => {
+      const context = makeArtifactContext({ substation });
+      actionsFor(context).onStartTopConnect();
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-connect',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.from).to.equal(equipment);
+      expect(event.detail.fromTerminal).to.equal('T1');
+    });
+  });
+
+  describe('render', () => {
+    it('renders an equipment group with connection ports', () => {
+      const context = makeArtifactContext({ substation });
+      const state = conductingEquipmentArtifact.state(equipment, context)!;
+      const actions = conductingEquipmentArtifact.actions(
+        equipment,
+        context,
+        state,
+      );
+      const host = renderToSvg(
+        conductingEquipmentArtifact.render(equipment, state, actions, context),
+      );
+      expect(host.querySelector('g.equipment')).to.not.be.null;
+      expect(host.querySelectorAll('circle.port')).to.have.lengthOf(2);
+    });
+  });
+});

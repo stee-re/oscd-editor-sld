@@ -16,8 +16,7 @@ import {
   ringedEqTypes,
   singleTerminal,
 } from '../../foundations/equipment.js';
-import {
-  newPlaceEvent,
+import { newPlaceEvent,
   newRotateEvent,
   newSelectEvent,
   newStartConnectEvent,
@@ -25,23 +24,25 @@ import {
 } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
-import type { Style } from '../../foundations/sld-attributes.js';
-import type {
-  ArtifactRenderOptions,
-  SldArtifactDescriptor,
-  SldSharedContext,
+import {
+  getHighlightStyle,
+  isSelectable,
+  isToBeHighlighted,
+  type Highlight,
+} from './highlight.js';
+import {
+  type Connecting,
+  type ArtifactRenderOptions,
+  type SldArtifactDescriptor,
+  type SldSharedContext,
 } from './artifact.js';
 
-export type Connecting = {
-  from: Element;
-  path: Point[];
-  fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
-};
+export type { Connecting };
 
 export type EquipmentContext = SldSharedContext & {
   connecting?: Connecting;
   groundTerminal(element: Element, terminal: 'T1' | 'T2'): void;
-  highlight: { id: string; style: Style }[];
+  highlight: Highlight[];
   mouseX: number;
   mouseY: number;
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
@@ -82,49 +83,6 @@ function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
     e.preventDefault();
   }
-}
-
-function isSelectable(element: Element, selectable: string[]) {
-  return selectable.some(sel => identity(element) === sel);
-}
-
-function isToBeHighlighted(
-  element: Element,
-  highlight: { id: string; style: Style }[],
-): boolean {
-  return highlight.some(h => identity(element) === h.id);
-}
-
-function getHighlightStyle(
-  element: Element,
-  highlight: { id: string; style: Style }[],
-): string {
-  const style = highlight.find(h => identity(element) === h.id)?.style;
-  if (!style) {
-    return '';
-  }
-
-  let styleStr = '';
-  if (style?.fill) {
-    styleStr += `fill: ${style.fill}; `;
-  }
-  if (style?.fillOpacity) {
-    styleStr += `fill-opacity: ${style.fillOpacity}; `;
-  }
-  if (style?.stroke) {
-    styleStr += `stroke: ${style.stroke}; `;
-  }
-  if (style?.strokeWidth) {
-    styleStr += `stroke-width: ${style.strokeWidth}; `;
-  }
-  if (style?.strokeOpacity) {
-    styleStr += `stroke-opacity: ${style.strokeOpacity}; `;
-  }
-  if (style?.rx) {
-    styleStr += `rx: ${style.rx}; `;
-  }
-
-  return styleStr;
 }
 
 function equipmentRenderState(

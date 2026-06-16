@@ -30,8 +30,6 @@ import {
   resizePath,
   resizeTLPath,
   symbols,
-  zigZag2WTransform,
-  zigZagPath,
 } from './drawing/diagram-symbols.js';
 import {
   conductingEquipmentArtifact,
@@ -40,12 +38,14 @@ import { busBarArtifact } from './drawing/artifacts/bus-bar.js';
 import {
   iedReferenceArtifact,
 } from './drawing/artifacts/ied-reference.js';
+import { powerTransformerArtifact } from './drawing/artifacts/power-transformer.js';
 import { renderLabel as renderArtifactLabel } from './drawing/artifacts/label.js';
 import type {
   ArtifactRenderOptions,
   SldArtifactDescriptor,
   SldSharedContext,
 } from './drawing/artifacts/artifact.js';
+import type { PowerTransformerContext } from './drawing/artifacts/power-transformer.js';
 import type { EquipmentContext } from './drawing/artifacts/conducting-equipment.js';
 import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
 import type { LabelContext } from './drawing/artifacts/label.js';
@@ -71,7 +71,6 @@ import {
   updateSLDAttributes,
   xmlBoolean,
 } from './foundations/sld-attributes.js';
-import { transformerWindingMeasures } from './foundations/transformer.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
@@ -84,10 +83,7 @@ import {
   newPlaceLabelEvent,
   newResizeEvent,
   newResizeTLEvent,
-  newRotateEvent,
   newSclEditDialogEvent,
-  newSelectEvent,
-  newStartConnectEvent,
   newStartPlaceEvent,
   newStartResizeBREvent,
   newStartResizeTLEvent,
@@ -101,6 +97,10 @@ import {
 
 import type { Point } from './foundations/geometry.js';
 import type { Style } from './foundations/sld-attributes.js';
+import {
+  getHighlightStyle,
+  isToBeHighlighted,
+} from './drawing/artifacts/highlight.js';
 
 function isBay(element: Element) {
   return element.tagName === 'Bay' && !isBusBar(element);
@@ -110,77 +110,6 @@ function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
     e.preventDefault();
   }
-}
-
-function isSelectable(element: Element, selectable: string[]) {
-  return selectable.some(sel => identity(element) === sel);
-}
-
-function isToBeHighlighted(
-  element: Element,
-  highlight: { id: string; style: Style }[],
-): boolean {
-  return highlight.some(h => identity(element) === h.id);
-}
-
-function getHighlightStyle(
-  element: Element,
-  highlight: { id: string; style: Style }[],
-): string {
-  const style = highlight.find(h => identity(element) === h.id)?.style;
-  if (!style) {
-    return '';
-  }
-
-  let styleStr = '';
-  if (style?.fill) {
-    styleStr += `fill: ${style.fill}; `;
-  }
-  if (style?.fillOpacity) {
-    styleStr += `fill-opacity: ${style.fillOpacity}; `;
-  }
-  if (style?.stroke) {
-    styleStr += `stroke: ${style.stroke}; `;
-  }
-  if (style?.strokeWidth) {
-    styleStr += `stroke-width: ${style.strokeWidth}; `;
-  }
-  if (style?.strokeOpacity) {
-    styleStr += `stroke-opacity: ${style.strokeOpacity}; `;
-  }
-  if (style?.rx) {
-    styleStr += `rx: ${style.rx}; `;
-  }
-
-  return styleStr;
-}
-
-function transformerHighlight(
-  transformer: Element,
-  highlight: {
-    id: string;
-    style: Style;
-  }[],
-): TemplateResult {
-  const style = getHighlightStyle(transformer, highlight);
-
-  const {
-    pos: [x, y],
-  } = attributes(transformer);
-  const nmWindings = transformer.querySelectorAll('TransformerWinding').length;
-  if (nmWindings === 3) {
-    return svg`<rect x="${x - 0.8}" y="${
-      y - 0.3
-    }" width="2.6" height="2.6" style="${style}" pointer-events="none" />`;
-  }
-  if (nmWindings === 2) {
-    return svg`<rect x="${x - 0.3}" y="${
-      y - 0.3
-    }" width="1.6" height="2.6" style="${style}" pointer-events="none" />`;
-  }
-  return svg`<rect x="${x - 0.3}" y="${
-    y - 0.3
-  }" width="1.6" height="1.6" style="${style}" pointer-events="none" />`;
 }
 
 /** An editor [[`plugin`]] for editing the `Substation` section. */
@@ -1204,223 +1133,16 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     </g>`;
   }
 
-  renderTransformerWinding(winding: Element): TemplateResult<2> {
-    const {
-      size,
-      center: [cx, cy],
-      terminals,
-      grounded,
-      arc,
-      zigZagTransform,
-    } = transformerWindingMeasures(
-      winding,
-      this.renderedPosition(winding.parentElement!),
-      attributes(winding.parentElement!),
-      zigZag2WTransform,
-    );
-    const ports: TemplateResult<2>[] = [];
-    Object.entries(grounded).forEach(([_, [[x1, y1], [x2, y2]]]) => {
-      ports.push(
-        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="black" stroke-width="0.06" marker-start="url(#grounded)" />`,
-      );
-    });
-    const groundable = winding.closest('Bay');
-    if (
-      !(
-        this.connecting ||
-        this.resizingBR ||
-        this.resizingTL ||
-        this.placingLabel ||
-        (this.placing &&
-          this.placing !== winding.closest('PowerTransformer')) ||
-        this.disabled
-      )
-    ) {
-      Object.entries(terminals).forEach(([name, point]) => {
-        if (!point) {
-          return;
-        }
-        const [x, y] = point;
-        const x1 = Number.isInteger(x * 2) ? x : x + 1;
-        const y1 = Number.isInteger(y * 2) ? y : y + 1;
-        const terminal = name.startsWith('T');
-        const fill = terminal ? 'BB1326' : '12579B';
-        ports.push(svg`<circle class="port" cx="${x}" cy="${y}" r="0.2" opacity="0.4"
-              @contextmenu=${(e: MouseEvent) => {
-                if (terminal) {
-                  return;
-                }
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                if (!this.idle) {
-                  return;
-                }
-                this.groundTerminal(winding, name as 'T1' | 'T2' | 'N1' | 'N2');
-              }}
-              @click=${(e: MouseEvent) => {
-                e.stopImmediatePropagation();
-                if (!this.idle) {
-                  return;
-                }
-                this.dispatchEvent(
-                  newStartConnectEvent({
-                    from: winding,
-                    fromTerminal: name as 'T1' | 'T2' | 'N1' | 'N2',
-                    path: [
-                      [x, y],
-                      [x1, y1],
-                    ],
-                  }),
-                );
-              }}
-              fill="#${fill}"
-              stroke="${groundable && !terminal ? '#F5E214' : fill}" />`);
-      });
-    }
-    let longArrow = false;
-    let arcPath = svg``;
-    const { flip, rot } = attributes(winding.parentElement!);
-    if (arc) {
-      const {
-        from: [xf, yf],
-        fromCtl: [xfc, yfc],
-        to: [xt, yt],
-        toCtl: [xtc, ytc],
-      } = arc;
-      if (!flip && yfc < yf) {
-        longArrow = true;
-      }
-      if (flip && xfc > xf) {
-        longArrow = true;
-      }
-      arcPath = svg`<path d="M ${xf} ${yf} C ${xfc} ${yfc}, ${xtc} ${ytc}, ${xt} ${yt}" stroke="black" stroke-width="0.06" />`;
-    }
-    const tapChanger = winding.querySelector('TapChanger');
-    const ltcArrow = tapChanger
-      ? svg`<line x1="${cx - 0.8}" y1="${cy + 0.8}" x2="${cx + 0.8}" y2="${
-        cy - (longArrow ? 1 : 0.8)
-      }"
-              stroke="black" stroke-width="0.06" marker-end="url(#arrow)" />`
-      : nothing;
-    const zigZag =
-      zigZagTransform === undefined
-        ? nothing
-        : svg`<g stroke="black" stroke-linecap="round"
-                transform="rotate(${rot * 90} ${cx} ${cy})
-                translate(${cx - 1.5} ${cy - 1.5})
-                ${zigZagTransform}">${zigZagPath}</g>`;
-
-    return svg`<g class="winding"
-        @contextmenu=${(e: MouseEvent) => {
-          e.preventDefault();
-          if (!this.idle) {
-            return;
-          }
-          this.contextMenu?.open(this.contextMenuContext(winding, e));
-        }}
-    ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
-  }
-
   renderPowerTransformer(
     transformer: Element,
     preview = false,
-  ): TemplateResult<2> {
-    if (this.placing === transformer && !preview) {
-      return svg``;
-    }
-    const windings = Array.from(transformer.children).filter(
-      c => c.tagName === 'TransformerWinding',
+  ): SVGTemplateResult {
+    return this.renderArtifact(
+      powerTransformerArtifact,
+      transformer,
+      this.powerTransformerContext(),
+      { preview },
     );
-    const [x, y] = this.renderedPosition(transformer);
-    const offset: Point = [this.mouseX - x, this.mouseY - y];
-
-    const clickTarget =
-      this.placing === transformer
-        ? svg`<rect width="1" height="1" fill="none"
-              x="${this.mouseX}" y="${this.mouseY}" />`
-        : nothing;
-
-    let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
-    if (this.placing === transformer) {
-      handleClick = (e: MouseEvent) => {
-        if (this.placing === transformer) {
-          const parent =
-            Array.from(
-              this.substation.querySelectorAll(':scope > VoltageLevel > Bay'),
-            )
-              .concat(
-                Array.from(
-                  this.substation.querySelectorAll(':scope > VoltageLevel'),
-                ),
-              )
-              .find(vl => containsRect(vl, x, y, 1, 1)) || this.substation;
-          this.dispatchEvent(
-            newPlaceEvent({
-              element: transformer,
-              parent,
-              x,
-              y,
-            }),
-          );
-        }
-
-        if (!this.idle) {
-          return;
-        }
-
-        let placing = transformer;
-        if (e.shiftKey) {
-          placing = copyElementForPlacement(transformer, this.nsp);
-        }
-        this.dispatchEvent(newStartPlaceEvent(placing, offset));
-      };
-    } else if (this.disabled && isSelectable(transformer, this.selectable)) {
-      handleClick = () => this.dispatchEvent(newSelectEvent(transformer));
-    } else if (this.disabled || !this.idle) {
-      handleClick = () => {};
-    } else {
-      handleClick = (e: MouseEvent) => {
-        let placing = transformer;
-        if (e.shiftKey) {
-          placing = copyElementForPlacement(transformer, this.nsp);
-        }
-        this.dispatchEvent(newStartPlaceEvent(placing, offset));
-      };
-    }
-
-    const highlight = isToBeHighlighted(transformer, this.highlight)
-      ? transformerHighlight(transformer, this.highlight)
-      : '';
-
-    return svg`${highlight}<g class="${classMap({
-      transformer: true,
-      preview,
-      disabled: this.disabled,
-      selectable: isSelectable(transformer, this.selectable),
-    })}"
-        pointer-events="all"
-        @mousedown=${preventDefault}
-        @auxclick=${(e: MouseEvent) => {
-          if (e.button === 1) {
-            // middle mouse button
-            this.dispatchEvent(newRotateEvent(transformer));
-            e.preventDefault();
-          }
-        }}
-        @click=${handleClick}>
-        ${windings.map(w => this.renderTransformerWinding(w))}
-        ${clickTarget}
-      </g>
-      <g class="preview">${
-        preview
-          ? [
-            this.renderLabel(transformer, { preview }),
-            ...Array.from(transformer.querySelectorAll('Text')).map(text =>
-              this.renderLabel(text, { preview }),
-            ),
-          ]
-          : nothing
-      }</g>`;
   }
 
   private sharedContext(): SldSharedContext {
@@ -1473,6 +1195,21 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return {
       ...this.sharedContext(),
       renderConnectivityNode: element => this.renderConnectivityNode(element),
+    };
+  }
+
+  private powerTransformerContext(): PowerTransformerContext {
+    return {
+      ...this.sharedContext(),
+      connecting: this.connecting,
+      groundTerminal: (element, terminal) =>
+        this.groundTerminal(element, terminal),
+      highlight: this.highlight,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+      nsp: this.nsp,
+      resizingBR: this.resizingBR,
+      resizingTL: this.resizingTL,
     };
   }
 

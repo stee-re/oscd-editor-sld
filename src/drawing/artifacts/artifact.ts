@@ -6,6 +6,12 @@ export type ArtifactRenderOptions = {
   preview?: boolean;
 };
 
+export type Connecting = {
+  from: Element;
+  path: Point[];
+  fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
+};
+
 /**
  * Editor services and state shared by every artifact descriptor. Anything used
  * by a single artifact must NOT live here — it belongs in that artifact's own

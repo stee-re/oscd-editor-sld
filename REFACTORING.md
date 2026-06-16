@@ -63,9 +63,13 @@ steps that preserve behavior and keep future options open.
 - [x] Extract IED reference artifact descriptor
 - [x] Extract BusBar artifact descriptor
 - [x] Extract label renderer helper
+- [x] Discipline pass on `SldArtifactContext` (per-artifact `TContext` generic)
+- [x] Consolidate duplicated `isSelectable`/highlight helpers into `artifacts/highlight.ts`
+- [x] Extract PowerTransformer artifact descriptor
+- [x] Backfill co-located unit specs for every extracted artifact (`highlight`, `power-transformer`, `bus-bar`, `ied-reference`, `conducting-equipment`, `label`) via shared `test-context.ts` spy builder
 - [ ] Split large SVG renderers only after lower-risk extractions
 - [ ] Clean up structural conventions opportunistically
-- [ ] Consolidate duplicated test fixtures/helpers
+- [ ] Consolidate remaining duplicated test fixtures/helpers
 
 ## Current File Layout
 
@@ -73,7 +77,7 @@ steps that preserve behavior and keep future options open.
 
 - `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
 - `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
-- `src/sld-substation-editor.ts` (1792 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
+- `src/sld-substation-editor.ts` (1529 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
 
 ### Toolbar (`src/toolbar/`)
 
@@ -116,9 +120,18 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/diagram-symbols.ts` — Diagram SVG defs, grid patterns, markers, resize paths, transformer paths, and equipment symbol paths used by the rendered SLD diagram.
 - `src/drawing/artifacts/artifact.ts` — Shared functional artifact descriptor/context types.
 - `src/drawing/artifacts/conducting-equipment.ts` — ConductingEquipment artifact descriptor: state, actions, preview labels, and SVG rendering.
+- `src/drawing/artifacts/conducting-equipment.spec.ts` — Unit tests: matches/state/actions (place, copy-on-shift, rotate, ground, connect) and render ports.
 - `src/drawing/artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, and SVG rendering.
+- `src/drawing/artifacts/ied-reference.spec.ts` — Unit tests: matches/state (resolved IED, hidden IEDs), actions (place, start-place, context menu), render.
 - `src/drawing/artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, and connectivity node composition.
+- `src/drawing/artifacts/bus-bar.spec.ts` — Unit tests: matches/state (diagram id), placement into voltage level, disabled no-op, render.
+- `src/drawing/artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, and `transformerHighlight` helper.
+- `src/drawing/artifacts/power-transformer.spec.ts` — Unit tests: matches/state (windings, highlight), actions (start-place, place, select, rotate), render windings.
 - `src/drawing/artifacts/label.ts` — Label renderer helper: label text, label events, unresolved IED label color, and label selection behavior.
+- `src/drawing/artifacts/label.spec.ts` — Unit tests: hidden labels, name/tspan text, start-place-label, select, Text edit dialog.
+- `src/drawing/artifacts/highlight.ts` — Shared `isSelectable`, `isToBeHighlighted`, `getHighlightStyle` helpers (previously duplicated across artifacts and the editor).
+- `src/drawing/artifacts/highlight.spec.ts` — Unit tests for the shared selection/highlight helpers.
+- `src/drawing/artifacts/test-context.ts` — Shared spy `makeArtifactContext` builder + `renderToSvg` helper for artifact specs.
 
 ## Toolbar Architecture
 
@@ -272,6 +285,12 @@ Latest verification after label renderer extraction:
 - `./node_modules/.bin/tsc --noEmit` passed.
 - `npm run test` passed with `395 passed, 0 failed` and 90.76% coverage.
 
+Latest verification after artifact unit-spec backfill:
+
+- `./node_modules/.bin/tsc --noEmit` passed.
+- `npm run format` passed.
+- `npm run test` passed with `452 passed, 0 failed` (395 baseline + 57 new co-located artifact unit tests).
+
 ## Edit Builder Extraction — Complete
 
 Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API).
@@ -401,6 +420,7 @@ Current implemented wrappers:
 - `renderEquipment()` delegates to `conductingEquipmentArtifact`
 - `renderIed()` delegates to `iedReferenceArtifact`
 - `renderBusBar()` delegates to `busBarArtifact`
+- `renderPowerTransformer()` delegates to `powerTransformerArtifact`
 - `renderLabel()` delegates to `drawing/artifacts/label.ts`
 
 The current `SldArtifactContext` is useful but must be kept disciplined. Shared
@@ -423,14 +443,16 @@ type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
 |------|--------------|--------|
 | `SldSharedContext` | `artifacts/artifact.ts` | `disabled`, `dispatch`, `idle`, `openContextMenu`, `placing`, `placingLabel`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
 | `EquipmentContext` | `artifacts/conducting-equipment.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `nearestOpenTerminal`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
+| `PowerTransformerContext` | `artifacts/power-transformer.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
 | `LabelContext` | `artifacts/label.ts` | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition` |
 | `BusBarContext` | `artifacts/bus-bar.ts` | shared + `renderConnectivityNode` |
 | (ied-reference) | uses `SldSharedContext` directly | — |
 
 The editor builds the shared bag once in `sharedContext()` and spreads it into
-per-artifact builders (`equipmentContext()`, `labelContext()`, `busBarContext()`).
-`renderArtifact()` now takes the context as an argument. The `Connecting` type
-moved from `artifact.ts` to `conducting-equipment.ts` (its only consumer).
+per-artifact builders (`equipmentContext()`, `powerTransformerContext()`,
+`labelContext()`, `busBarContext()`). `renderArtifact()` now takes the context
+as an argument. The `Connecting` type lives in `artifact.ts` (shared by the
+equipment and power-transformer contexts).
 
 Remaining smell (deferred): the shared `renderLabel` and bus-bar's
 `renderConnectivityNode` are editor render callbacks, creating
