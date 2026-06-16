@@ -17,8 +17,8 @@ import {
 import type { Point } from '../../foundations/geometry.js';
 import type {
   ArtifactRenderOptions,
-  SldArtifactContext,
   SldArtifactDescriptor,
+  SldSharedContext,
 } from './artifact.js';
 
 type IedReferenceRenderState = {
@@ -49,7 +49,7 @@ function isSelectable(element: Element, selectable: string[]) {
 
 function iedReferenceState(
   referencedIed: Element,
-  context: SldArtifactContext,
+  context: SldSharedContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): IedReferenceRenderState | undefined {
   if (
@@ -78,7 +78,7 @@ function iedReferenceState(
 
 function iedReferenceActions(
   referencedIed: Element,
-  context: SldArtifactContext,
+  context: SldSharedContext,
   state: IedReferenceRenderState,
 ): IedReferenceRenderActions {
   let handleClick: (e: MouseEvent) => void = () => {};
@@ -163,7 +163,7 @@ function renderIedReference(
 
 function renderIedReferencePreviewLabels(
   referencedIed: Element,
-  context: SldArtifactContext,
+  context: SldSharedContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): SVGTemplateResult | typeof nothing {
   return preview

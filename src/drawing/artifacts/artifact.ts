@@ -1,31 +1,20 @@
 import type { nothing, SVGTemplateResult } from 'lit';
 import type { Point } from '../../foundations/geometry.js';
-import type { Style } from '../../foundations/sld-attributes.js';
 
 export type ArtifactRenderOptions = {
   connect?: boolean;
   preview?: boolean;
 };
 
-export type Connecting = {
-  from: Element;
-  path: Point[];
-  fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
-};
-
-export type SldArtifactContext = {
-  connecting?: Connecting;
+/**
+ * Editor services and state shared by every artifact descriptor. Anything used
+ * by a single artifact must NOT live here — it belongs in that artifact's own
+ * context type, which extends this base.
+ */
+export type SldSharedContext = {
   disabled: boolean;
   dispatch(event: Event): void;
-  groundTerminal(element: Element, terminal: 'T1' | 'T2'): void;
-  highlight: { id: string; style: Style }[];
   idle: boolean;
-  mouseX: number;
-  mouseX2: number;
-  mouseY: number;
-  mouseY2: number;
-  nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
-  nsp: string;
   openContextMenu(element: Element, event: MouseEvent): void;
   placing?: Element;
   placingLabel?: Element;
@@ -33,14 +22,7 @@ export type SldArtifactContext = {
     element: Element,
     options?: { preview?: boolean },
   ): SVGTemplateResult | typeof nothing;
-  renderConnectivityNode(element: Element): SVGTemplateResult | typeof nothing;
-  renderedLabelPosition(
-    element: Element,
-    options?: { preview?: boolean },
-  ): Point;
   renderedPosition(element: Element): Point;
-  resizingBR?: Element;
-  resizingTL?: Element;
   selectable: string[];
   substation: Element;
   view: {
@@ -49,23 +31,23 @@ export type SldArtifactContext = {
   };
 };
 
-export type SldArtifactDescriptor<TState, TActions> = {
-  actions(
-    element: Element,
-    context: SldArtifactContext,
-    state: TState,
-  ): TActions;
+export type SldArtifactDescriptor<
+  TState,
+  TActions,
+  TContext extends SldSharedContext = SldSharedContext,
+> = {
+  actions(element: Element, context: TContext, state: TState): TActions;
   matches(element: Element): boolean;
   render(
     element: Element,
     state: TState,
     actions: TActions,
-    context: SldArtifactContext,
+    context: TContext,
     options?: ArtifactRenderOptions,
   ): SVGTemplateResult;
   state(
     element: Element,
-    context: SldArtifactContext,
+    context: TContext,
     options?: ArtifactRenderOptions,
   ): TState | undefined;
 };

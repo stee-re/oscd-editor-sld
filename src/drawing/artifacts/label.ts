@@ -19,8 +19,17 @@ import { sldNs } from '../../foundations.js';
 import type { Point } from '../../foundations/geometry.js';
 import type {
   ArtifactRenderOptions,
-  SldArtifactContext,
+  SldSharedContext,
 } from './artifact.js';
+
+export type LabelContext = SldSharedContext & {
+  mouseX2: number;
+  mouseY2: number;
+  renderedLabelPosition(
+    element: Element,
+    options?: { preview?: boolean },
+  ): Point;
+};
 
 function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
@@ -59,7 +68,7 @@ function labelText(
 
 export function renderLabel(
   element: Element,
-  context: SldArtifactContext,
+  context: LabelContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): SVGTemplateResult | typeof nothing {
   if (!context.view.showLabels) {
