@@ -43,9 +43,12 @@ import {
 import { renderLabel as renderArtifactLabel } from './drawing/artifacts/label.js';
 import type {
   ArtifactRenderOptions,
-  SldArtifactContext,
   SldArtifactDescriptor,
+  SldSharedContext,
 } from './drawing/artifacts/artifact.js';
+import type { EquipmentContext } from './drawing/artifacts/conducting-equipment.js';
+import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
+import type { LabelContext } from './drawing/artifacts/label.js';
 import {
   cleanPath,
   distance,
@@ -946,7 +949,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   renderLabel(element: Element, { preview = false } = {}) {
-    return renderArtifactLabel(element, this.artifactContext(), { preview });
+    return renderArtifactLabel(element, this.labelContext(), { preview });
   }
 
   renderContainer(bayOrVL: Element, preview = false): TemplateResult<2> {
@@ -1420,32 +1423,17 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       }</g>`;
   }
 
-  private artifactContext(): SldArtifactContext {
+  private sharedContext(): SldSharedContext {
     return {
-      connecting: this.connecting,
       disabled: this.disabled,
       dispatch: event => this.dispatchEvent(event),
-      groundTerminal: (element, terminal) =>
-        this.groundTerminal(element, terminal),
-      highlight: this.highlight,
       idle: this.idle,
-      mouseX: this.mouseX,
-      mouseX2: this.mouseX2,
-      mouseY: this.mouseY,
-      mouseY2: this.mouseY2,
-      nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
-      nsp: this.nsp,
       openContextMenu: (element, event) =>
         this.contextMenu?.open(this.contextMenuContext(element, event)),
       placing: this.placing,
       placingLabel: this.placingLabel,
       renderLabel: (element, options) => this.renderLabel(element, options),
-      renderConnectivityNode: element => this.renderConnectivityNode(element),
-      renderedLabelPosition: (element, options) =>
-        this.renderedLabelPosition(element, options),
       renderedPosition: element => this.renderedPosition(element),
-      resizingBR: this.resizingBR,
-      resizingTL: this.resizingTL,
       selectable: this.selectable,
       substation: this.substation,
       view: {
@@ -1455,12 +1443,45 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     };
   }
 
-  private renderArtifact<TState, TActions>(
-    descriptor: SldArtifactDescriptor<TState, TActions>,
+  private equipmentContext(): EquipmentContext {
+    return {
+      ...this.sharedContext(),
+      connecting: this.connecting,
+      groundTerminal: (element, terminal) =>
+        this.groundTerminal(element, terminal),
+      highlight: this.highlight,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+      nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
+      nsp: this.nsp,
+      resizingBR: this.resizingBR,
+      resizingTL: this.resizingTL,
+    };
+  }
+
+  private labelContext(): LabelContext {
+    return {
+      ...this.sharedContext(),
+      mouseX2: this.mouseX2,
+      mouseY2: this.mouseY2,
+      renderedLabelPosition: (element, options) =>
+        this.renderedLabelPosition(element, options),
+    };
+  }
+
+  private busBarContext(): BusBarContext {
+    return {
+      ...this.sharedContext(),
+      renderConnectivityNode: element => this.renderConnectivityNode(element),
+    };
+  }
+
+  private renderArtifact<TState, TActions, TContext extends SldSharedContext>(
+    descriptor: SldArtifactDescriptor<TState, TActions, TContext>,
     element: Element,
+    context: TContext,
     options: ArtifactRenderOptions = {},
   ): SVGTemplateResult {
-    const context = this.artifactContext();
     const state = descriptor.state(element, context, options);
     if (!state) {
       return svg``;
@@ -1479,20 +1500,32 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     equipment: Element,
     options: { preview?: boolean; connect?: boolean } = {},
   ): SVGTemplateResult {
-    return this.renderArtifact(conductingEquipmentArtifact, equipment, options);
+    return this.renderArtifact(
+      conductingEquipmentArtifact,
+      equipment,
+      this.equipmentContext(),
+      options,
+    );
   }
 
   renderIed(
     referencedIed: Element,
     { preview = false } = {},
   ): SVGTemplateResult {
-    return this.renderArtifact(iedReferenceArtifact, referencedIed, {
-      preview,
-    });
+    return this.renderArtifact(
+      iedReferenceArtifact,
+      referencedIed,
+      this.sharedContext(),
+      { preview },
+    );
   }
 
   renderBusBar(busBar: Element) {
-    return this.renderArtifact(busBarArtifact, busBar);
+    return this.renderArtifact(
+      busBarArtifact,
+      busBar,
+      this.busBarContext(),
+    );
   }
 
   renderConnectivityNode(cNode: Element) {

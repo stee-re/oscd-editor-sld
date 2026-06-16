@@ -73,7 +73,7 @@ steps that preserve behavior and keep future options open.
 
 - `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
 - `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
-- `src/sld-substation-editor.ts` (2173 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
+- `src/sld-substation-editor.ts` (1792 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
 
 ### Toolbar (`src/toolbar/`)
 
@@ -407,6 +407,35 @@ The current `SldArtifactContext` is useful but must be kept disciplined. Shared
 context should contain truly common editor/render services only. Artifact-specific
 needs should stay in the artifact module or be passed through an artifact-specific
 factory.
+
+### `SldArtifactContext` discipline pass — Complete
+
+The flat `SldArtifactContext` (~24 fields) was split so single-consumer
+dependencies are no longer shared. The descriptor now carries a `TContext`
+generic, and each artifact declares its own context type extending a small
+shared base:
+
+```typescript
+type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
+```
+
+| Type | Owner module | Fields |
+|------|--------------|--------|
+| `SldSharedContext` | `artifacts/artifact.ts` | `disabled`, `dispatch`, `idle`, `openContextMenu`, `placing`, `placingLabel`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
+| `EquipmentContext` | `artifacts/conducting-equipment.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `nearestOpenTerminal`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
+| `LabelContext` | `artifacts/label.ts` | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition` |
+| `BusBarContext` | `artifacts/bus-bar.ts` | shared + `renderConnectivityNode` |
+| (ied-reference) | uses `SldSharedContext` directly | — |
+
+The editor builds the shared bag once in `sharedContext()` and spreads it into
+per-artifact builders (`equipmentContext()`, `labelContext()`, `busBarContext()`).
+`renderArtifact()` now takes the context as an argument. The `Connecting` type
+moved from `artifact.ts` to `conducting-equipment.ts` (its only consumer).
+
+Remaining smell (deferred): the shared `renderLabel` and bus-bar's
+`renderConnectivityNode` are editor render callbacks, creating
+artifact→editor→artifact cycles. Removing those cycles belongs to the
+connectivity-node/label artifact extractions (Phase A), not this pass.
 
 Open cleanup identified before the next extraction:
 

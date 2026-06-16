@@ -28,9 +28,27 @@ import type { Point } from '../../foundations/geometry.js';
 import type { Style } from '../../foundations/sld-attributes.js';
 import type {
   ArtifactRenderOptions,
-  SldArtifactContext,
   SldArtifactDescriptor,
+  SldSharedContext,
 } from './artifact.js';
+
+export type Connecting = {
+  from: Element;
+  path: Point[];
+  fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
+};
+
+export type EquipmentContext = SldSharedContext & {
+  connecting?: Connecting;
+  groundTerminal(element: Element, terminal: 'T1' | 'T2'): void;
+  highlight: { id: string; style: Style }[];
+  mouseX: number;
+  mouseY: number;
+  nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
+  nsp: string;
+  resizingBR?: Element;
+  resizingTL?: Element;
+};
 
 export type EquipmentRenderState = {
   bottomGrounded: boolean;
@@ -111,7 +129,7 @@ function getHighlightStyle(
 
 function equipmentRenderState(
   equipment: Element,
-  context: SldArtifactContext,
+  context: EquipmentContext,
   { preview = false, connect = false }: ArtifactRenderOptions = {},
 ): EquipmentRenderState | undefined {
   if (context.placing === equipment && !preview) {
@@ -200,7 +218,7 @@ function equipmentRenderState(
 
 function equipmentRenderActions(
   equipment: Element,
-  context: SldArtifactContext,
+  context: EquipmentContext,
   state: EquipmentRenderState,
 ): EquipmentRenderActions {
   let handleClick = (e: MouseEvent) => {
@@ -291,7 +309,7 @@ function equipmentRenderActions(
 
 function renderEquipmentPreviewLabels(
   equipment: Element,
-  context: SldArtifactContext,
+  context: EquipmentContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): SVGTemplateResult | typeof nothing {
   return preview
@@ -458,7 +476,8 @@ function renderEquipment(
 
 export const conductingEquipmentArtifact: SldArtifactDescriptor<
   EquipmentRenderState,
-  EquipmentRenderActions
+  EquipmentRenderActions,
+  EquipmentContext
 > = {
   actions: equipmentRenderActions,
   matches: element => element.tagName === 'ConductingEquipment',

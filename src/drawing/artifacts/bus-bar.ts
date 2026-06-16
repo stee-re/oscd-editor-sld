@@ -8,9 +8,13 @@ import { newPlaceEvent } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
 import type {
-  SldArtifactContext,
   SldArtifactDescriptor,
+  SldSharedContext,
 } from './artifact.js';
+
+export type BusBarContext = SldSharedContext & {
+  renderConnectivityNode(element: Element): SVGTemplateResult | typeof nothing;
+};
 
 type BusBarRenderState = {
   diagramElementId?: string;
@@ -24,7 +28,7 @@ type BusBarRenderActions = {
 
 function busBarState(
   busBar: Element,
-  context: SldArtifactContext,
+  context: BusBarContext,
 ): BusBarRenderState {
   const [x, y] = context.renderedPosition(busBar);
   const {
@@ -43,7 +47,7 @@ function busBarState(
 
 function busBarActions(
   busBar: Element,
-  context: SldArtifactContext,
+  context: BusBarContext,
   state: BusBarRenderState,
 ): BusBarRenderActions {
   const [x, y] = state.position;
@@ -76,7 +80,7 @@ function renderBusBar(
   busBar: Element,
   state: BusBarRenderState,
   actions: BusBarRenderActions,
-  context: SldArtifactContext,
+  context: BusBarContext,
 ): SVGTemplateResult {
   const [x, y] = state.position;
   const [w, h] = state.dimensions;
@@ -102,7 +106,8 @@ function renderBusBar(
 
 export const busBarArtifact: SldArtifactDescriptor<
   BusBarRenderState,
-  BusBarRenderActions
+  BusBarRenderActions,
+  BusBarContext
 > = {
   actions: busBarActions,
   matches: isBusBar,
