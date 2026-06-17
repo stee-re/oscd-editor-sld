@@ -58,7 +58,6 @@ export function makeArtifactContext(
     },
     placing: undefined,
     placingLabel: undefined,
-    renderConnectivityNode: () => nothing,
     renderLabel: () => nothing,
     renderedLabelPosition: (element: Element) => attributes(element).label,
     renderedPosition: (element: Element) => attributes(element).pos,

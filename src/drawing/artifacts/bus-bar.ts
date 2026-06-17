@@ -7,14 +7,13 @@ import { attributes } from '../../foundations/sld-attributes.js';
 import { newPlaceEvent } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
-import type {
-  SldArtifactDescriptor,
-  SldSharedContext,
-} from './artifact.js';
+import {
+  renderConnectivityNode,
+  type ConnectivityNodeContext,
+} from './connectivity-node.js';
+import type { SldArtifactDescriptor } from './artifact.js';
 
-export type BusBarContext = SldSharedContext & {
-  renderConnectivityNode(element: Element): SVGTemplateResult | typeof nothing;
-};
+export type BusBarContext = ConnectivityNodeContext;
 
 type BusBarRenderState = {
   diagramElementId?: string;
@@ -91,7 +90,10 @@ function renderBusBar(
     ${Array.from(busBar.querySelectorAll('Text')).map(text =>
       context.renderLabel(text),
     )}
-    ${context.renderConnectivityNode(busBar.querySelector('ConnectivityNode')!)}
+    ${renderConnectivityNode(
+      busBar.querySelector('ConnectivityNode')!,
+      context,
+    )}
     <rect
       x="${x}"
       y="${y}"
