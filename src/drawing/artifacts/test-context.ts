@@ -7,18 +7,22 @@ import type { EquipmentContext } from './conducting-equipment.js';
 import type { PowerTransformerContext } from './power-transformer.js';
 import type { LabelContext } from './label.js';
 import type { BusBarContext } from './bus-bar.js';
+import type { EquipmentContainerContext } from './equipment-container.js';
 
 /**
  * A spy context satisfying every artifact context type. Dispatched events,
- * grounded terminals, and opened context menus are recorded for assertions.
+ * grounded terminals, opened context menus, and child renders are recorded for
+ * assertions.
  */
 export type SpyArtifactContext = EquipmentContext &
   PowerTransformerContext &
   LabelContext &
-  BusBarContext & {
+  BusBarContext &
+  EquipmentContainerContext & {
     dispatched: Event[];
     grounded: { element: Element; terminal: string }[];
     contextMenuOpened: { element: Element; event: MouseEvent }[];
+    renderedChildren: Element[];
   };
 
 /**
@@ -32,11 +36,13 @@ export function makeArtifactContext(
   const dispatched: Event[] = [];
   const grounded: { element: Element; terminal: string }[] = [];
   const contextMenuOpened: { element: Element; event: MouseEvent }[] = [];
+  const renderedChildren: Element[] = [];
 
   return {
     dispatched,
     grounded,
     contextMenuOpened,
+    renderedChildren,
     connecting: undefined,
     disabled: false,
     dispatch(event: Event) {
@@ -58,13 +64,28 @@ export function makeArtifactContext(
     },
     placing: undefined,
     placingLabel: undefined,
+    renderConnectivityNode: () => nothing,
+    renderEquipment(element: Element) {
+      renderedChildren.push(element);
+      return svg``;
+    },
+    renderIed(element: Element) {
+      renderedChildren.push(element);
+      return svg``;
+    },
     renderLabel: () => nothing,
+    renderPowerTransformer(element: Element) {
+      renderedChildren.push(element);
+      return svg``;
+    },
     renderedLabelPosition: (element: Element) => attributes(element).label,
     renderedPosition: (element: Element) => attributes(element).pos,
     resizingBR: undefined,
     resizingTL: undefined,
     selectable: [],
     substation: undefined as unknown as Element,
+    svgCoordinates: (clientX: number, clientY: number) =>
+      [clientX, clientY] as [number, number],
     view: { showLabels: true, showIeds: true },
     ...overrides,
   };

@@ -24,11 +24,8 @@ import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton
 import { SldSnackbar } from './sld-snackbar.js';
 import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 
-import { identity } from '@openscd/scl-lib';
 import {
-  resizeBRPath,
   resizePath,
-  resizeTLPath,
   symbols,
 } from './drawing/diagram-symbols.js';
 import {
@@ -44,6 +41,11 @@ import {
   renderConnectivityNode as renderArtifactConnectivityNode,
   type ConnectivityNodeContext,
 } from './drawing/artifacts/connectivity-node.js';
+import {
+  renderVoltageLevel,
+  renderBay,
+  type EquipmentContainerContext,
+} from './drawing/artifacts/equipment-container.js';
 import type {
   ArtifactRenderOptions,
   SldArtifactDescriptor,
@@ -55,7 +57,6 @@ import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
 import type { LabelContext } from './drawing/artifacts/label.js';
 import {
   cleanPath,
-  distance,
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
 import {
@@ -64,7 +65,6 @@ import {
   canResizeToTL,
 } from './foundations/sld-placement.js';
 import {
-  copyElementForPlacement,
   createGroundTerminalEdits,
 } from './foundations/edits.js';
 import { connectionStartPoints, isBusBar } from './foundations/connectivity.js';
@@ -83,12 +83,7 @@ import {
   newConnectEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
-  newResizeEvent,
-  newResizeTLEvent,
   newSclEditDialogEvent,
-  newStartPlaceEvent,
-  newStartResizeBREvent,
-  newStartResizeTLEvent,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
 import { svgNs, xlinkNs } from './foundations.js';
@@ -99,19 +94,9 @@ import {
 
 import type { Point } from './foundations/geometry.js';
 import type { Style } from './foundations/sld-attributes.js';
-import {
-  getHighlightStyle,
-  isToBeHighlighted,
-} from './drawing/artifacts/highlight.js';
 
 function isBay(element: Element) {
   return element.tagName === 'Bay' && !isBusBar(element);
-}
-
-function preventDefault(e: MouseEvent) {
-  if (e.button === 1) {
-    e.preventDefault();
-  }
 }
 
 /** An editor [[`plugin`]] for editing the `Substation` section. */
@@ -883,256 +868,30 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return renderArtifactLabel(element, this.labelContext(), { preview });
   }
 
+  private containerContext(): EquipmentContainerContext {
+    return {
+      ...this.sharedContext(),
+      highlight: this.highlight,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+      nsp: this.nsp,
+      resizingBR: this.resizingBR,
+      resizingTL: this.resizingTL,
+      svgCoordinates: (clientX, clientY) =>
+        this.svgCoordinates(clientX, clientY),
+      renderEquipment: equipment => this.renderEquipment(equipment),
+      renderPowerTransformer: equipment =>
+        this.renderPowerTransformer(equipment),
+      renderIed: (referencedIed, options) =>
+        this.renderIed(referencedIed, options),
+      renderConnectivityNode: cNode => this.renderConnectivityNode(cNode),
+    };
+  }
+
   renderContainer(bayOrVL: Element, preview = false): TemplateResult<2> {
-    const isVL = bayOrVL.tagName === 'VoltageLevel';
-    if (this.placing === bayOrVL && !preview) {
-      return svg``;
-    }
-
-    let [x, y] = this.renderedPosition(bayOrVL);
-    const offset: Point = [this.mouseX - x, this.mouseY - y];
-    let {
-      dim: [w, h],
-    } = attributes(bayOrVL);
-
-    const right = x + w - 1;
-    const bottom = y + h - 1;
-
-    let handleClick = (e: MouseEvent) => {
-      if (this.idle) {
-        this.dispatchEvent(
-          newStartPlaceEvent(
-            e.shiftKey ? copyElementForPlacement(bayOrVL, this.nsp) : bayOrVL,
-            offset,
-          ),
-        );
-      }
-    };
-    let invalid = false;
-
-    let contextmenu = (e: MouseEvent) => {
-      e.preventDefault();
-      if (!this.idle) {
-        return;
-      }
-      this.contextMenu?.open(this.contextMenuContext(bayOrVL, e));
-    };
-    if (this.disabled) {
-      contextmenu = () => {};
-    }
-
-    let auxclick = ({ clientX, clientY, button }: MouseEvent) => {
-      if (button !== 1) {
-        return;
-      }
-      const mouse = this.svgCoordinates(clientX, clientY);
-      if (distance(mouse, [x, y]) < distance(mouse, [right, bottom])) {
-        this.dispatchEvent(newStartResizeTLEvent(bayOrVL));
-      } else {
-        this.dispatchEvent(newStartResizeBREvent(bayOrVL));
-      }
-    };
-    if (this.disabled) {
-      auxclick = () => {};
-    }
-
-    if (this.resizingBR === bayOrVL) {
-      w = Math.max(1, this.mouseX - x + 1);
-      h = Math.max(1, this.mouseY - y + 1);
-      if (canResizeTo(this.substation, bayOrVL, w, h)) {
-        handleClick = () =>
-          this.dispatchEvent(
-            newResizeEvent({
-              w,
-              h,
-              element: bayOrVL,
-            }),
-          );
-      } else {
-        invalid = true;
-      }
-    }
-
-    if (this.resizingTL === bayOrVL) {
-      w = Math.max(1, x + w - this.mouseX);
-      h = Math.max(1, y + h - this.mouseY);
-      x = Math.min(this.mouseX, right);
-      y = Math.min(this.mouseY, bottom);
-      if (canResizeToTL(this.substation, bayOrVL, x, y, w, h)) {
-        handleClick = () =>
-          this.dispatchEvent(
-            newResizeTLEvent({
-              x,
-              y,
-              w,
-              h,
-              element: bayOrVL,
-            }),
-          );
-      } else {
-        invalid = true;
-      }
-    }
-
-    if (this.placing === bayOrVL) {
-      let parent: Element | undefined;
-      if (isVL) {
-        parent = this.substation;
-      } else {
-        parent = Array.from(
-          this.substation.querySelectorAll(':root > Substation > VoltageLevel'),
-        ).find(vl => containsRect(vl, x, y, w, h));
-      }
-      if (parent && canPlaceAt(this.substation, bayOrVL, x, y, w, h)) {
-        handleClick = () =>
-          this.dispatchEvent(
-            newPlaceEvent({
-              x,
-              y,
-              element: bayOrVL,
-              parent: parent!,
-            }),
-          );
-      } else {
-        invalid = true;
-      }
-    }
-
-    let placingTarget = svg``;
-    let resizingTarget = svg``;
-    if (
-      (isVL && this.placing?.tagName === 'Bay') ||
-      (!isVL && this.placing?.tagName === 'ConductingEquipment')
-    ) {
-      placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-        @click=${handleClick} fill="url(#grid)" />`;
-    }
-
-    if (
-      this.resizingBR === bayOrVL ||
-      this.resizingTL === bayOrVL ||
-      (this.resizingBR?.parentElement === bayOrVL && isBusBar(this.resizingBR))
-    ) {
-      resizingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-        @click=${handleClick || nothing} fill="url(#grid)" />`;
-    }
-
-    const resizeBRHandle =
-      this.idle && !this.disabled
-        ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
-          opacity="0.83" class="handle"
-          @click=${() => this.dispatchEvent(newStartResizeBREvent(bayOrVL))}
-          viewBox="0 96 960 960" x="${w + x - 1}" y="${h + y - 1}">
-          <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-          ${resizeBRPath}
-        </svg>`
-        : nothing;
-    const resizeTLhandle =
-      this.idle && !this.disabled
-        ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
-          opacity="0.83" class="handle"
-          @click=${() => this.dispatchEvent(newStartResizeTLEvent(bayOrVL))}
-          viewBox="0 96 960 960" x="${x}" y="${y}">
-          <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-          ${resizeTLPath}
-        </svg>`
-        : nothing;
-
-    const clickthrough =
-      this.disabled ||
-      (!this.idle &&
-        this.placing !== bayOrVL &&
-        this.resizingBR !== bayOrVL &&
-        this.resizingTL !== bayOrVL);
-
-    let strokeColor: string;
-    if (invalid) {
-      strokeColor = '#BB1326';
-    } else if (isVL) {
-      strokeColor = '#F5E214';
-    } else {
-      strokeColor = '#12579B';
-    }
-
-    const highlighted = isToBeHighlighted(bayOrVL, this.highlight);
-    const highlight = highlighted
-      ? svg`<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${getHighlightStyle(
-        bayOrVL,
-        this.highlight,
-      )}" pointer-events="none" />`
-      : '';
-
-    return svg`${highlight}<g id="${
-      bayOrVL.closest('Substation') === this.substation
-        ? identity(bayOrVL)
-        : nothing
-    }" class=${classMap({
-      voltagelevel: isVL,
-      bay: !isVL,
-      preview,
-    })} tabindex="0" pointer-events="${
-      clickthrough ? 'none' : 'all'
-    }" style="outline: none;">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}"
-        @contextmenu=${contextmenu}
-        @click=${handleClick || nothing} @mousedown=${preventDefault}
-        @auxclick=${auxclick}
-        fill="${highlighted ? 'none' : 'white'}" stroke-dasharray="${
-          isVL ? nothing : '0.18'
-        }"
-        stroke="${strokeColor}" />
-      ${Array.from(bayOrVL.children)
-        .filter(isBay)
-        .map(bay => this.renderContainer(bay, preview))}
-      ${Array.from(bayOrVL.children)
-        .filter(child => child.tagName === 'ConductingEquipment')
-        .map(equipment => this.renderEquipment(equipment))}
-      ${Array.from(bayOrVL.children)
-        .filter(child => child.tagName === 'PowerTransformer')
-        .map(equipment => this.renderPowerTransformer(equipment))}
-      ${iedReferences(bayOrVL)
-        .filter(
-          referencedIed =>
-            referencedIed.parentElement?.tagName === 'Private' &&
-            referencedIed.parentElement!.parentElement === bayOrVL,
-        )
-        .map(referencedIed => this.renderIed(referencedIed, { preview }))}
-      ${
-        preview
-          ? Array.from(bayOrVL.querySelectorAll('ConnectivityNode'))
-            .filter(child => child.getAttribute('name') !== 'grounded')
-            .map(cNode => this.renderConnectivityNode(cNode))
-          : nothing
-      }
-      ${
-        preview
-          ? Array.from(
-            bayOrVL.querySelectorAll(
-              'Bay, ConductingEquipment, PowerTransformer, Text',
-            ),
-          )
-            .concat(
-              Array.from(
-                bayOrVL.querySelector(
-                  ':scope > Private[type="OpenSCD-SLD-Layout"]',
-                )
-                  ? iedReferences(
-                    bayOrVL.querySelector(
-                      ':scope > Private[type="OpenSCD-SLD-Layout"]',
-                    )!,
-                  )
-                  : [],
-              ),
-            )
-            .concat(bayOrVL)
-            .map(element => this.renderLabel(element, { preview }))
-          : nothing
-      }
-      ${resizeTLhandle}
-      ${resizeBRHandle}
-      ${placingTarget}
-      ${resizingTarget}
-    </g>`;
+    return bayOrVL.tagName === 'VoltageLevel'
+      ? renderVoltageLevel(bayOrVL, this.containerContext(), preview)
+      : renderBay(bayOrVL, this.containerContext(), preview);
   }
 
   renderPowerTransformer(
