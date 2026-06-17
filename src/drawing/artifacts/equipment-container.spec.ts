@@ -3,36 +3,22 @@ import { identity } from '@openscd/scl-lib';
 
 import { renderVoltageLevel, renderBay } from './equipment-container.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
-import { createSCLDoc } from '../../test-helpers.js';
+import { sldFixture } from '../../test-helpers.js';
 
 function containerDoc() {
-  return createSCLDoc(`
-    <Substation name="S1">
-      <Private type="OpenSCD-SLD-Layout">
-        <smth:SLDAttributes smth:w="50" smth:h="25"/>
-      </Private>
-      <VoltageLevel name="V1">
+  return sldFixture({
+    children: `
+      <ConductingEquipment name="QA1" type="CBR">
         <Private type="OpenSCD-SLD-Layout">
-          <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="20" smth:h="20"/>
+          <smth:SLDAttributes smth:x="3" smth:y="3"/>
         </Private>
-        <Bay name="B1">
-          <Private type="OpenSCD-SLD-Layout">
-            <smth:SLDAttributes smth:x="2" smth:y="2" smth:w="10" smth:h="10"/>
-          </Private>
-          <ConductingEquipment name="QA1" type="CBR">
-            <Private type="OpenSCD-SLD-Layout">
-              <smth:SLDAttributes smth:x="3" smth:y="3"/>
-            </Private>
-          </ConductingEquipment>
-          <PowerTransformer name="T1">
-            <Private type="OpenSCD-SLD-Layout">
-              <smth:SLDAttributes smth:x="5" smth:y="5"/>
-            </Private>
-          </PowerTransformer>
-        </Bay>
-      </VoltageLevel>
-    </Substation>
-  `);
+      </ConductingEquipment>
+      <PowerTransformer name="T1">
+        <Private type="OpenSCD-SLD-Layout">
+          <smth:SLDAttributes smth:x="5" smth:y="5"/>
+        </Private>
+      </PowerTransformer>`,
+  });
 }
 
 describe('renderVoltageLevel / renderBay', () => {

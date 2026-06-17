@@ -71,8 +71,8 @@ steps that preserve behavior and keep future options open.
 - [x] Extract container renderer (Bay/VoltageLevel) into `artifacts/equipment-container.ts` — with `EquipmentContainerContext` carrying child-renderer callbacks
 - [x] Split the container renderer into explicit `renderVoltageLevel`/`renderBay` entry points over a shared private `renderContainer(element, context, preview, kind, childContainers)` helper; `ContainerKind` constants (`voltageLevelKind`/`bayKind`) funnel the VL/Bay differences. Removes the dead Bay→Bay "recursion" branch (the SCL hierarchy is fixed-depth: bays never nest).
 - [ ] Split large SVG renderers only after lower-risk extractions
-- [ ] Clean up structural conventions opportunistically
-- [ ] Consolidate remaining duplicated test fixtures/helpers
+- [x] Clean up structural conventions opportunistically — reviewed: code already satisfies the repo's enforced conventions (no one-liner `if`s, consistent `SldArtifactDescriptor` shape, co-located specs, consistent `render*`/`handle*` naming). Import grouping is intentionally left as-is (the repo's `import-x` ESLint config enforces no import-order rule).
+- [x] Consolidate remaining duplicated test fixtures/helpers — added `sldFixture({ vl, bay, bayName, children })` to `test-helpers.ts`; migrated the 6 artifact specs sharing the `Substation > VoltageLevel > Bay` scaffold (container, conducting-equipment, power-transformer, label, bus-bar, connectivity-node) to it. `ied-reference`/`highlight` keep bespoke fixtures (different shapes).
 
 ## Current File Layout
 

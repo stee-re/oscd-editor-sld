@@ -38,6 +38,50 @@ export function createSCLDoc(inner: string): XMLDocument {
   return doc;
 }
 
+type SldRect = { x?: number; y?: number; w?: number; h?: number };
+
+/**
+ * Builds the standard artifact-spec scaffold: a laid-out
+ * `Substation S1 > VoltageLevel V1 > Bay`, into which the caller injects the
+ * leaf SCL (`children`) the artifact under test cares about.
+ *
+ * Defaults place the voltage level at `(1,1)` 20×20 and a `Bay` named `B1` at
+ * `(2,2)` 10×10. Override `vl`/`bay` only for the coordinates a spec asserts
+ * on (e.g. busbar specs use a `BB1` bay). The outer substation is 50×25.
+ */
+export function sldFixture({
+  vl = {},
+  bay = {},
+  bayName = 'B1',
+  children = '',
+}: {
+  vl?: SldRect;
+  bay?: SldRect;
+  bayName?: string;
+  children?: string;
+} = {}): XMLDocument {
+  const { x: vlX = 1, y: vlY = 1, w: vlW = 20, h: vlH = 20 } = vl;
+  const { x: bayX = 2, y: bayY = 2, w: bayW = 10, h: bayH = 10 } = bay;
+  return createSCLDoc(`
+    <Substation name="S1">
+      <Private type="OpenSCD-SLD-Layout">
+        <smth:SLDAttributes smth:w="50" smth:h="25"/>
+      </Private>
+      <VoltageLevel name="V1">
+        <Private type="OpenSCD-SLD-Layout">
+          <smth:SLDAttributes smth:x="${vlX}" smth:y="${vlY}" smth:w="${vlW}" smth:h="${vlH}"/>
+        </Private>
+        <Bay name="${bayName}">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="${bayX}" smth:y="${bayY}" smth:w="${bayW}" smth:h="${bayH}"/>
+          </Private>
+          ${children}
+        </Bay>
+      </VoltageLevel>
+    </Substation>
+  `);
+}
+
 /**
  * Shared test utilities for computing viewport positions from SVG grid
  * coordinates. These helpers dynamically resolve pixel positions based on
