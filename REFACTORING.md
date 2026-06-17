@@ -68,8 +68,9 @@ steps that preserve behavior and keep future options open.
 - [x] Extract PowerTransformer artifact descriptor
 - [x] Backfill co-located unit specs for every extracted artifact (`highlight`, `power-transformer`, `bus-bar`, `ied-reference`, `conducting-equipment`, `label`) via shared `test-context.ts` spy builder
 - [x] Extract connectivity-node renderer (`artifacts/connectivity-node.ts`); dissolves the bus-bar `renderConnectivityNode` context-callback cycle
+- [x] Extract container renderer (Bay/VoltageLevel) into `artifacts/equipment-container.ts` — with `EquipmentContainerContext` carrying child-renderer callbacks
+- [x] Split the container renderer into explicit `renderVoltageLevel`/`renderBay` entry points over a shared private `renderContainer(element, context, preview, kind, childContainers)` helper; `ContainerKind` constants (`voltageLevelKind`/`bayKind`) funnel the VL/Bay differences. Removes the dead Bay→Bay "recursion" branch (the SCL hierarchy is fixed-depth: bays never nest).
 - [ ] Split large SVG renderers only after lower-risk extractions
-- [ ] Extract container renderer (Bay/VoltageLevel) — recursive orchestrator, do LAST
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate remaining duplicated test fixtures/helpers
 
@@ -79,7 +80,7 @@ steps that preserve behavior and keep future options open.
 
 - `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
 - `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
-- `src/sld-substation-editor.ts` (1331 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
+- `src/sld-substation-editor.ts` (1087 lines) — SVG rendering orchestration + context menu delegation. Future split target for viewer extraction.
 
 ### Toolbar (`src/toolbar/`)
 
@@ -129,6 +130,8 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/artifacts/bus-bar.spec.ts` — Unit tests: matches/state (diagram id), placement into voltage level, disabled no-op, render.
 - `src/drawing/artifacts/connectivity-node.ts` — Connectivity-node renderer (`renderConnectivityNode(cNode, context)`): busbar section geometry, intersection circles, place/resize/connect/context-menu handlers. `ConnectivityNodeContext` carries `connecting`, `mouseX/Y`, `mouseX2/Y2`, `resizingBR`.
 - `src/drawing/artifacts/connectivity-node.spec.ts` — Unit tests: nothing-guard, node group/lines render, busbar place/resize/context-menu actions, disabled no-op.
+- `src/drawing/artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay`. Exports thin `renderVoltageLevel(vl, context, preview)` (renders the VL then its non-busbar bays) and `renderBay(bay, context, preview)`; both delegate to a shared private `renderContainer(element, context, preview, kind, childContainers)` doing placement/resize math, resize handles, highlight, and fan-out to child renderers. A `ContainerKind` (`voltageLevelKind`/`bayKind`) supplies the few VL/Bay differences (className, stroke, dash, placing-child tag, placement-parent resolution). `EquipmentContainerContext` carries `highlight`, `mouseX/Y`, `nsp`, `resizingBR/TL`, `svgCoordinates`, and child-render callbacks (`renderEquipment`, `renderPowerTransformer`, `renderIed`, `renderConnectivityNode`; `renderLabel` from the shared context).
+- `src/drawing/artifacts/equipment-container.spec.ts` — Unit tests for `renderVoltageLevel`/`renderBay`: VL/Bay structure, placing-self nothing-guard, VL→Bay nesting + equipment/transformer delegation, start-place/copy/place/context-menu actions, resize-handle visibility.
 - `src/drawing/artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, and `transformerHighlight` helper.
 - `src/drawing/artifacts/power-transformer.spec.ts` — Unit tests: matches/state (windings, highlight), actions (start-place, place, select, rotate), render windings.
 - `src/drawing/artifacts/label.ts` — Label renderer helper: label text, label events, unresolved IED label color, and label selection behavior.
@@ -303,6 +306,22 @@ Latest verification after connectivity-node extraction:
 - `sld-substation-editor.ts` reduced 1529 → 1331 lines.
 - Bus-bar no longer receives `renderConnectivityNode` through its context; it imports the renderer directly, removing the temporary cycle.
 
+Latest verification after container extraction:
+
+- `./node_modules/.bin/tsc --noEmit` passed.
+- `npm run format` passed.
+- `npm run test` passed with `470 passed, 0 failed` (+11 container unit tests).
+- `sld-substation-editor.ts` reduced 1331 → 1087 lines.
+- `renderContainer` now lives in `drawing/artifacts/equipment-container.ts`; the editor keeps a thin `containerContext()` builder and delegates. Pruned 13 now-unused editor imports/helpers.
+
+Latest verification after the container VL/Bay split:
+
+- `./node_modules/.bin/tsc --noEmit` passed.
+- `npm run format` passed.
+- `npm run test` passed with `470 passed, 0 failed` (behavior preserved; specs now exercise `renderVoltageLevel`/`renderBay`).
+- `equipment-container.ts` now exports `renderVoltageLevel`/`renderBay` over a shared private `renderContainer(element, context, preview, kind, childContainers)`; the dead Bay→Bay recursion branch is gone (bays never nest). The editor's `renderContainer` method dispatches on `tagName === 'VoltageLevel'`.
+- Renamed the module `container.ts` → `equipment-container.ts` and the exported context type `ContainerContext` → `EquipmentContainerContext` to match the IEC 61850 base type of `VoltageLevel`/`Bay`. Local variables, the private `renderContainer` helper, the `ContainerKind` constants, and the editor's internal `containerContext()` builder keep the short `container` name. Verified: tsc/format/470 tests still pass.
+
 ## Edit Builder Extraction — Complete
 
 Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API).
@@ -409,7 +428,7 @@ composition. `SldSubstationEditor` builds a shared `SldArtifactContext` and call
 |------------|----------|-------|
 | `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering | ~460 |
 | `drawing/artifacts/artifact.ts` | Shared artifact descriptor/context types | ~60 |
-| `drawing/artifacts/container.ts` | Bay/VoltageLevel artifact descriptor | ~250 |
+| `drawing/artifacts/equipment-container.ts` | Bay/VoltageLevel artifact descriptor | ~250 |
 | `drawing/artifacts/connectivity-node.ts` | ConnectivityNode artifact descriptor | ~215 |
 | `drawing/artifacts/power-transformer.ts` | PowerTransformer + TransformerWinding artifact descriptor | ~220 |
 | `drawing/artifacts/label.ts` | Label artifact descriptor/helper | ~115 |
