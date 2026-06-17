@@ -3,34 +3,23 @@ import { nothing } from 'lit';
 
 import { renderConnectivityNode } from './connectivity-node.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
-import { createSCLDoc } from '../../test-helpers.js';
+import { sldFixture } from '../../test-helpers.js';
 
 function busBarNodeDoc() {
-  return createSCLDoc(`
-    <Substation name="S1">
-      <Private type="OpenSCD-SLD-Layout">
-        <smth:SLDAttributes smth:w="50" smth:h="25"/>
-      </Private>
-      <VoltageLevel name="V1">
+  return sldFixture({
+    vl: { x: 0, y: 0 },
+    bay: { w: 4, h: 1 },
+    bayName: 'BB1',
+    children: `
+      <ConnectivityNode name="L" pathName="S1/V1/BB1/L">
         <Private type="OpenSCD-SLD-Layout">
-          <smth:SLDAttributes smth:x="0" smth:y="0" smth:w="20" smth:h="20"/>
+          <smth:Section smth:bus="true">
+            <smth:Vertex smth:x="2.5" smth:y="2.5"/>
+            <smth:Vertex smth:x="5.5" smth:y="2.5"/>
+          </smth:Section>
         </Private>
-        <Bay name="BB1">
-          <Private type="OpenSCD-SLD-Layout">
-            <smth:SLDAttributes smth:x="2" smth:y="2" smth:w="4" smth:h="1"/>
-          </Private>
-          <ConnectivityNode name="L" pathName="S1/V1/BB1/L">
-            <Private type="OpenSCD-SLD-Layout">
-              <smth:Section smth:bus="true">
-                <smth:Vertex smth:x="2.5" smth:y="2.5"/>
-                <smth:Vertex smth:x="5.5" smth:y="2.5"/>
-              </smth:Section>
-            </Private>
-          </ConnectivityNode>
-        </Bay>
-      </VoltageLevel>
-    </Substation>
-  `);
+      </ConnectivityNode>`,
+  });
 }
 
 describe('renderConnectivityNode', () => {

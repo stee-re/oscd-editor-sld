@@ -6,33 +6,19 @@ import {
   makeArtifactContext,
   renderToSvg,
 } from './test-context.js';
-import { createSCLDoc } from '../../test-helpers.js';
+import { sldFixture } from '../../test-helpers.js';
 
 function transformerDoc() {
-  return createSCLDoc(`
-    <Substation name="S1">
-      <Private type="OpenSCD-SLD-Layout">
-        <smth:SLDAttributes smth:w="50" smth:h="25"/>
-      </Private>
-      <VoltageLevel name="V1">
+  return sldFixture({
+    children: `
+      <PowerTransformer name="T1">
         <Private type="OpenSCD-SLD-Layout">
-          <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="20" smth:h="20"/>
+          <smth:SLDAttributes smth:x="4" smth:y="4"/>
         </Private>
-        <Bay name="B1">
-          <Private type="OpenSCD-SLD-Layout">
-            <smth:SLDAttributes smth:x="2" smth:y="2" smth:w="10" smth:h="10"/>
-          </Private>
-          <PowerTransformer name="T1">
-            <Private type="OpenSCD-SLD-Layout">
-              <smth:SLDAttributes smth:x="4" smth:y="4"/>
-            </Private>
-            <TransformerWinding name="W1"/>
-            <TransformerWinding name="W2"/>
-          </PowerTransformer>
-        </Bay>
-      </VoltageLevel>
-    </Substation>
-  `);
+        <TransformerWinding name="W1"/>
+        <TransformerWinding name="W2"/>
+      </PowerTransformer>`,
+  });
 }
 
 describe('powerTransformerArtifact', () => {
