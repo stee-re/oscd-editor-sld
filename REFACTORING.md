@@ -67,7 +67,9 @@ steps that preserve behavior and keep future options open.
 - [x] Consolidate duplicated `isSelectable`/highlight helpers into `artifacts/highlight.ts`
 - [x] Extract PowerTransformer artifact descriptor
 - [x] Backfill co-located unit specs for every extracted artifact (`highlight`, `power-transformer`, `bus-bar`, `ied-reference`, `conducting-equipment`, `label`) via shared `test-context.ts` spy builder
+- [x] Extract connectivity-node renderer (`artifacts/connectivity-node.ts`); dissolves the bus-bar `renderConnectivityNode` context-callback cycle
 - [ ] Split large SVG renderers only after lower-risk extractions
+- [ ] Extract container renderer (Bay/VoltageLevel) — recursive orchestrator, do LAST
 - [ ] Clean up structural conventions opportunistically
 - [ ] Consolidate remaining duplicated test fixtures/helpers
 
@@ -77,7 +79,7 @@ steps that preserve behavior and keep future options open.
 
 - `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
 - `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
-- `src/sld-substation-editor.ts` (1529 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
+- `src/sld-substation-editor.ts` (1331 lines) — SVG rendering + context menu delegation. Future split target for viewer extraction.
 
 ### Toolbar (`src/toolbar/`)
 
@@ -123,8 +125,10 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/artifacts/conducting-equipment.spec.ts` — Unit tests: matches/state/actions (place, copy-on-shift, rotate, ground, connect) and render ports.
 - `src/drawing/artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, and SVG rendering.
 - `src/drawing/artifacts/ied-reference.spec.ts` — Unit tests: matches/state (resolved IED, hidden IEDs), actions (place, start-place, context menu), render.
-- `src/drawing/artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, and connectivity node composition.
+- `src/drawing/artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, and direct connectivity-node composition (its context is now `ConnectivityNodeContext`).
 - `src/drawing/artifacts/bus-bar.spec.ts` — Unit tests: matches/state (diagram id), placement into voltage level, disabled no-op, render.
+- `src/drawing/artifacts/connectivity-node.ts` — Connectivity-node renderer (`renderConnectivityNode(cNode, context)`): busbar section geometry, intersection circles, place/resize/connect/context-menu handlers. `ConnectivityNodeContext` carries `connecting`, `mouseX/Y`, `mouseX2/Y2`, `resizingBR`.
+- `src/drawing/artifacts/connectivity-node.spec.ts` — Unit tests: nothing-guard, node group/lines render, busbar place/resize/context-menu actions, disabled no-op.
 - `src/drawing/artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, and `transformerHighlight` helper.
 - `src/drawing/artifacts/power-transformer.spec.ts` — Unit tests: matches/state (windings, highlight), actions (start-place, place, select, rotate), render windings.
 - `src/drawing/artifacts/label.ts` — Label renderer helper: label text, label events, unresolved IED label color, and label selection behavior.
@@ -290,6 +294,14 @@ Latest verification after artifact unit-spec backfill:
 - `./node_modules/.bin/tsc --noEmit` passed.
 - `npm run format` passed.
 - `npm run test` passed with `452 passed, 0 failed` (395 baseline + 57 new co-located artifact unit tests).
+
+Latest verification after connectivity-node extraction:
+
+- `./node_modules/.bin/tsc --noEmit` passed.
+- `npm run format` passed.
+- `npm run test` passed with `459 passed, 0 failed` (+7 connectivity-node unit tests).
+- `sld-substation-editor.ts` reduced 1529 → 1331 lines.
+- Bus-bar no longer receives `renderConnectivityNode` through its context; it imports the renderer directly, removing the temporary cycle.
 
 ## Edit Builder Extraction — Complete
 

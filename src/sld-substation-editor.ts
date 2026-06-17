@@ -40,6 +40,10 @@ import {
 } from './drawing/artifacts/ied-reference.js';
 import { powerTransformerArtifact } from './drawing/artifacts/power-transformer.js';
 import { renderLabel as renderArtifactLabel } from './drawing/artifacts/label.js';
+import {
+  renderConnectivityNode as renderArtifactConnectivityNode,
+  type ConnectivityNodeContext,
+} from './drawing/artifacts/connectivity-node.js';
 import type {
   ArtifactRenderOptions,
   SldArtifactDescriptor,
@@ -52,7 +56,6 @@ import type { LabelContext } from './drawing/artifacts/label.js';
 import {
   cleanPath,
   distance,
-  findIntersection,
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
 import {
@@ -69,7 +72,6 @@ import {
   attributes,
   getSLDAttributes,
   updateSLDAttributes,
-  xmlBoolean,
 } from './foundations/sld-attributes.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
@@ -89,7 +91,7 @@ import {
   newStartResizeTLEvent,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
-import { privType, sldNs, svgNs, xlinkNs } from './foundations.js';
+import { svgNs, xlinkNs } from './foundations.js';
 import {
   SldContextMenu,
   type MenuContext,
@@ -1192,10 +1194,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   private busBarContext(): BusBarContext {
-    return {
-      ...this.sharedContext(),
-      renderConnectivityNode: element => this.renderConnectivityNode(element),
-    };
+    return this.connectivityNodeContext();
   }
 
   private powerTransformerContext(): PowerTransformerContext {
@@ -1265,220 +1264,23 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     );
   }
 
+  private connectivityNodeContext(): ConnectivityNodeContext {
+    return {
+      ...this.sharedContext(),
+      connecting: this.connecting,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+      mouseX2: this.mouseX2,
+      mouseY2: this.mouseY2,
+      resizingBR: this.resizingBR,
+    };
+  }
+
   renderConnectivityNode(cNode: Element) {
-    const priv = cNode.querySelector(`Private[type="${privType}"]`);
-    if (!priv) {
-      return nothing;
-    }
-    const circles = [] as TemplateResult<2>[];
-    const intersections = Object.entries(
-      Array.from(priv.querySelectorAll('Vertex')).reduce(
-        (record, vertex) => {
-          const ret = record;
-          const key = JSON.stringify(this.renderedPosition(vertex));
-          if (ret[key]) {
-            ret[key].push(vertex);
-          } else {
-            ret[key] = [vertex];
-          }
-          return ret;
-        },
-        {} as Record<string, Element[]>,
-      ),
-    )
-      .filter(
-        ([_, vertices]) =>
-          vertices.length > 2 ||
-          (vertices.length === 2 &&
-            vertices.find(v => v.hasAttributeNS(sldNs, 'uuid'))),
-      )
-      .map(([_, [vertex]]) => this.renderedPosition(vertex));
-    intersections.forEach(([x, y]) =>
-      circles.push(svg`<circle fill="black" cx="${x}" cy="${y}" r="0.15" />`),
+    return renderArtifactConnectivityNode(
+      cNode,
+      this.connectivityNodeContext(),
     );
-    const lines = [] as TemplateResult<2>[];
-    const sections = Array.from(priv.getElementsByTagNameNS(sldNs, 'Section'));
-    const bay = cNode.closest('Bay');
-    const targetSize = 0.5;
-    const pointerEvents =
-      !this.placing &&
-      (!this.resizingBR || (this.resizingBR === bay && isBusBar(bay)))
-        ? 'all'
-        : 'none';
-    sections.forEach((section) => {
-      const busBar = xmlBoolean(section.getAttributeNS(sldNs, 'bus'));
-      const vertices = Array.from(
-        section.getElementsByTagNameNS(sldNs, 'Vertex'),
-      );
-      let i = 0;
-      while (i < vertices.length - 1) {
-        const [x1, y1] = this.renderedPosition(vertices[i]);
-        let [x2, y2] = this.renderedPosition(vertices[i + 1]);
-        let handleClick: (() => void) | symbol = nothing;
-        let handleAuxClick: ((e: MouseEvent) => void) | symbol = nothing;
-        let handleContextMenu: ((e: MouseEvent) => void) | symbol = nothing;
-        if (busBar && bay && !this.disabled) {
-          const {
-            pos: [x, y],
-          } = attributes(bay);
-          const offset: Point = [this.mouseX - x, this.mouseY - y];
-          handleClick = () =>
-            this.dispatchEvent(newStartPlaceEvent(bay, offset));
-          handleAuxClick = ({ button }: MouseEvent) => {
-            if (button === 1) {
-              this.dispatchEvent(newStartResizeBREvent(bay));
-            }
-          };
-          handleContextMenu = (e: MouseEvent) => {
-            e.preventDefault();
-            if (!this.idle) {
-              return;
-            }
-            this.contextMenu?.open(this.contextMenuContext(bay, e));
-          };
-        }
-        if (busBar && this.resizingBR === bay && !this.disabled) {
-          if (
-            section !==
-            sections.find(s => xmlBoolean(s.getAttributeNS(sldNs, 'bus')))
-          ) {
-            return;
-          }
-          circles.length = 0;
-          const {
-            pos: [vX, vY],
-            dim: [vW, vH],
-          } = attributes(bay.parentElement!);
-          const maxX = vX + vW - 0.5;
-          const maxY = vY + vH - 0.5;
-          if (i === 0) {
-            const dx = Math.max(this.mouseX - x1, 0);
-            const dy = Math.max(this.mouseY - y1, 0);
-            if (dx > dy) {
-              x2 = Math.max(x1, Math.min(maxX, this.mouseX + 0.5));
-              y2 = y1;
-            } else {
-              y2 = Math.max(y1, Math.min(maxY, this.mouseY + 0.5));
-              x2 = x1;
-            }
-            if (x1 === x2 && y1 === y2) {
-              if (x2 >= maxX) {
-                y2 += 1;
-              } else {
-                x2 += 1;
-              }
-            }
-          }
-          handleClick = () => {
-            this.dispatchEvent(
-              newPlaceEvent({
-                parent: section,
-                element: vertices[vertices.length - 1],
-                x: x2,
-                y: y2,
-              }),
-            );
-          };
-          lines.push(svg`<rect x="${this.mouseX}" y="${this.mouseY}"
-              width="1" height="1" fill="none" pointer-events="${pointerEvents}"
-              @click=${handleClick} />`);
-        }
-        if (this.connecting && !this.disabled) {
-          handleClick = () => {
-            const { from, path, fromTerminal } = this.connecting!;
-            if (
-              from
-                .closest('ConductingEquipment, PowerTransformer')!
-                .querySelector(
-                  `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
-                )
-            ) {
-              return;
-            }
-            const [[oldX1, oldY1], [oldX2, oldY2]] = path.slice(-2);
-            const vertical = oldX1 === oldX2;
-
-            let x3 = this.mouseX2;
-            let y3 = this.mouseY2;
-
-            let newX2 = vertical ? oldX2 : x3;
-            let newY2 = vertical ? y3 : oldY2;
-
-            const start =
-              newX2 === x3 && newY2 === y3
-                ? ([oldX1, oldY1] as Point)
-                : ([newX2, newY2] as Point);
-
-            [x3, y3] = findIntersection(start, [x3, y3], [x1, y1], [x2, y2]);
-
-            newX2 = vertical ? oldX2 : x3;
-            newY2 = vertical ? y3 : oldY2;
-
-            path[path.length - 1] = [newX2, newY2];
-            path.push([x3, y3]);
-            cleanPath(path);
-            this.dispatchEvent(
-              newConnectEvent({
-                from,
-                fromTerminal,
-                path,
-                to: cNode,
-              }),
-            );
-          };
-        }
-
-        lines.push(
-          svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                pointer-events="${pointerEvents}"
-                stroke-width="${busBar ? 0.12 : nothing}" stroke="black"
-                stroke-linecap="${busBar ? 'round' : 'square'}" />`,
-        );
-        lines.push(
-          svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                pointer-events="${pointerEvents}" stroke-width="${targetSize}"
-                @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
-                @click=${handleClick} @auxclick=${handleAuxClick} />`,
-        );
-        if (
-          busBar ||
-          (this.connecting && !vertices[i].hasAttributeNS(sldNs, 'uuid'))
-        ) {
-          lines.push(
-            svg`<rect x="${x1 - targetSize / 2}" y="${y1 - targetSize / 2}"
-                  width="${targetSize}" height="${targetSize}"
-                  @click=${handleClick} @auxclick=${handleAuxClick}
-                  @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
-                  pointer-events="${pointerEvents}" fill="none" />`,
-          );
-        }
-        if (
-          busBar ||
-          (this.connecting && !vertices[i + 1].hasAttributeNS(sldNs, 'uuid'))
-        ) {
-          lines.push(
-            svg`<rect x="${x2 - targetSize / 2}" y="${y2 - targetSize / 2}"
-                  width="${targetSize}" height="${targetSize}"
-                  @click=${handleClick} @auxclick=${handleAuxClick}
-                  @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
-                  pointer-events="${pointerEvents}" fill="none" />`,
-          );
-        }
-        i += 1;
-      }
-    });
-    const id =
-      cNode.closest('Substation') === this.substation
-        ? identity(cNode)
-        : nothing;
-    return svg`<g class="${classMap({
-      node: true,
-      disabled: this.disabled,
-    })}" id="${id}" >
-        <title>${cNode.getAttribute('pathName')}</title>
-        ${circles}
-        ${lines}
-      </g>`;
   }
 
   static styles = css`

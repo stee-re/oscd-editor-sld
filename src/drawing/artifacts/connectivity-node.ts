@@ -1,0 +1,255 @@
+import {
+  nothing,
+  svg,
+  type SVGTemplateResult,
+  type TemplateResult,
+} from 'lit';
+import { classMap } from 'lit/directives/class-map.js';
+import { identity } from '@openscd/scl-lib';
+
+import { isBusBar } from '../../foundations/connectivity.js';
+import { attributes, xmlBoolean } from '../../foundations/sld-attributes.js';
+import { cleanPath, findIntersection } from '../../foundations/geometry.js';
+import {
+  newConnectEvent,
+  newPlaceEvent,
+  newStartPlaceEvent,
+  newStartResizeBREvent,
+} from '../../foundations/events.js';
+import { privType, sldNs } from '../../foundations.js';
+
+import type { Point } from '../../foundations/geometry.js';
+import type { Connecting, SldSharedContext } from './artifact.js';
+
+export type ConnectivityNodeContext = SldSharedContext & {
+  connecting?: Connecting;
+  mouseX: number;
+  mouseY: number;
+  mouseX2: number;
+  mouseY2: number;
+  resizingBR?: Element;
+};
+
+function preventDefault(e: MouseEvent) {
+  if (e.button === 1) {
+    e.preventDefault();
+  }
+}
+
+export function renderConnectivityNode(
+  cNode: Element,
+  context: ConnectivityNodeContext,
+): SVGTemplateResult | typeof nothing {
+  const priv = cNode.querySelector(`Private[type="${privType}"]`);
+  if (!priv) {
+    return nothing;
+  }
+  const circles = [] as TemplateResult<2>[];
+  const intersections = Object.entries(
+    Array.from(priv.querySelectorAll('Vertex')).reduce(
+      (record, vertex) => {
+        const ret = record;
+        const key = JSON.stringify(context.renderedPosition(vertex));
+        if (ret[key]) {
+          ret[key].push(vertex);
+        } else {
+          ret[key] = [vertex];
+        }
+        return ret;
+      },
+      {} as Record<string, Element[]>,
+    ),
+  )
+    .filter(
+      ([_, vertices]) =>
+        vertices.length > 2 ||
+        (vertices.length === 2 &&
+          vertices.find(v => v.hasAttributeNS(sldNs, 'uuid'))),
+    )
+    .map(([_, [vertex]]) => context.renderedPosition(vertex));
+  intersections.forEach(([x, y]) =>
+    circles.push(svg`<circle fill="black" cx="${x}" cy="${y}" r="0.15" />`),
+  );
+  const lines = [] as TemplateResult<2>[];
+  const sections = Array.from(priv.getElementsByTagNameNS(sldNs, 'Section'));
+  const bay = cNode.closest('Bay');
+  const targetSize = 0.5;
+  const pointerEvents =
+    !context.placing &&
+    (!context.resizingBR || (context.resizingBR === bay && isBusBar(bay)))
+      ? 'all'
+      : 'none';
+  sections.forEach((section) => {
+    const busBar = xmlBoolean(section.getAttributeNS(sldNs, 'bus'));
+    const vertices = Array.from(
+      section.getElementsByTagNameNS(sldNs, 'Vertex'),
+    );
+    let i = 0;
+    while (i < vertices.length - 1) {
+      const [x1, y1] = context.renderedPosition(vertices[i]);
+      let [x2, y2] = context.renderedPosition(vertices[i + 1]);
+      let handleClick: (() => void) | symbol = nothing;
+      let handleAuxClick: ((e: MouseEvent) => void) | symbol = nothing;
+      let handleContextMenu: ((e: MouseEvent) => void) | symbol = nothing;
+      if (busBar && bay && !context.disabled) {
+        const {
+          pos: [x, y],
+        } = attributes(bay);
+        const offset: Point = [context.mouseX - x, context.mouseY - y];
+        handleClick = () => context.dispatch(newStartPlaceEvent(bay, offset));
+        handleAuxClick = ({ button }: MouseEvent) => {
+          if (button === 1) {
+            context.dispatch(newStartResizeBREvent(bay));
+          }
+        };
+        handleContextMenu = (e: MouseEvent) => {
+          e.preventDefault();
+          if (!context.idle) {
+            return;
+          }
+          context.openContextMenu(bay, e);
+        };
+      }
+      if (busBar && context.resizingBR === bay && !context.disabled) {
+        if (
+          section !==
+          sections.find(s => xmlBoolean(s.getAttributeNS(sldNs, 'bus')))
+        ) {
+          return;
+        }
+        circles.length = 0;
+        const {
+          pos: [vX, vY],
+          dim: [vW, vH],
+        } = attributes(bay.parentElement!);
+        const maxX = vX + vW - 0.5;
+        const maxY = vY + vH - 0.5;
+        if (i === 0) {
+          const dx = Math.max(context.mouseX - x1, 0);
+          const dy = Math.max(context.mouseY - y1, 0);
+          if (dx > dy) {
+            x2 = Math.max(x1, Math.min(maxX, context.mouseX + 0.5));
+            y2 = y1;
+          } else {
+            y2 = Math.max(y1, Math.min(maxY, context.mouseY + 0.5));
+            x2 = x1;
+          }
+          if (x1 === x2 && y1 === y2) {
+            if (x2 >= maxX) {
+              y2 += 1;
+            } else {
+              x2 += 1;
+            }
+          }
+        }
+        handleClick = () => {
+          context.dispatch(
+            newPlaceEvent({
+              parent: section,
+              element: vertices[vertices.length - 1],
+              x: x2,
+              y: y2,
+            }),
+          );
+        };
+        lines.push(svg`<rect x="${context.mouseX}" y="${context.mouseY}"
+            width="1" height="1" fill="none" pointer-events="${pointerEvents}"
+            @click=${handleClick} />`);
+      }
+      if (context.connecting && !context.disabled) {
+        handleClick = () => {
+          const { from, path, fromTerminal } = context.connecting!;
+          if (
+            from
+              .closest('ConductingEquipment, PowerTransformer')!
+              .querySelector(
+                `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
+              )
+          ) {
+            return;
+          }
+          const [[oldX1, oldY1], [oldX2, oldY2]] = path.slice(-2);
+          const vertical = oldX1 === oldX2;
+
+          let x3 = context.mouseX2;
+          let y3 = context.mouseY2;
+
+          let newX2 = vertical ? oldX2 : x3;
+          let newY2 = vertical ? y3 : oldY2;
+
+          const start =
+            newX2 === x3 && newY2 === y3
+              ? ([oldX1, oldY1] as Point)
+              : ([newX2, newY2] as Point);
+
+          [x3, y3] = findIntersection(start, [x3, y3], [x1, y1], [x2, y2]);
+
+          newX2 = vertical ? oldX2 : x3;
+          newY2 = vertical ? y3 : oldY2;
+
+          path[path.length - 1] = [newX2, newY2];
+          path.push([x3, y3]);
+          cleanPath(path);
+          context.dispatch(
+            newConnectEvent({
+              from,
+              fromTerminal,
+              path,
+              to: cNode,
+            }),
+          );
+        };
+      }
+
+      lines.push(
+        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+              pointer-events="${pointerEvents}"
+              stroke-width="${busBar ? 0.12 : nothing}" stroke="black"
+              stroke-linecap="${busBar ? 'round' : 'square'}" />`,
+      );
+      lines.push(
+        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+              pointer-events="${pointerEvents}" stroke-width="${targetSize}"
+              @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
+              @click=${handleClick} @auxclick=${handleAuxClick} />`,
+      );
+      if (
+        busBar ||
+        (context.connecting && !vertices[i].hasAttributeNS(sldNs, 'uuid'))
+      ) {
+        lines.push(
+          svg`<rect x="${x1 - targetSize / 2}" y="${y1 - targetSize / 2}"
+                width="${targetSize}" height="${targetSize}"
+                @click=${handleClick} @auxclick=${handleAuxClick}
+                @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
+                pointer-events="${pointerEvents}" fill="none" />`,
+        );
+      }
+      if (
+        busBar ||
+        (context.connecting && !vertices[i + 1].hasAttributeNS(sldNs, 'uuid'))
+      ) {
+        lines.push(
+          svg`<rect x="${x2 - targetSize / 2}" y="${y2 - targetSize / 2}"
+                width="${targetSize}" height="${targetSize}"
+                @click=${handleClick} @auxclick=${handleAuxClick}
+                @contextmenu=${handleContextMenu} @mousedown=${preventDefault}
+                pointer-events="${pointerEvents}" fill="none" />`,
+        );
+      }
+      i += 1;
+    }
+  });
+  const id =
+    cNode.closest('Substation') === context.substation
+      ? identity(cNode)
+      : nothing;
+  return svg`<g class="${classMap({
+    node: true,
+    disabled: context.disabled,
+  })}" id="${id}" >
+      <title>${cNode.getAttribute('pathName')}</title>
+      ${circles}
+      ${lines}
+    </g>`;
+}
