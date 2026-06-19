@@ -70,9 +70,23 @@ steps that preserve behavior and keep future options open.
 - [x] Extract connectivity-node renderer (`artifacts/connectivity-node.ts`); dissolves the bus-bar `renderConnectivityNode` context-callback cycle
 - [x] Extract container renderer (Bay/VoltageLevel) into `artifacts/equipment-container.ts` — with `EquipmentContainerContext` carrying child-renderer callbacks
 - [x] Split the container renderer into explicit `renderVoltageLevel`/`renderBay` entry points over a shared private `renderContainer(element, context, preview, kind, childContainers)` helper; `ContainerKind` constants (`voltageLevelKind`/`bayKind`) funnel the VL/Bay differences. Removes the dead Bay→Bay "recursion" branch (the SCL hierarchy is fixed-depth: bays never nest).
-- [ ] Split large SVG renderers only after lower-risk extractions
+- [ ] **Split large SVG renderers only after lower-risk extractions — decompose `render()` into explicit, content-named *layer* sub-renderers.** The agreed strategy (worked out in mentoring): because SVG has no `z-index`, **paint order *is* the design** — the sequence in which children are emitted is exactly their stacking order (last-drawn wins). So `SldSubstationEditor.render()` (currently ~483 lines) should become a short, readable **stack of layer calls in paint order**, where the call order *is* the documented z-order.
+  - **The `Layer` naming convention.** Use the `…Layer` suffix **only** where a method renders a *band* whose position in the call sequence is z-critical — i.e. reordering the call would visibly change what sits on top (`renderConnectivityLayer`, `renderLabelLayer`, `renderPlacingTargetsLayer`, `renderConnectionPreviewLayer`, `renderResizeOverlayLayer`, …). Do **not** suffix per-element artifact renderers (`renderEquipment`, single-element `renderLabel`) or order-independent helpers — they render one thing in one spot and make no stacking claim. Rule of thumb: *if reordering the call would change the picture, it's a `Layer`; if it only draws one item in a place, it isn't.* The word `Layer` is a signal to the reader "this is a distinct stacking level — when it is called (the order) is crucial."
+  - **Layers nest (two scales).** Not everything is a flat substation-root band. The **container** subtree (`equipment-container.ts`) is itself an internal z-stack (frame → contained equipment → transformers → IEDs → handles → drop-targets, lines ~299–349) — those are *sub-layers*. Contained equipment is painted *inside* its container's `<g>`, not as a flat top-level band, so the layer model applies recursively rather than flattening everything to the root.
+  - **Invariants (this is a behaviour-preserving extraction).** (1) The call order in `render()` must match the current emit order **exactly**. (2) Each layer method must preserve its *internal* order (e.g. non-busbar connectivity nodes before busbar nodes — the deliberate split at `sld-substation-editor.ts:693–714` exists purely so busbars paint on top). The existing integration specs guard the structural order; a wrong reorder makes elements silently vanish under one another.
+  - **Two problems this framing resolves along the way (so they need no separate tracking):**
+    - *An earlier worry — "if I extract a `renderSubstationContents` sub-method, how does it get the SVG the other sub-methods produced? Pass it in as arguments, or have it call them itself?" — no longer applies.* That dilemma only exists if the bands depend on each other's output. They don't: every layer reads from the SCL document independently and emits its own SVG, and nothing consumes another layer's result. So `render()` is just a flat list of independent layer calls in paint order — no layer passes anything to another. (This supersedes the older sketch that proposed a single `renderSubstationContents` method with that dependency question attached.)
+    - *The two near-identical connectivity-node passes at `sld-substation-editor.ts:693–714` (one filters `!isBusBar`, the next `isBusBar`, split only so busbars paint on top) are **not** a separate cleanup item.* Collapsing them into one block with an explicit "busbars last" stable ordering is simply part of building `renderConnectivityLayer` — it happens as a side effect of the extraction, not as its own task.
+- [ ] **Make gesture-*start* handlers read live mouse coordinates, then skip idle re-renders.** Today the substation editor keeps `mouseX/mouseY/mouseX2/mouseY2/mouseX2f/mouseY2f` as reactive `@state`, updated on every `mousemove`. This stored state is **load-bearing during an active drag** — it's what makes Lit re-render so the ghost follows the cursor (no click involved), so it is *not* merely "stored just in case". The waste is specifically re-rendering **while idle**. The staleness comes from one narrow place: handlers that fire **while idle** — the gesture-*start* handlers (start-place grab `offset = [mouseX - x, mouseY - y]` at `equipment-container.ts:125`, closed over at :138; plus start-resize, start-connect, context-menu) — snapshot the mouse at *render* time, so the editor must currently re-render on every idle move just to keep them fresh. (Confirmed by experiment: a blanket `shouldUpdate` skip-while-idle broke 8 "move" tests via a stale grab offset.) Note the **drop/commit** handlers do *not* need changing: they fire during an active gesture, when the editor is already re-rendering each move, so their render-time capture is always fresh.
+  - **Step 1 (prerequisite):** change only the gesture-*start* handlers to compute their coordinate input at click time from the live pointer (e.g. a `context.liveGrabOffset(element)` helper applying the same `svgCoordinates()` transform + grid quantization to `this.mouseX`/the event). Keep the stored reactive mouse state for the active-drag preview.
+  - **Step 2 (payoff):** with no idle-fired handler depending on render-time coords, add `shouldUpdate` to skip re-renders while `idle` when only the mouse-coordinate state changed.
+  - Caveat to weigh: event-time reading relocates (does not remove) the screen→grid transform + the three quantizations (`floor` / `round-to-half` / `floor-to-half`), and makes those handlers depend on receiving the event. Each step wants its own tests.
 - [x] Clean up structural conventions opportunistically — reviewed: code already satisfies the repo's enforced conventions (no one-liner `if`s, consistent `SldArtifactDescriptor` shape, co-located specs, consistent `render*`/`handle*` naming). Import grouping is intentionally left as-is (the repo's `import-x` ESLint config enforces no import-order rule).
 - [x] Consolidate remaining duplicated test fixtures/helpers — added `sldFixture({ vl, bay, bayName, children })` to `test-helpers.ts`; migrated the 6 artifact specs sharing the `Substation > VoltageLevel > Bay` scaffold (container, conducting-equipment, power-transformer, label, bus-bar, connectivity-node) to it. `ied-reference`/`highlight` keep bespoke fixtures (different shapes).
+- [ ] **Review the names of `sld-editor.ts` (`SldEditor`) and `sld-substation-editor.ts` (`SldSubstationEditor`).** The names misrepresent the responsibilities:
+  - `SldEditor` is the **controller / interaction state-machine** for the whole diagram. It renders one `SldSubstationEditor` per `:root > Substation` and broadcasts the single active gesture (`placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting`) down to all of them. It intercepts the gesture events bubbling up, and on completion **builds the `EditV2` document edits and dispatches `newEditEventV2` upward** to the OpenSCD host (which actually applies them). It owns the promise-based placement API.
+  - `SldSubstationEditor` is, for the most part, a **per-substation view**: it renders one substation's subtree to SVG for the current gesture and reports raw user gestures back to its parent. It owns almost no durable state (only transient mouse coordinates).
+  - In MVC terms, `SldEditor` ≈ **Controller**, `SldSubstationEditor` ≈ **View** — i.e. the current names are roughly inverted. This seam is also the future **viewer / editor / plugin** module split (the render-only view = viewer; the gesture+edit layer = editor). Candidate renames to weigh: `SldSubstationEditor` → `SldSubstationView`/`SldSubstationCanvas`; `SldEditor` → a controller-flavoured name. Park as its own deliberate cross-file rename (not mid-`render()` work).
 
 ## Current File Layout
 
@@ -130,7 +144,7 @@ steps that preserve behavior and keep future options open.
 - `src/drawing/artifacts/bus-bar.spec.ts` — Unit tests: matches/state (diagram id), placement into voltage level, disabled no-op, render.
 - `src/drawing/artifacts/connectivity-node.ts` — Connectivity-node renderer (`renderConnectivityNode(cNode, context)`): busbar section geometry, intersection circles, place/resize/connect/context-menu handlers. `ConnectivityNodeContext` carries `connecting`, `mouseX/Y`, `mouseX2/Y2`, `resizingBR`.
 - `src/drawing/artifacts/connectivity-node.spec.ts` — Unit tests: nothing-guard, node group/lines render, busbar place/resize/context-menu actions, disabled no-op.
-- `src/drawing/artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay`. Exports thin `renderVoltageLevel(vl, context, preview)` (renders the VL then its non-busbar bays) and `renderBay(bay, context, preview)`; both delegate to a shared private `renderContainer(element, context, preview, kind, childContainers)` doing placement/resize math, resize handles, highlight, and fan-out to child renderers. A `ContainerKind` (`voltageLevelKind`/`bayKind`) supplies the few VL/Bay differences (className, stroke, dash, placing-child tag, placement-parent resolution). `EquipmentContainerContext` carries `highlight`, `mouseX/Y`, `nsp`, `resizingBR/TL`, `svgCoordinates`, and child-render callbacks (`renderEquipment`, `renderPowerTransformer`, `renderIed`, `renderConnectivityNode`; `renderLabel` from the shared context).
+- `src/drawing/artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay`. Exports thin `renderVoltageLevel(vl, context, preview)` (renders the VL then its non-busbar bays) and `renderBay(bay, context, preview)`; both delegate to a shared module-private `render(element, context, preview, kind, childContainers)` doing placement/resize math, resize handles, highlight, and fan-out to child renderers. A `ContainerKind` (`voltageLevelKind`/`bayKind`) supplies the few VL/Bay differences (className, stroke, dash, placing-child tag, placement-parent resolution). `EquipmentContainerContext` carries `highlight`, `mouseX/Y`, `nsp`, `resizingBR/TL`, `svgCoordinates`, and child-render callbacks (`renderEquipment`, `renderPowerTransformer`, `renderIed`, `renderConnectivityNode`; `renderLabel` from the shared context).
 - `src/drawing/artifacts/equipment-container.spec.ts` — Unit tests for `renderVoltageLevel`/`renderBay`: VL/Bay structure, placing-self nothing-guard, VL→Bay nesting + equipment/transformer delegation, start-place/copy/place/context-menu actions, resize-handle visibility.
 - `src/drawing/artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, and `transformerHighlight` helper.
 - `src/drawing/artifacts/power-transformer.spec.ts` — Unit tests: matches/state (windings, highlight), actions (start-place, place, select, rotate), render windings.
@@ -151,13 +165,13 @@ Layout compositor. Receives `doc`, `docVersion`, `nsp`, `templateElements`,
 `inAction`, `gridSize` as properties. Handles `insertSubstation` and the about
 dialog internally. Emits events upward:
 
-| Event | Detail | Purpose |
-|-------|--------|---------|
-| `start-placing` | `{ element }` | Equipment/structural/transformer FAB clicked |
-| `start-placing-typical` | `{ bayTypical, ieds }` | Bay typical imported (from ied-importer) |
-| `view-change` | `{ showLabels, showIeds }` | Toggle labels or IED visibility |
-| `zoom` | `{ direction: 'in' \| 'out' }` | Zoom in/out |
-| `cancel` | — | Cancel action |
+| Event                   | Detail                         | Purpose                                      |
+| ----------------------- | ------------------------------ | -------------------------------------------- |
+| `start-placing`         | `{ element }`                  | Equipment/structural/transformer FAB clicked |
+| `start-placing-typical` | `{ bayTypical, ieds }`         | Bay typical imported (from ied-importer)     |
+| `view-change`           | `{ showLabels, showIeds }`     | Toggle labels or IED visibility              |
+| `zoom`                  | `{ direction: 'in' \| 'out' }` | Zoom in/out                                  |
+| `cancel`                | —                              | Cancel action                                |
 
 Data-driven transformer configs (`TransformerConfig[]`) replace 6 repetitive FAB
 blocks with a single config array + `createTransformerElement(config)` factory.
@@ -332,20 +346,20 @@ while edit-building logic lives as pure functions in `foundations/`.
 
 Current files are well-grouped by domain concept:
 
-| File | Lines | Responsibility | Notes |
-|------|-------|----------------|-------|
-| `geometry.ts` | 118 | Pure math (Rect, Point, contains, overlaps) | ✅ |
-| `element-geometry.ts` | 37 | Bridges geometry ↔ SCL elements | ✅ |
-| `sld-placement.ts` | 132 | Validation (`canPlaceAt`, `canResizeTo`) | ✅ read-only |
-| `equipment.ts` | 38 | Type constants & guards | ✅ |
-| `transformer.ts` | 258 | Rendering geometry for windings | ✅ |
-| `sld-attributes.ts` | 177 | Read/write SLD namespace attributes | ✅ |
-| `events.ts` | 214 | Custom event factories & types | ✅ |
-| `export.ts` | 98 | XML pretty-print & download | ✅ |
-| `ied.ts` | 74 | IED resolution + one edit builder | ✅ |
-| `connectivity.ts` | 106 | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`) | ✅ pure |
-| `connectivity-edits.ts` | 334 | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅ |
-| `edits.ts` | 838 | Pure edit builders (ground, flip, delete, copy, connect) | ✅ |
+| File                    | Lines | Responsibility                                                                  | Notes        |
+| ----------------------- | ----- | ------------------------------------------------------------------------------- | ------------ |
+| `geometry.ts`           | 118   | Pure math (Rect, Point, contains, overlaps)                                     | ✅           |
+| `element-geometry.ts`   | 37    | Bridges geometry ↔ SCL elements                                                 | ✅           |
+| `sld-placement.ts`      | 132   | Validation (`canPlaceAt`, `canResizeTo`)                                        | ✅ read-only |
+| `equipment.ts`          | 38    | Type constants & guards                                                         | ✅           |
+| `transformer.ts`        | 258   | Rendering geometry for windings                                                 | ✅           |
+| `sld-attributes.ts`     | 177   | Read/write SLD namespace attributes                                             | ✅           |
+| `events.ts`             | 214   | Custom event factories & types                                                  | ✅           |
+| `export.ts`             | 98    | XML pretty-print & download                                                     | ✅           |
+| `ied.ts`                | 74    | IED resolution + one edit builder                                               | ✅           |
+| `connectivity.ts`       | 106   | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`)          | ✅ pure      |
+| `connectivity-edits.ts` | 334   | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅           |
+| `edits.ts`              | 838   | Pure edit builders (ground, flip, delete, copy, connect)                        | ✅           |
 
 `connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`,
 `busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`,
@@ -356,25 +370,25 @@ connectivity as purely read-only. Not a prerequisite for the current work.
 
 The root component's ~500-line `render()` was decomposed into three components:
 
-| Before | After |
-|--------|-------|
+| Before                                           | After                                           |
+| ------------------------------------------------ | ----------------------------------------------- |
 | `oscd-editor-sld.ts` 784 lines, ~500-line render | `oscd-editor-sld.ts` 210 lines, ~40-line render |
-| 6 repetitive transformer FAB blocks | Data-driven `TransformerConfig[]` array |
-| IED menu logic embedded in render | Self-contained `<sld-ied-menu>` component |
-| Bay typical import mixed into root | Self-contained `<sld-ied-importer>` component |
-| `placingBayTypical` special state | Promise-based `startPlacing()` with async/await |
-| About dialog in root | Toolbar-internal (no event needed) |
-| `insertSubstation` in root | Toolbar-internal (dispatches `EditV2` directly) |
-| 10 verbose `sld-toolbar-*` events | 5 clean short-name events |
+| 6 repetitive transformer FAB blocks              | Data-driven `TransformerConfig[]` array         |
+| IED menu logic embedded in render                | Self-contained `<sld-ied-menu>` component       |
+| Bay typical import mixed into root               | Self-contained `<sld-ied-importer>` component   |
+| `placingBayTypical` special state                | Promise-based `startPlacing()` with async/await |
+| About dialog in root                             | Toolbar-internal (no event needed)              |
+| `insertSubstation` in root                       | Toolbar-internal (dispatches `EditV2` directly) |
+| 10 verbose `sld-toolbar-*` events                | 5 clean short-name events                       |
 
 ## Connectivity Boundary Split — Complete
 
 `connectivity.ts` (433 lines) separated into:
 
-| File | Lines | Responsibility |
-|------|-------|----------------|
-| `connectivity.ts` | 106 | Pure read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`). No `EditV2` import. |
-| `connectivity-edits.ts` | 334 | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) + private helpers |
+| File                    | Lines | Responsibility                                                                                                                     |
+| ----------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `connectivity.ts`       | 106   | Pure read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`). No `EditV2` import. |
+| `connectivity-edits.ts` | 334   | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) + private helpers                                  |
 
 `connectivity.ts` is now a clean read-only module suitable for the future viewer package — it
 has no dependency on `EditV2`, `@openscd/scl-lib`, or `./ied.js`.
@@ -386,21 +400,21 @@ concerns: SVG rendering, interaction state, and edit dispatch.
 
 ### Structural breakdown
 
-| Method/Section | Lines | % | Responsibility |
-|----------------|-------|---|----------------|
-| `render()` | 483 | 22% | Main diagram composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
-| `renderEquipment()` | 251 | 12% | Single ConductingEquipment SVG symbol + click/context handlers |
-| `renderContainer()` | 251 | 12% | Bay or VoltageLevel rect + children + resize handles |
-| `renderConnectivityNode()` | 215 | 10% | Connection polylines between terminals |
-| `renderTransformerWinding()` | 116 | 5% | Winding circles + ports |
-| `renderLabel()` | 115 | 5% | Text labels with positioning logic |
-| `renderPowerTransformer()` | 101 | 5% | Transformer windings composition |
-| `renderIed()` | 84 | 4% | IED reference badges |
-| `renderBusBar()` | 45 | 2% | Busbar lines |
-| Properties/state/lifecycle | ~170 | 8% | 30+ properties, mouse state, coordinate transforms |
-| Utility methods | ~90 | 4% | `svgCoordinates`, `nearestOpenTerminal`, `groundTerminal`, `handleExport` |
-| Top-level helpers | ~80 | 4% | `isBay`, `isSelectable`, `getHighlightStyle`, `transformerHighlight` |
-| `static styles` | ~75 | 3% | CSS |
+| Method/Section               | Lines | %   | Responsibility                                                                                                 |
+| ---------------------------- | ----- | --- | -------------------------------------------------------------------------------------------------------------- |
+| `render()`                   | 483   | 22% | Main diagram composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
+| `renderEquipment()`          | 251   | 12% | Single ConductingEquipment SVG symbol + click/context handlers                                                 |
+| `renderContainer()`          | 251   | 12% | Bay or VoltageLevel rect + children + resize handles                                                           |
+| `renderConnectivityNode()`   | 215   | 10% | Connection polylines between terminals                                                                         |
+| `renderTransformerWinding()` | 116   | 5%  | Winding circles + ports                                                                                        |
+| `renderLabel()`              | 115   | 5%  | Text labels with positioning logic                                                                             |
+| `renderPowerTransformer()`   | 101   | 5%  | Transformer windings composition                                                                               |
+| `renderIed()`                | 84    | 4%  | IED reference badges                                                                                           |
+| `renderBusBar()`             | 45    | 2%  | Busbar lines                                                                                                   |
+| Properties/state/lifecycle   | ~170  | 8%  | 30+ properties, mouse state, coordinate transforms                                                             |
+| Utility methods              | ~90   | 4%  | `svgCoordinates`, `nearestOpenTerminal`, `groundTerminal`, `handleExport`                                      |
+| Top-level helpers            | ~80   | 4%  | `isBay`, `isSelectable`, `getHighlightStyle`, `transformerHighlight`                                           |
+| `static styles`              | ~75   | 3%  | CSS                                                                                                            |
 
 ### Three concerns interleaved
 
@@ -424,16 +438,16 @@ The descriptor owns artifact-specific state derivation, action wiring, and SVG
 composition. `SldSubstationEditor` builds a shared `SldArtifactContext` and calls
 `renderArtifact(descriptor, element, options)`.
 
-| New module | Contains | Lines |
-|------------|----------|-------|
-| `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering | ~460 |
-| `drawing/artifacts/artifact.ts` | Shared artifact descriptor/context types | ~60 |
-| `drawing/artifacts/equipment-container.ts` | Bay/VoltageLevel artifact descriptor | ~250 |
-| `drawing/artifacts/connectivity-node.ts` | ConnectivityNode artifact descriptor | ~215 |
-| `drawing/artifacts/power-transformer.ts` | PowerTransformer + TransformerWinding artifact descriptor | ~220 |
-| `drawing/artifacts/label.ts` | Label artifact descriptor/helper | ~115 |
-| `drawing/artifacts/ied-reference.ts` | IED reference artifact descriptor: state, actions, SVG rendering | ~185 |
-| `drawing/artifacts/bus-bar.ts` | BusBar artifact descriptor | ~45 |
+| New module                                  | Contains                                                               | Lines |
+| ------------------------------------------- | ---------------------------------------------------------------------- | ----- |
+| `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering | ~460  |
+| `drawing/artifacts/artifact.ts`             | Shared artifact descriptor/context types                               | ~60   |
+| `drawing/artifacts/equipment-container.ts`  | Bay/VoltageLevel artifact descriptor                                   | ~250  |
+| `drawing/artifacts/connectivity-node.ts`    | ConnectivityNode artifact descriptor                                   | ~215  |
+| `drawing/artifacts/power-transformer.ts`    | PowerTransformer + TransformerWinding artifact descriptor              | ~220  |
+| `drawing/artifacts/label.ts`                | Label artifact descriptor/helper                                       | ~115  |
+| `drawing/artifacts/ied-reference.ts`        | IED reference artifact descriptor: state, actions, SVG rendering       | ~185  |
+| `drawing/artifacts/bus-bar.ts`              | BusBar artifact descriptor                                             | ~45   |
 
 Current descriptor shape:
 
@@ -443,7 +457,7 @@ type SldArtifactDescriptor<TState, TActions> = {
   state(element, context, options?): TState | undefined;
   actions(element, context, state): TActions;
   render(element, state, actions, context, options?): SVGTemplateResult;
-}
+};
 ```
 
 Current implemented wrappers:
@@ -470,14 +484,14 @@ shared base:
 type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
 ```
 
-| Type | Owner module | Fields |
-|------|--------------|--------|
-| `SldSharedContext` | `artifacts/artifact.ts` | `disabled`, `dispatch`, `idle`, `openContextMenu`, `placing`, `placingLabel`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
-| `EquipmentContext` | `artifacts/conducting-equipment.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `nearestOpenTerminal`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
-| `PowerTransformerContext` | `artifacts/power-transformer.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
-| `LabelContext` | `artifacts/label.ts` | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition` |
-| `BusBarContext` | `artifacts/bus-bar.ts` | shared + `renderConnectivityNode` |
-| (ied-reference) | uses `SldSharedContext` directly | — |
+| Type                      | Owner module                        | Fields                                                                                                                                                                     |
+| ------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `idle`, `openContextMenu`, `placing`, `placingLabel`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
+| `EquipmentContext`        | `artifacts/conducting-equipment.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `nearestOpenTerminal`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                         |
+| `PowerTransformerContext` | `artifacts/power-transformer.ts`    | shared + `connecting`, `resizingTL`, `resizingBR`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                                                |
+| `LabelContext`            | `artifacts/label.ts`                | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition`                                                                                                                     |
+| `BusBarContext`           | `artifacts/bus-bar.ts`              | shared + `renderConnectivityNode`                                                                                                                                          |
+| (ied-reference)           | uses `SldSharedContext` directly    | —                                                                                                                                                                          |
 
 The editor builds the shared bag once in `sharedContext()` and spreads it into
 per-artifact builders (`equipmentContext()`, `powerTransformerContext()`,
@@ -531,10 +545,10 @@ but touches many lines.
 
 The former `icons.ts` served three unrelated consumers:
 
-| Consumer | Uses |
-|----------|------|
-| `sld-toolbar.ts` | SLD entity/action icons for FAB `slot="icon"` |
-| `sld-context-menu.ts` | SLD entity/action icons for menu/list `slot="start"` |
+| Consumer                   | Uses                                                                      |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `sld-toolbar.ts`           | SLD entity/action icons for FAB `slot="icon"`                             |
+| `sld-context-menu.ts`      | SLD entity/action icons for menu/list `slot="start"`                      |
 | `sld-substation-editor.ts` | Diagram `<defs>`, resize paths, transformer paths, equipment symbol paths |
 
 Phase B resolves this by deleting `icons.ts`:

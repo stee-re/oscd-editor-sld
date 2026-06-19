@@ -5,7 +5,6 @@ import {
   LitElement,
   PropertyValues,
   svg,
-  TemplateResult,
   SVGTemplateResult,
 } from 'lit';
 
@@ -439,8 +438,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
     let placingElement = svg``;
     if (this.placing) {
-      if (this.placing.tagName === 'VoltageLevel' || isBay(this.placing)) {
-        placingElement = this.renderContainer(this.placing, true);
+      if (this.placing.tagName === 'VoltageLevel' ) {
+        placingElement = renderVoltageLevel(this.placing, this.containerContext(), true);
+      } else if (isBay(this.placing)) {
+        placingElement = renderBay(this.placing,this.containerContext(), true);
       } else if (this.placing.tagName === 'ConductingEquipment') {
         placingElement = this.renderEquipment(this.placing, { preview: true });
       } else if (isIedReferenceElement(this.placing)) {
@@ -681,7 +682,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         ${placingTarget}
         ${Array.from(this.substation.children)
           .filter(child => child.tagName === 'VoltageLevel')
-          .map(vl => svg`${this.renderContainer(vl)}`)}
+          .map(vl => svg`${renderVoltageLevel(vl, this.containerContext())}`)}
         ${connectionPreview}
         ${this.connecting?.from.closest('Substation') === this.substation
           ? Array.from(
@@ -886,12 +887,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         this.renderIed(referencedIed, options),
       renderConnectivityNode: cNode => this.renderConnectivityNode(cNode),
     };
-  }
-
-  renderContainer(bayOrVL: Element, preview = false): TemplateResult<2> {
-    return bayOrVL.tagName === 'VoltageLevel'
-      ? renderVoltageLevel(bayOrVL, this.containerContext(), preview)
-      : renderBay(bayOrVL, this.containerContext(), preview);
   }
 
   renderPowerTransformer(
