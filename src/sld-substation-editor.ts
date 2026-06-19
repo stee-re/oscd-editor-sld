@@ -384,105 +384,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       dim: [w, h],
     } = attributes(this.substation);
 
-    let coordinates = html``;
-    let invalid = false;
-    let hidden = true;
-
-    if (this.placing) {
-      const {
-        dim: [w0, h0],
-      } = attributes(this.placing);
-      hidden = false;
-      const [offsetX, offsetY] = this.placingOffset;
-      const x = this.mouseX - offsetX;
-      const y = this.mouseY - offsetY;
-      invalid = !canPlaceAt(this.substation, this.placing, x, y, w0, h0);
-      coordinates = html`${x},${y}`;
-    }
-
-    if (this.resizingBR && !isBusBar(this.resizingBR)) {
-      const {
-        pos: [x, y],
-      } = attributes(this.resizingBR);
-      const newW = Math.max(1, this.mouseX - x + 1);
-      const newH = Math.max(1, this.mouseY - y + 1);
-      hidden = false;
-      invalid = !canResizeTo(this.substation, this.resizingBR, newW, newH);
-      coordinates = html`${newW}&times;${newH}`;
-    }
-
-    if (this.resizingTL) {
-      const {
-        pos: [x, y],
-        dim: [resW, resH],
-      } = attributes(this.resizingTL);
-      const newW = Math.max(1, x + resW - this.mouseX);
-      const newH = Math.max(1, y + resH - this.mouseY);
-      const newX = Math.min(this.mouseX, x + resH - 1);
-      const newY = Math.min(this.mouseY, y + resW - 1);
-      hidden = false;
-      invalid = !canResizeToTL(
-        this.substation,
-        this.resizingTL,
-        newX,
-        newY,
-        newW,
-        newH,
-      );
-      coordinates = html`${newW}&times;${newH}`;
-    }
-
-    const coordinateTooltip = html`<div
-      ${ref(this.coordinatesRef)}
-      class="${classMap({ coordinates: true, invalid, hidden })}"
-    >
-      (${coordinates})
-    </div>`;
-
     return html`<section>
-      <h2 class="${classMap({ disabled: this.disabled })}">
-        ${this.substation.getAttribute('name')}
-        <oscd-icon-button
-          label="Edit Substation"
-          title="Edit Substation"
-          @click=${() =>
-            this.dispatchEvent(newSclEditDialogEvent(this.substation))}
-        >
-          <oscd-icon>edit</oscd-icon>
-        </oscd-icon-button>
-        <oscd-icon-button
-          label="Resize Substation"
-          title="Resize Substation"
-          @click=${() => {
-            this.resizeSubstationUI.open = true;
-          }}
-        >
-          <svg
-            xmlns="${svgNs}"
-            width="24"
-            height="24"
-            viewBox="0 96 960 960"
-            opacity="0.83"
-          >
-            ${resizePath}
-          </svg>
-        </oscd-icon-button>
-        <oscd-icon-button
-          label="Delete Substation"
-          title="Delete Substation"
-          @click=${() =>
-            this.dispatchEvent(newEditEventV2({ node: this.substation }))}
-        >
-          <oscd-icon>delete</oscd-icon>
-        </oscd-icon-button>
-        <oscd-icon-button
-          label="Export Single Line Diagram SVG"
-          title="Export Single Line Diagram SVG"
-          @click=${() => this.handleExport()}
-        >
-          <oscd-icon>file_download</oscd-icon>
-        </oscd-icon-button>
-      </h2>
+      ${this.renderHeader()}
       <svg
         xmlns="${svgNs}"
         xmlns:xlink="${xlinkNs}"
@@ -553,111 +456,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             .nsp=${this.nsp}
             @sld-ground-hint=${() => this.groundHint.show()}
           ></sld-context-menu>`}
-      ${coordinateTooltip}
-      <oscd-dialog id="resizeSubstationUI">
-        <div slot="headline">
-          Resize ${this.substation.getAttribute('name')}
-        </div>
-        <form
-          slot="content"
-          style="display: flex; flex-direction: column; gap: 12px;"
-        >
-          <oscd-outlined-text-field
-            id="substationWidthUI"
-            type="number"
-            min="1"
-            step="1"
-            label="Width"
-            value="${w}"
-            dialogInitialFocus
-            autoValidate
-            .validityTransform=${(value: string, validity: ValidityState) => {
-              const {
-                dim: [_w, oldH],
-              } = attributes(this.substation);
-              if (
-                validity.valid &&
-                !canResizeTo(
-                  this.substation,
-                  this.substation,
-                  parseInt(value, 10),
-                  oldH,
-                )
-              ) {
-                return { valid: false, rangeUnderflow: true };
-              }
-              return {};
-            }}
-          ></oscd-outlined-text-field>
-          <oscd-outlined-text-field
-            id="substationHeightUI"
-            type="number"
-            min="1"
-            step="1"
-            label="Height"
-            value="${h}"
-            autoValidate
-            .validityTransform=${(value: string, validity: ValidityState) => {
-              const {
-                dim: [oldW, _h],
-              } = attributes(this.substation);
-              if (
-                validity.valid &&
-                !canResizeTo(
-                  this.substation,
-                  this.substation,
-                  oldW,
-                  parseInt(value, 10),
-                )
-              ) {
-                return { valid: false, rangeUnderflow: true };
-              }
-              return {};
-            }}
-          ></oscd-outlined-text-field>
-        </form>
-        <div slot="actions">
-          <oscd-text-button
-            @click=${() => {
-              this.resizeSubstationUI.open = false;
-            }}
-            >cancel</oscd-text-button
-          >
-          <oscd-text-button
-            @click=${() => {
-              const valid = Array.from(
-                this.resizeSubstationUI.querySelectorAll(
-                  'oscd-outlined-text-field',
-                ),
-              ).every(textField => textField.checkValidity());
-              if (!valid) {
-                return;
-              }
-              const {
-                dim: [oldW, oldH],
-              } = attributes(this.substation);
-              const [newW, newH] = [
-                this.substationWidthUI,
-                this.substationHeightUI,
-              ].map(ui => parseInt(ui.value ?? '1', 10).toString());
-              this.resizeSubstationUI.open = false;
-              if (newW === oldW.toString() && newH === oldH.toString()) {
-                return;
-              }
-              const resizeEdit = updateSLDAttributes(
-                this.substation,
-                this.nsp,
-                {
-                  w: newW,
-                  h: newH,
-                },
-              );
-              this.dispatchEvent(newEditEventV2(resizeEdit));
-            }}
-            >resize</oscd-text-button
-          >
-        </div>
-      </oscd-dialog>
+      ${this.renderCoordinateTooltip()}
+      ${this.renderResizeDialog()}
       <sld-snackbar
         labelText="Only transformers within a bay may be grounded directly."
       >
@@ -667,6 +467,156 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   renderLabel(element: Element, { preview = false } = {}) {
     return renderArtifactLabel(element, this.labelContext(), { preview });
+  }
+
+  private renderHeader() {
+    return html`<h2 class="${classMap({ disabled: this.disabled })}">
+      ${this.substation.getAttribute('name')}
+      <oscd-icon-button
+        label="Edit Substation"
+        title="Edit Substation"
+        @click=${() =>
+          this.dispatchEvent(newSclEditDialogEvent(this.substation))}
+      >
+        <oscd-icon>edit</oscd-icon>
+      </oscd-icon-button>
+      <oscd-icon-button
+        label="Resize Substation"
+        title="Resize Substation"
+        @click=${() => {
+          this.resizeSubstationUI.open = true;
+        }}
+      >
+        <svg
+          xmlns="${svgNs}"
+          width="24"
+          height="24"
+          viewBox="0 96 960 960"
+          opacity="0.83"
+        >
+          ${resizePath}
+        </svg>
+      </oscd-icon-button>
+      <oscd-icon-button
+        label="Delete Substation"
+        title="Delete Substation"
+        @click=${() =>
+          this.dispatchEvent(newEditEventV2({ node: this.substation }))}
+      >
+        <oscd-icon>delete</oscd-icon>
+      </oscd-icon-button>
+      <oscd-icon-button
+        label="Export Single Line Diagram SVG"
+        title="Export Single Line Diagram SVG"
+        @click=${() => this.handleExport()}
+      >
+        <oscd-icon>file_download</oscd-icon>
+      </oscd-icon-button>
+    </h2>`;
+  }
+
+  private renderResizeDialog() {
+    const {
+      dim: [w, h],
+    } = attributes(this.substation);
+    return html`<oscd-dialog id="resizeSubstationUI">
+      <div slot="headline">Resize ${this.substation.getAttribute('name')}</div>
+      <form
+        slot="content"
+        style="display: flex; flex-direction: column; gap: 12px;"
+      >
+        <oscd-outlined-text-field
+          id="substationWidthUI"
+          type="number"
+          min="1"
+          step="1"
+          label="Width"
+          value="${w}"
+          dialogInitialFocus
+          autoValidate
+          .validityTransform=${(value: string, validity: ValidityState) => {
+            const {
+              dim: [_w, oldH],
+            } = attributes(this.substation);
+            if (
+              validity.valid &&
+              !canResizeTo(
+                this.substation,
+                this.substation,
+                parseInt(value, 10),
+                oldH,
+              )
+            ) {
+              return { valid: false, rangeUnderflow: true };
+            }
+            return {};
+          }}
+        ></oscd-outlined-text-field>
+        <oscd-outlined-text-field
+          id="substationHeightUI"
+          type="number"
+          min="1"
+          step="1"
+          label="Height"
+          value="${h}"
+          autoValidate
+          .validityTransform=${(value: string, validity: ValidityState) => {
+            const {
+              dim: [oldW, _h],
+            } = attributes(this.substation);
+            if (
+              validity.valid &&
+              !canResizeTo(
+                this.substation,
+                this.substation,
+                oldW,
+                parseInt(value, 10),
+              )
+            ) {
+              return { valid: false, rangeUnderflow: true };
+            }
+            return {};
+          }}
+        ></oscd-outlined-text-field>
+      </form>
+      <div slot="actions">
+        <oscd-text-button
+          @click=${() => {
+            this.resizeSubstationUI.open = false;
+          }}
+          >cancel</oscd-text-button
+        >
+        <oscd-text-button
+          @click=${() => {
+            const valid = Array.from(
+              this.resizeSubstationUI.querySelectorAll(
+                'oscd-outlined-text-field',
+              ),
+            ).every(textField => textField.checkValidity());
+            if (!valid) {
+              return;
+            }
+            const {
+              dim: [oldW, oldH],
+            } = attributes(this.substation);
+            const [newW, newH] = [
+              this.substationWidthUI,
+              this.substationHeightUI,
+            ].map(ui => parseInt(ui.value ?? '1', 10).toString());
+            this.resizeSubstationUI.open = false;
+            if (newW === oldW.toString() && newH === oldH.toString()) {
+              return;
+            }
+            const resizeEdit = updateSLDAttributes(this.substation, this.nsp, {
+              w: newW,
+              h: newH,
+            });
+            this.dispatchEvent(newEditEventV2(resizeEdit));
+          }}
+          >resize</oscd-text-button
+        >
+      </div>
+    </oscd-dialog>`;
   }
 
   /**
@@ -919,6 +869,69 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           !this.placing || e.closest(this.placing.localName) !== this.placing,
       )
       .map(element => this.renderLabel(element));
+  }
+
+  /**
+   * The placement/resize coordinate read-out, painted as a DOM overlay OUTSIDE
+   * the `<svg>` (not a z-band). The placing / resizingBR / resizingTL modes are
+   * mutually exclusive, so at most one branch sets `coordinates`/`invalid`;
+   * `hidden` stays true (the tooltip is collapsed) while idle.
+   */
+  private renderCoordinateTooltip() {
+    let coordinates = html``;
+    let invalid = false;
+    let hidden = true;
+
+    if (this.placing) {
+      const {
+        dim: [w0, h0],
+      } = attributes(this.placing);
+      hidden = false;
+      const [offsetX, offsetY] = this.placingOffset;
+      const x = this.mouseX - offsetX;
+      const y = this.mouseY - offsetY;
+      invalid = !canPlaceAt(this.substation, this.placing, x, y, w0, h0);
+      coordinates = html`${x},${y}`;
+    }
+
+    if (this.resizingBR && !isBusBar(this.resizingBR)) {
+      const {
+        pos: [x, y],
+      } = attributes(this.resizingBR);
+      const newW = Math.max(1, this.mouseX - x + 1);
+      const newH = Math.max(1, this.mouseY - y + 1);
+      hidden = false;
+      invalid = !canResizeTo(this.substation, this.resizingBR, newW, newH);
+      coordinates = html`${newW}&times;${newH}`;
+    }
+
+    if (this.resizingTL) {
+      const {
+        pos: [x, y],
+        dim: [resW, resH],
+      } = attributes(this.resizingTL);
+      const newW = Math.max(1, x + resW - this.mouseX);
+      const newH = Math.max(1, y + resH - this.mouseY);
+      const newX = Math.min(this.mouseX, x + resH - 1);
+      const newY = Math.min(this.mouseY, y + resW - 1);
+      hidden = false;
+      invalid = !canResizeToTL(
+        this.substation,
+        this.resizingTL,
+        newX,
+        newY,
+        newW,
+        newH,
+      );
+      coordinates = html`${newW}&times;${newH}`;
+    }
+
+    return html`<div
+      ${ref(this.coordinatesRef)}
+      class="${classMap({ coordinates: true, invalid, hidden })}"
+    >
+      (${coordinates})
+    </div>`;
   }
 
   private containerContext(): EquipmentContainerContext {
