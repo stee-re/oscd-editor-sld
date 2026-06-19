@@ -384,75 +384,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       dim: [w, h],
     } = attributes(this.substation);
 
-    const placingTarget =
-      this.placing?.tagName === 'VoltageLevel'
-        ? svg`<rect width="100%" height="100%" fill="url(#grid)" />`
-        : nothing;
-
-    const transformerPlacingTarget =
-      this.placing?.tagName === 'PowerTransformer'
-        ? svg`<rect width="100%" height="100%" fill="url(#grid)" />`
-        : nothing;
-
-    const iedPlacingTarget =
-      !!this.placing && isIedReferenceElement(this.placing)
-        ? svg`<rect
-            width="100%"
-            height="100%"
-            fill="url(#grid)"
-            @click=${() => {
-              const element = this.placing!;
-              const [x, y] = this.renderedPosition(element);
-              if (!canPlaceAt(this.substation, element, x, y, 1, 1)) {
-                return;
-              }
-
-              const parent =
-                Array.from(
-                  this.substation.querySelectorAll(
-                    ':scope > VoltageLevel > Bay',
-                  ),
-                )
-                  .concat(
-                    Array.from(
-                      this.substation.querySelectorAll(':scope > VoltageLevel'),
-                    ),
-                  )
-                  .find(vlOrBay => containsRect(vlOrBay, x, y, 1, 1)) ||
-                this.substation;
-
-              this.dispatchEvent(newPlaceEvent({ x, y, element, parent }));
-            }}
-          />`
-        : nothing;
-
-    const placingLabelTarget = this.placingLabel
-      ? svg`<rect width="100%" height="100%" fill="url(#halfgrid)"
-      @click=${() => {
-        const element = this.placingLabel!;
-        const [x, y] = this.renderedLabelPosition(element, { preview: true });
-        this.dispatchEvent(newPlaceLabelEvent({ element, x, y }));
-      }}
-      />`
-      : nothing;
-
-    let placingElement = svg``;
-    if (this.placing) {
-      if (this.placing.tagName === 'VoltageLevel' ) {
-        placingElement = renderVoltageLevel(this.placing, this.containerContext(), true);
-      } else if (isBay(this.placing)) {
-        placingElement = renderBay(this.placing,this.containerContext(), true);
-      } else if (this.placing.tagName === 'ConductingEquipment') {
-        placingElement = this.renderEquipment(this.placing, { preview: true });
-      } else if (isIedReferenceElement(this.placing)) {
-        placingElement = this.renderIed(this.placing, { preview: true });
-      } else if (this.placing.tagName === 'PowerTransformer') {
-        placingElement = this.renderPowerTransformer(this.placing, true);
-      } else if (isBusBar(this.placing)) {
-        placingElement = this.renderBusBar(this.placing);
-      }
-    }
-
     let coordinates = html``;
     let invalid = false;
     let hidden = true;
@@ -507,81 +438,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     >
       (${coordinates})
     </div>`;
-
-    const connectionPreview = [];
-    if (this.connecting?.from.closest('Substation') === this.substation) {
-      const { from, path, fromTerminal } = this.connecting;
-      let i = 0;
-      while (i < path.length - 2) {
-        const [x1, y1] = path[i];
-        const [x2, y2] = path[i + 1];
-        connectionPreview.push(
-          svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="black" />`,
-        );
-        i += 1;
-      }
-
-      const [[x1, y1], [oldX2, oldY2]] = path.slice(-2);
-      const vertical = x1 === oldX2;
-
-      let x3 = this.mouseX2;
-      let y3 = this.mouseY2;
-
-      let [x4, y4] = [x3, y3];
-
-      const targetEq = Array.from(
-        this.substation.querySelectorAll('ConductingEquipment'),
-      )
-        .filter(eq => eq !== from)
-        .find((eq) => {
-          const {
-            pos: [x, y],
-          } = attributes(eq);
-          return x === this.mouseX && y === this.mouseY;
-        });
-
-      const toTerminal = this.nearestOpenTerminal(targetEq);
-
-      if (targetEq && toTerminal) {
-        const [close, far] = connectionStartPoints(targetEq)[toTerminal];
-        [x3, y3] = far;
-        [x4, y4] = close;
-      }
-
-      const x2 = vertical ? oldX2 : x3;
-      const y2 = vertical ? y3 : oldY2;
-
-      connectionPreview.push(
-        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="black" />`,
-        svg`<line x1="${x2}" y1="${y2}" x2="${x3}" y2="${y3}"
-                stroke-linecap="square" stroke="black" />`,
-        svg`<line x1="${x3}" y1="${y3}" x2="${x4}" y2="${y4}"
-                stroke-linecap="square" stroke="black" />`,
-      );
-      connectionPreview.push(
-        svg`<rect width="100%" height="100%" fill="url(#grid)"
-      @click=${() => {
-        path[path.length - 1] = [x2, y2];
-        path.push([x3, y3]);
-        path.push([x4, y4]);
-        cleanPath(path);
-        this.requestUpdate();
-        if (targetEq && toTerminal) {
-          this.dispatchEvent(
-            newConnectEvent({
-              from,
-              fromTerminal,
-              path,
-              to: targetEq,
-              toTerminal,
-            }),
-          );
-        }
-      }} />`,
-      );
-    }
 
     return html`<section>
       <h2 class="${classMap({ disabled: this.disabled })}">
@@ -679,16 +535,16 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         </style>
         ${symbols}
         <rect width="100%" height="100%" fill="white" />
-        ${placingTarget}
+        ${this.renderVoltageLevelPlacingTarget()}
         ${this.renderVoltageLevelLayer()}
-        ${connectionPreview}
+        ${this.renderConnectionPreviewLayer()}
         ${this.renderConnectModeEquipmentLayer()}
         ${this.renderConnectivityLayer()}
         ${this.renderPowerTransformerLayer()}
         ${this.renderIedLayer()}
         ${this.renderLabelLayer()}
-        ${transformerPlacingTarget} ${iedPlacingTarget} ${placingLabelTarget}
-        ${placingElement}
+        ${this.renderPlacingTargetsLayer()}
+        ${this.renderPlacingPreview()}
       </svg>
       ${this.disabled
         ? nothing
@@ -813,10 +669,182 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return renderArtifactLabel(element, this.labelContext(), { preview });
   }
 
+  /**
+   * The VoltageLevel drop-zone, painted near the BACK of the stack (behind
+   * existing voltage levels) — a VL is dropped *behind* the diagram. Mutually
+   * exclusive with `renderPlacingTargetsLayer` (only one placing mode at a time).
+   */
+  private renderVoltageLevelPlacingTarget() {
+    if (this.placing?.tagName !== 'VoltageLevel') {
+      return nothing;
+    }
+    return svg`<rect width="100%" height="100%" fill="url(#grid)" />`;
+  }
+
+  /**
+   * The full-canvas drop-targets for elements that may land anywhere in the
+   * substation (PowerTransformer / IED / Label), painted near the FRONT of the
+   * stack so they catch clicks over existing elements. All three are mutually
+   * exclusive (gated on the active placing mode), so at most one is live.
+   */
+  private renderPlacingTargetsLayer() {
+    const transformerPlacingTarget =
+      this.placing?.tagName === 'PowerTransformer'
+        ? svg`<rect width="100%" height="100%" fill="url(#grid)" />`
+        : nothing;
+
+    const iedPlacingTarget =
+      !!this.placing && isIedReferenceElement(this.placing)
+        ? svg`<rect
+            width="100%"
+            height="100%"
+            fill="url(#grid)"
+            @click=${() => {
+              const element = this.placing!;
+              const [x, y] = this.renderedPosition(element);
+              if (!canPlaceAt(this.substation, element, x, y, 1, 1)) {
+                return;
+              }
+
+              const parent =
+                Array.from(
+                  this.substation.querySelectorAll(
+                    ':scope > VoltageLevel > Bay',
+                  ),
+                )
+                  .concat(
+                    Array.from(
+                      this.substation.querySelectorAll(':scope > VoltageLevel'),
+                    ),
+                  )
+                  .find(vlOrBay => containsRect(vlOrBay, x, y, 1, 1)) ||
+                this.substation;
+
+              this.dispatchEvent(newPlaceEvent({ x, y, element, parent }));
+            }}
+          />`
+        : nothing;
+
+    const placingLabelTarget = this.placingLabel
+      ? svg`<rect width="100%" height="100%" fill="url(#halfgrid)"
+      @click=${() => {
+        const element = this.placingLabel!;
+        const [x, y] = this.renderedLabelPosition(element, { preview: true });
+        this.dispatchEvent(newPlaceLabelEvent({ element, x, y }));
+      }}
+      />`
+      : nothing;
+
+    return [transformerPlacingTarget, iedPlacingTarget, placingLabelTarget];
+  }
+
+  private renderPlacingPreview() {
+    if (!this.placing) {
+      return svg``;
+    }
+    if (this.placing.tagName === 'VoltageLevel') {
+      return renderVoltageLevel(this.placing, this.containerContext(), true);
+    }
+    if (isBay(this.placing)) {
+      return renderBay(this.placing, this.containerContext(), true);
+    }
+    if (this.placing.tagName === 'ConductingEquipment') {
+      return this.renderEquipment(this.placing, { preview: true });
+    }
+    if (isIedReferenceElement(this.placing)) {
+      return this.renderIed(this.placing, { preview: true });
+    }
+    if (this.placing.tagName === 'PowerTransformer') {
+      return this.renderPowerTransformer(this.placing, true);
+    }
+    if (isBusBar(this.placing)) {
+      return this.renderBusBar(this.placing);
+    }
+    return svg``;
+  }
+
   private renderVoltageLevelLayer() {
     return Array.from(this.substation.children)
       .filter(child => child.tagName === 'VoltageLevel')
       .map(vl => svg`${renderVoltageLevel(vl, this.containerContext())}`);
+  }
+
+  private renderConnectionPreviewLayer() {
+    const connectionPreview = [];
+    if (this.connecting?.from.closest('Substation') === this.substation) {
+      const { from, path, fromTerminal } = this.connecting;
+      let i = 0;
+      while (i < path.length - 2) {
+        const [x1, y1] = path[i];
+        const [x2, y2] = path[i + 1];
+        connectionPreview.push(
+          svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+                stroke-linecap="square" stroke="black" />`,
+        );
+        i += 1;
+      }
+
+      const [[x1, y1], [oldX2, oldY2]] = path.slice(-2);
+      const vertical = x1 === oldX2;
+
+      let x3 = this.mouseX2;
+      let y3 = this.mouseY2;
+
+      let [x4, y4] = [x3, y3];
+
+      const targetEq = Array.from(
+        this.substation.querySelectorAll('ConductingEquipment'),
+      )
+        .filter(eq => eq !== from)
+        .find((eq) => {
+          const {
+            pos: [x, y],
+          } = attributes(eq);
+          return x === this.mouseX && y === this.mouseY;
+        });
+
+      const toTerminal = this.nearestOpenTerminal(targetEq);
+
+      if (targetEq && toTerminal) {
+        const [close, far] = connectionStartPoints(targetEq)[toTerminal];
+        [x3, y3] = far;
+        [x4, y4] = close;
+      }
+
+      const x2 = vertical ? oldX2 : x3;
+      const y2 = vertical ? y3 : oldY2;
+
+      connectionPreview.push(
+        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+                stroke-linecap="square" stroke="black" />`,
+        svg`<line x1="${x2}" y1="${y2}" x2="${x3}" y2="${y3}"
+                stroke-linecap="square" stroke="black" />`,
+        svg`<line x1="${x3}" y1="${y3}" x2="${x4}" y2="${y4}"
+                stroke-linecap="square" stroke="black" />`,
+      );
+      connectionPreview.push(
+        svg`<rect width="100%" height="100%" fill="url(#grid)"
+      @click=${() => {
+        path[path.length - 1] = [x2, y2];
+        path.push([x3, y3]);
+        path.push([x4, y4]);
+        cleanPath(path);
+        this.requestUpdate();
+        if (targetEq && toTerminal) {
+          this.dispatchEvent(
+            newConnectEvent({
+              from,
+              fromTerminal,
+              path,
+              to: targetEq,
+              toTerminal,
+            }),
+          );
+        }
+      }} />`,
+      );
+    }
+    return connectionPreview;
   }
 
   /**
