@@ -680,69 +680,13 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         ${symbols}
         <rect width="100%" height="100%" fill="white" />
         ${placingTarget}
-        ${Array.from(this.substation.children)
-          .filter(child => child.tagName === 'VoltageLevel')
-          .map(vl => svg`${renderVoltageLevel(vl, this.containerContext())}`)}
+        ${this.renderVoltageLevelLayer()}
         ${connectionPreview}
-        ${this.connecting?.from.closest('Substation') === this.substation
-          ? Array.from(
-            this.substation.querySelectorAll('ConductingEquipment'),
-          ).map(eq => this.renderEquipment(eq, { connect: true }))
-          : nothing}
-        ${Array.from(this.substation.querySelectorAll('ConnectivityNode'))
-          .filter(
-            node =>
-              node.getAttribute('name') !== 'grounded' &&
-              !(
-                this.placing &&
-                node.closest(this.placing.localName) === this.placing
-              ) &&
-              !isBusBar(node.parentElement!),
-          )
-          .map(cNode => this.renderConnectivityNode(cNode))}
-        ${Array.from(this.substation.querySelectorAll('ConnectivityNode'))
-          .filter(
-            node =>
-              node.getAttribute('name') !== 'grounded' &&
-              !(
-                this.placing &&
-                node.closest(this.placing.localName) === this.placing
-              ) &&
-              isBusBar(node.parentElement!),
-          )
-          .map(cNode => this.renderConnectivityNode(cNode))}
-        ${Array.from(
-          this.substation.querySelectorAll(':scope > PowerTransformer'),
-        ).map(transformer => this.renderPowerTransformer(transformer))}
-        ${iedReferences(this.substation)
-          .filter(
-            referencedIed =>
-              referencedIed.parentElement?.tagName === 'Private' &&
-              !['Bay', 'VoltageLevel'].includes(
-                referencedIed.parentElement!.parentElement!.tagName,
-              ) &&
-              (!this.placing ||
-                referencedIed.closest(this.placing.localName) !== this.placing),
-          )
-          .map(ied => this.renderIed(ied))}
-        ${Array.from(
-          this.substation.querySelectorAll(
-            'VoltageLevel, Bay, ConductingEquipment, PowerTransformer, Text',
-          ),
-        )
-          .concat(
-            Array.from(
-              this.substation.querySelectorAll(
-                'Private[type="OpenSCD-SLD-Layout"]',
-              ) ?? [],
-            ).flatMap(privateLayout => iedReferences(privateLayout)),
-          )
-          .filter(
-            e =>
-              !this.placing ||
-              e.closest(this.placing.localName) !== this.placing,
-          )
-          .map(element => this.renderLabel(element))}
+        ${this.renderConnectModeEquipmentLayer()}
+        ${this.renderConnectivityLayer()}
+        ${this.renderPowerTransformerLayer()}
+        ${this.renderIedLayer()}
+        ${this.renderLabelLayer()}
         ${transformerPlacingTarget} ${iedPlacingTarget} ${placingLabelTarget}
         ${placingElement}
       </svg>
@@ -867,6 +811,86 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   renderLabel(element: Element, { preview = false } = {}) {
     return renderArtifactLabel(element, this.labelContext(), { preview });
+  }
+
+  private renderVoltageLevelLayer() {
+    return Array.from(this.substation.children)
+      .filter(child => child.tagName === 'VoltageLevel')
+      .map(vl => svg`${renderVoltageLevel(vl, this.containerContext())}`);
+  }
+
+  /**
+   * While a connection is being drawn in this substation, every
+   * `ConductingEquipment` is suppressed in its container layer (see
+   * conducting-equipment.ts) and re-painted here as a flat top overlay in
+   * connect mode: terminal connect-indicators on, and click-through enabled so
+   * clicks fall through to the connection drop-target beneath.
+   */
+  private renderConnectModeEquipmentLayer() {
+    if (this.connecting?.from.closest('Substation') !== this.substation) {
+      return nothing;
+    }
+    return Array.from(
+      this.substation.querySelectorAll('ConductingEquipment'),
+    ).map(eq => this.renderEquipment(eq, { connect: true }));
+  }
+
+  private renderConnectivityLayer() {
+    return Array.from(this.substation.querySelectorAll('ConnectivityNode'))
+      .filter(
+        node =>
+          node.getAttribute('name') !== 'grounded' &&
+          !(
+            this.placing &&
+            node.closest(this.placing.localName) === this.placing
+          ),
+      )
+      .sort(
+        (a, b) =>
+          Number(isBusBar(a.parentElement!)) -
+          Number(isBusBar(b.parentElement!)),
+      )
+      .map(cNode => this.renderConnectivityNode(cNode));
+  }
+
+  private renderPowerTransformerLayer() {
+    return Array.from(
+      this.substation.querySelectorAll(':scope > PowerTransformer'),
+    ).map(transformer => this.renderPowerTransformer(transformer));
+  }
+
+  private renderIedLayer() {
+    return iedReferences(this.substation)
+      .filter(
+        referencedIed =>
+          referencedIed.parentElement?.tagName === 'Private' &&
+          !['Bay', 'VoltageLevel'].includes(
+            referencedIed.parentElement!.parentElement!.tagName,
+          ) &&
+          (!this.placing ||
+            referencedIed.closest(this.placing.localName) !== this.placing),
+      )
+      .map(ied => this.renderIed(ied));
+  }
+
+  private renderLabelLayer() {
+    return Array.from(
+      this.substation.querySelectorAll(
+        'VoltageLevel, Bay, ConductingEquipment, PowerTransformer, Text',
+      ),
+    )
+      .concat(
+        Array.from(
+          this.substation.querySelectorAll(
+            'Private[type="OpenSCD-SLD-Layout"]',
+          ) ?? [],
+        ).flatMap(privateLayout => iedReferences(privateLayout)),
+      )
+      .filter(
+        e =>
+          !this.placing || e.closest(this.placing.localName) !== this.placing,
+      )
+      .map(element => this.renderLabel(element));
   }
 
   private containerContext(): EquipmentContainerContext {
