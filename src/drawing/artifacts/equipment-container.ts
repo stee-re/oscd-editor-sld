@@ -67,7 +67,7 @@ function preventDefault(e: MouseEvent) {
 /**
  * The kind-specific rendering differences between the two SLD equipment
  * containers (`VoltageLevel` and `Bay`). Everything else about drawing a
- * container is shared in `renderContainer`.
+ * container is shared in `render`.
  */
 type ContainerKind = {
   className: 'voltagelevel' | 'bay';
@@ -110,7 +110,7 @@ const bayKind: ContainerKind = {
  * differences; `childContainers` are the nested containers to render inside
  * (the bays of a voltage level, or `nothing` for a bay).
  */
-function renderContainer(
+function render(
   element: Element,
   context: EquipmentContainerContext,
   preview: boolean,
@@ -350,6 +350,7 @@ function renderContainer(
   </g>`;
 }
 
+
 /** Renders a `VoltageLevel` and, nested inside it, each of its (non-busbar) bays. */
 export function renderVoltageLevel(
   voltageLevel: Element,
@@ -359,7 +360,7 @@ export function renderVoltageLevel(
   const bays = Array.from(voltageLevel.children)
     .filter(isBay)
     .map(bay => renderBay(bay, context, preview));
-  return renderContainer(
+  return render(
     voltageLevel,
     context,
     preview,
@@ -374,5 +375,6 @@ export function renderBay(
   context: EquipmentContainerContext,
   preview = false,
 ): TemplateResult<2> {
-  return renderContainer(bay, context, preview, bayKind, nothing);
+  return render(bay, context, preview, bayKind, nothing);
+
 }
