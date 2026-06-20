@@ -182,6 +182,20 @@ export function newSclEditDialogEvent(element: Element): EditSclEvent {
   });
 }
 
+export type ResizeSubstationDetail = { substation: Element };
+
+export type ResizeSubstationEvent = CustomEvent<ResizeSubstationDetail>;
+
+export function newResizeSubstationEvent(
+  substation: Element,
+): ResizeSubstationEvent {
+  return new CustomEvent('oscd-sld-resize-substation', {
+    bubbles: true,
+    composed: true,
+    detail: { substation },
+  });
+}
+
 export type EditIedDetail = { element: Element };
 
 export type EditIedEvent = CustomEvent<EditIedDetail>;
@@ -210,5 +224,6 @@ declare global {
     ['oscd-sld-selected']: SelectEvent;
     ['oscd-sld-edit-scl']: EditSclEvent;
     ['oscd-sld-edit-ied']: EditIedEvent;
+    ['oscd-sld-resize-substation']: ResizeSubstationEvent;
   }
 }
