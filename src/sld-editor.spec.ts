@@ -52,7 +52,8 @@ chai.Assertion.prototype.assert = function (
     showDiff,
   );
 };
-import type { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
+import type { OscdFilledButton } from '@omicronenergy/oscd-ui/button/OscdFilledButton.js';
+import type { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
@@ -412,26 +413,35 @@ describe('SLD Editor', () => {
 
     it('allows resizing substations', async () => {
       sldSubstationEditor.shadowRoot
-        ?.querySelector<OscdIconButton>('h2 > oscd-icon-button')
+        ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
-      sldSubstationEditor.substationWidthUI.value = '51';
-      sldSubstationEditor.substationHeightUI.value = '26';
-      sldSubstationEditor.shadowRoot
-        ?.querySelector<OscdTextButton>(
-          'div[slot="actions"] > oscd-text-button:last-child',
-        )
-        ?.shadowRoot?.querySelector<HTMLElement>('#button')
-        ?.click();
+      await element.updateComplete;
+      const dialog = element.resizeDialog;
+      await dialog.updateComplete;
+
+      const width = dialog.shadowRoot!.querySelector<OscdOutlinedTextField>(
+        '#substationWidth',
+      )!;
+      const height = dialog.shadowRoot!.querySelector<OscdOutlinedTextField>(
+        '#substationHeight',
+      )!;
+      const confirm = () =>
+        dialog.shadowRoot!
+          .querySelector<OscdFilledButton>(
+            'div[slot="actions"] > oscd-filled-button',
+          )
+          ?.shadowRoot?.querySelector<HTMLElement>('#button')
+          ?.click();
+
+      width.value = '51';
+      height.value = '26';
+      confirm();
       expect(element).to.have.property('docVersion', 0);
-      sldSubstationEditor.substationWidthUI.value = '1337';
-      sldSubstationEditor.substationHeightUI.value = '42';
-      sldSubstationEditor.shadowRoot
-        ?.querySelector<OscdTextButton>(
-          'div[slot="actions"] > oscd-text-button:last-child',
-        )
-        ?.shadowRoot?.querySelector<HTMLElement>('#button')
-        ?.click();
+
+      width.value = '1337';
+      height.value = '42';
+      confirm();
       expect(sldAttribute(sldSubstationEditor.substation, 'h')).to.equal('42');
       expect(sldAttribute(sldSubstationEditor.substation, 'w')).to.equal(
         '1337',
@@ -489,14 +499,22 @@ describe('SLD Editor', () => {
 
     it('forbids undersizing the substation', async () => {
       sldSubstationEditor.shadowRoot
-        ?.querySelector<OscdIconButton>('h2 > oscd-icon-button')
+        ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
-      sldSubstationEditor.substationWidthUI.value = '30';
-      sldSubstationEditor.substationHeightUI.value = '20';
-      sldSubstationEditor.shadowRoot
-        ?.querySelector<OscdTextButton>(
-          'oscd-text-button[slot="primaryAction"]',
+      await element.updateComplete;
+      const dialog = element.resizeDialog;
+      await dialog.updateComplete;
+
+      dialog.shadowRoot!.querySelector<OscdOutlinedTextField>(
+        '#substationWidth',
+      )!.value = '30';
+      dialog.shadowRoot!.querySelector<OscdOutlinedTextField>(
+        '#substationHeight',
+      )!.value = '20';
+      dialog.shadowRoot!
+        .querySelector<OscdFilledButton>(
+          'div[slot="actions"] > oscd-filled-button',
         )
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();

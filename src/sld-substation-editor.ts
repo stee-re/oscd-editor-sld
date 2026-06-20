@@ -15,13 +15,10 @@ import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 
-import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
-import { OscdDialog } from '@omicronenergy/oscd-ui/dialog/OscdDialog.js';
 import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
 // TODO: Replace with oscd-ui notification when available
 import { SldSnackbar } from './sld-snackbar.js';
-import { OscdOutlinedTextField } from '@omicronenergy/oscd-ui/textfield/OscdOutlinedTextField.js';
 
 import {
   resizePath,
@@ -70,7 +67,6 @@ import { connectionStartPoints, isBusBar } from './foundations/connectivity.js';
 import {
   attributes,
   getSLDAttributes,
-  updateSLDAttributes,
 } from './foundations/sld-attributes.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
@@ -82,6 +78,7 @@ import {
   newConnectEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
+  newResizeSubstationEvent,
   newSclEditDialogEvent,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
@@ -102,13 +99,10 @@ function isBay(element: Element) {
 
 export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
-    'oscd-text-button': OscdTextButton,
-    'oscd-dialog': OscdDialog,
     'oscd-icon': OscdIcon,
     'oscd-icon-button': OscdIconButton,
     // TODO: Replace with oscd-ui notification when available
     'sld-snackbar': SldSnackbar,
-    'oscd-outlined-text-field': OscdOutlinedTextField,
     'sld-context-menu': SldContextMenu,
   };
 
@@ -171,15 +165,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       this.connecting
     );
   }
-
-  @query('#resizeSubstationUI')
-  resizeSubstationUI!: OscdDialog;
-
-  @query('#substationWidthUI')
-  substationWidthUI!: OscdOutlinedTextField;
-
-  @query('#substationHeightUI')
-  substationHeightUI!: OscdOutlinedTextField;
 
   @query('svg#sld')
   sld!: SVGGraphicsElement;
@@ -457,7 +442,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
             @sld-ground-hint=${() => this.groundHint.show()}
           ></sld-context-menu>`}
       ${this.renderCoordinateTooltip()}
-      ${this.renderResizeDialog()}
       <sld-snackbar
         labelText="Only transformers within a bay may be grounded directly."
       >
@@ -483,9 +467,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       <oscd-icon-button
         label="Resize Substation"
         title="Resize Substation"
-        @click=${() => {
-          this.resizeSubstationUI.open = true;
-        }}
+        @click=${() =>
+          this.dispatchEvent(newResizeSubstationEvent(this.substation))}
       >
         <svg
           xmlns="${svgNs}"
@@ -513,110 +496,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
         <oscd-icon>file_download</oscd-icon>
       </oscd-icon-button>
     </h2>`;
-  }
-
-  private renderResizeDialog() {
-    const {
-      dim: [w, h],
-    } = attributes(this.substation);
-    return html`<oscd-dialog id="resizeSubstationUI">
-      <div slot="headline">Resize ${this.substation.getAttribute('name')}</div>
-      <form
-        slot="content"
-        style="display: flex; flex-direction: column; gap: 12px;"
-      >
-        <oscd-outlined-text-field
-          id="substationWidthUI"
-          type="number"
-          min="1"
-          step="1"
-          label="Width"
-          value="${w}"
-          dialogInitialFocus
-          autoValidate
-          .validityTransform=${(value: string, validity: ValidityState) => {
-            const {
-              dim: [_w, oldH],
-            } = attributes(this.substation);
-            if (
-              validity.valid &&
-              !canResizeTo(
-                this.substation,
-                this.substation,
-                parseInt(value, 10),
-                oldH,
-              )
-            ) {
-              return { valid: false, rangeUnderflow: true };
-            }
-            return {};
-          }}
-        ></oscd-outlined-text-field>
-        <oscd-outlined-text-field
-          id="substationHeightUI"
-          type="number"
-          min="1"
-          step="1"
-          label="Height"
-          value="${h}"
-          autoValidate
-          .validityTransform=${(value: string, validity: ValidityState) => {
-            const {
-              dim: [oldW, _h],
-            } = attributes(this.substation);
-            if (
-              validity.valid &&
-              !canResizeTo(
-                this.substation,
-                this.substation,
-                oldW,
-                parseInt(value, 10),
-              )
-            ) {
-              return { valid: false, rangeUnderflow: true };
-            }
-            return {};
-          }}
-        ></oscd-outlined-text-field>
-      </form>
-      <div slot="actions">
-        <oscd-text-button
-          @click=${() => {
-            this.resizeSubstationUI.open = false;
-          }}
-          >cancel</oscd-text-button
-        >
-        <oscd-text-button
-          @click=${() => {
-            const valid = Array.from(
-              this.resizeSubstationUI.querySelectorAll(
-                'oscd-outlined-text-field',
-              ),
-            ).every(textField => textField.checkValidity());
-            if (!valid) {
-              return;
-            }
-            const {
-              dim: [oldW, oldH],
-            } = attributes(this.substation);
-            const [newW, newH] = [
-              this.substationWidthUI,
-              this.substationHeightUI,
-            ].map(ui => parseInt(ui.value ?? '1', 10).toString());
-            this.resizeSubstationUI.open = false;
-            if (newW === oldW.toString() && newH === oldH.toString()) {
-              return;
-            }
-            const resizeEdit = updateSLDAttributes(this.substation, this.nsp, {
-              w: newW,
-              h: newH,
-            });
-            this.dispatchEvent(newEditEventV2(resizeEdit));
-          }}
-          >resize</oscd-text-button
-        >
-      </div>
-    </oscd-dialog>`;
   }
 
   /**

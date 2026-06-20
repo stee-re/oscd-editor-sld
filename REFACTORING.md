@@ -108,17 +108,18 @@ steps that preserve behavior and keep future options open.
 - [ ] **GUIDING PRINCIPLE for the viewer/editor split — the edit-vs-view litmus test.** When deciding where an operation belongs, ask: *does it produce an `EditV2` (mutate the SCL document)?* → it belongs in the **editor/controller** layer (`SldEditor`). *Does it read/serialise the rendered view?* → it belongs in the **view** layer (`SldSubstationEditor`). This is the rule that should drive the eventual `viewer / editor / plugin` module split. Confirmed state of the four `renderHeader` buttons against this test:
   | button | what it does | belongs to | status |
   |---|---|---|---|
-  | **Resize dialog** | builds `updateSLDAttributes` → `newEditEventV2` | controller | **outlier — hoist (see below)** |
+  | **Resize dialog** | builds `updateSLDAttributes` → `newEditEventV2` | controller | **✅ hoisted to `SldEditor` via `<sld-resize-substation-dialog>`** |
   | **Delete** | `newEditEventV2({ node: substation })` | controller | borderline; already a complete edit dispatched directly — lower priority |
   | **Edit** | `newSclEditDialogEvent(substation)` (already an event) | host/controller | already fine |
   | **Export** | serialises `this.sld` (the rendered `<svg>` in the view's shadow DOM) via `exportSVG` | **view** | **correctly placed — leave it** |
   Evidence the controller already owns edits: `sld-editor.ts` handles `@oscd-sld-resize`/`-resize-tl`/`-place`/`-place-label`/`-connect`/`-rotate` and dispatches `newEditEventV2` (see `createResizeEdits`/`createResizeTLEdits` etc.). The resize *dialog* is the lone edit-producing operation still committed directly from the view.
 
-- [ ] **Hoist the resize dialog up to `SldEditor` (controller), out of the per-substation view.** (User's idea, agreed.) Today each `SldSubstationEditor` renders its own `renderResizeDialog()` `<oscd-dialog id="resizeSubstationUI">` and commits the resize `newEditEventV2` itself — so with N substations there are N dialogs (all closed but one), and the edit bypasses the controller that owns every other edit. Target design:
-  - `SldSubstationEditor`: the header "Resize" button fires a new bubbling/composed `resize-substation` event carrying the substation element (replace the local `this.resizeSubstationUI.open = true`). Remove the local `renderResizeDialog()`, plus the now-unused `@query` fields `resizeSubstationUI` / `substationWidthUI` / `substationHeightUI`.
-  - `SldEditor`: own a SINGLE resize dialog instance; on `resize-substation`, store the target substation as state, open the dialog, run the width/height form + `canResizeTo` validation, and on confirm build + dispatch the `updateSLDAttributes` → `newEditEventV2` (consolidating with the drag-resize edit path already there).
-  - Wins: one dialog not N (singularity, like "one cursor → one tooltip"); the resize edit now flows through the controller like all others (consistency); advances the viewer/editor split (edit-commit UI moves to the editor layer).
-  - **Open implementation choice (decide first):** (a) hoist as a plain inline `<oscd-dialog>` in `SldEditor`, vs (b) extract a dedicated `<sld-resize-substation-dialog .substation>` component (cleanest contract: input = substation, output = one resize `EditV2` event) owned by `SldEditor`. Leaning (b). Either way: per the repo's **test co-location** convention, move the resize-dialog assertions out of the substation-editor spec into the new owner's spec.
+- [x] **Hoist the resize dialog up to `SldEditor` (controller), out of the per-substation view.** (User's idea, agreed.) **DONE** via the dedicated-component option (b): extracted `src/sld-resize-substation-dialog.ts` (`<sld-resize-substation-dialog .substation>`), owned as a SINGLE instance by `SldEditor`.
+  - `SldSubstationEditor`: the header "Resize" button now fires a bubbling/composed `oscd-sld-resize-substation` event carrying the substation (replaces the local `this.resizeSubstationUI.open = true`). Removed the local `renderResizeDialog()`, the `@query` fields `resizeSubstationUI`/`substationWidthUI`/`substationHeightUI`, and the now-unused `OscdDialog`/`OscdTextButton`/`OscdOutlinedTextField` imports + scoped registrations + `updateSLDAttributes` import.
+  - `SldEditor`: registers `<sld-resize-substation-dialog>` once; `connectedCallback` listens for `oscd-sld-resize-substation` and calls `resizeDialog.show(substation)`. The dialog owns the width/height form + `canResizeTo` validation, and on confirm emits a single `oscd-sld-resize` event (reusing the existing `ResizeEvent`). `SldEditor`'s extracted `resizeElement(element, w, h)` handler builds + dispatches `createResizeEdits` → `newEditEventV2`, so the resize edit now flows through the **same path as drag-resize** (`createResizeEdits` is exactly `updateSLDAttributes(el, nsp, {w,h})`).
+  - Contract chosen: input = `substation`; output = one `oscd-sld-resize` domain event (controller builds the `EditV2`). This consolidates with the drag-resize edit path rather than dispatching `newEditEventV2` from the view.
+  - Tests: added `src/sld-resize-substation-dialog.spec.ts` (open-populated, valid-resize-emits, unchanged-no-op, forbids-undersizing); updated the two `sld-editor.spec.ts` integration tests to drive through `element.resizeDialog`.
+  - **Open implementation choice (decided):** went with (b) the dedicated component (cleanest contract: input = substation, output = one resize event).
 
 - [ ] **`renderHeader` → `<sld-substation-header>` component (candidate, genuinely per-substation, NOT a hoist).** Unlike the dialog/tooltip, the header is legitimately per-substation (each substation has its own name + edit/delete/resize/export buttons), so it does NOT collapse to a single instance. Clean contract: inputs = name + disabled; outputs = edit / delete events. Two couplings to resolve when promoting: "Resize" reaches a sibling (`resizeSubstationUI.open` — resolved once the dialog hoist above makes it a `resize-substation` event), and "Export" calls `handleExport()` (which stays a view concern — the component can keep it or re-emit; export reads `this.sld`). Lower priority than the dialog hoist; the `renderHeader()` method extraction is already the stepping-stone.
 
@@ -127,8 +128,9 @@ steps that preserve behavior and keep future options open.
 ### Root & Editor
 
 - `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
-- `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API.
-- `src/sld-substation-editor.ts` (~1150 lines) — SVG rendering orchestration + context menu delegation. `render()` is now a paint-order layer stack of `render*` sub-methods. Future split target for viewer extraction.
+- `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API. Owns the single `<sld-resize-substation-dialog>` instance.
+- `src/sld-substation-editor.ts` (~1029 lines) — SVG rendering orchestration + context menu delegation. `render()` is now a paint-order layer stack of `render*` sub-methods. Future split target for viewer extraction.
+- `src/sld-resize-substation-dialog.ts` (150 lines) — Self-contained substation resize dialog (width/height form + `canResizeTo` validation). Input: `.substation`; output: a single `oscd-sld-resize` event. Owned by `SldEditor`.
 
 ### Toolbar (`src/toolbar/`)
 
@@ -377,6 +379,15 @@ Latest verification after the `render()` layer decomposition (Phase 1 + 2 + E):
 - `npm run test` passed with `470 passed, 0 failed` (behaviour preserved — pure method extraction, no z-order change).
 - `SldSubstationEditor.render()` is now a short paint-order stack of 13 extracted `render*` methods (see the layer-strategy checklist item near the top). The file grew slightly to ~1150 lines purely from the extra method headers/doc comments; `render()` itself dropped from ~483 lines to a readable stack.
 - Remaining: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the resize-dialog hoist, and the header/tooltip component candidates — all logged as workstream items above.
+
+Latest changes after the resize-dialog hoist (pending maintainer verification):
+
+- Extracted `src/sld-resize-substation-dialog.ts` (`<sld-resize-substation-dialog>`), owned as a single instance by `SldEditor`.
+- `SldSubstationEditor` header "Resize" button now fires `oscd-sld-resize-substation`; removed the local dialog, its three `@query` fields, and the now-unused `OscdDialog`/`OscdTextButton`/`OscdOutlinedTextField`/`updateSLDAttributes` imports + scoped registrations. `sld-substation-editor.ts` reduced ~1150 → ~1029 lines.
+- The dialog emits one `oscd-sld-resize` event; `SldEditor.resizeElement()` consolidates it with the drag-resize edit path (`createResizeEdits` → `newEditEventV2`).
+- Added `src/sld-resize-substation-dialog.spec.ts`; updated the two `sld-editor.spec.ts` substation-resize integration tests to drive through `element.resizeDialog`.
+- **Behaviour correction (latent bug) + UX enhancement:** the old `renderResizeDialog` relied on mwc-style `autoValidate` + `validityTransform` on the text fields to forbid undersizing — but `OscdOutlinedTextField` is Material Web 3 and silently ignores those APIs, so the bound was never enforced; the old "forbids undersizing" test passed only because it clicked a non-matching `slot="primaryAction"` selector (confirm never fired). The new component feeds the substation-bounds rule into the **standard constraint-validation API** (`setCustomValidity` + `reportValidity()` — Material suppresses the native popup via `invalidEvent.preventDefault()`), validating live on `@input` so the inline error appears/clears immediately, and gating `confirm()` on the result. Each field is checked against the other dimension's committed value so the error is attributed to the dimension the user undersized; persistent `supporting-text` gives guidance before any error.
+- **Could not run `npm run format` / `npm run test` in the working environment (the `oscd` CLI from `@omicronenergy/oscd-tooling` is not installed here). Maintainer to run both.**
 
 ## Edit Builder Extraction — Complete
 

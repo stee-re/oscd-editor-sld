@@ -7,6 +7,7 @@ import type { EditV2, SetAttributes } from '@openscd/oscd-api';
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
 import { SldSubstationEditor } from './sld-substation-editor.js';
+import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
 import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
 import {
   busBarVertexEdits,
@@ -37,6 +38,7 @@ import type {
   PlaceEvent,
   PlaceLabelEvent,
   ResizeEvent,
+  ResizeSubstationEvent,
   ResizeTLEvent,
   StartConnectDetail,
   StartConnectEvent,
@@ -56,11 +58,15 @@ export type PlacementResult = {
 export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-substation-editor': SldSubstationEditor,
+    'sld-resize-substation-dialog': SldResizeSubstationDialog,
     'oscd-scl-dialogs': OscdSclDialogs,
   };
 
   @query('oscd-scl-dialogs')
   sclDialogs!: OscdSclDialogs;
+
+  @query('sld-resize-substation-dialog')
+  resizeDialog!: SldResizeSubstationDialog;
 
   @property({ type: Object }) doc!: XMLDocument;
 
@@ -121,6 +127,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     window.addEventListener('keydown', this.handleKeydown);
     this.addEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
     this.addEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
+    this.addEventListener(
+      'oscd-sld-resize-substation',
+      this.handleResizeSubstationRequest,
+    );
   }
 
   disconnectedCallback() {
@@ -128,7 +138,15 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     window.removeEventListener('keydown', this.handleKeydown);
     this.removeEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
     this.removeEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
+    this.removeEventListener(
+      'oscd-sld-resize-substation',
+      this.handleResizeSubstationRequest,
+    );
   }
+
+  private handleResizeSubstationRequest = (event: ResizeSubstationEvent) => {
+    this.resizeDialog.show(event.detail.substation);
+  };
 
   private handleKeydown = ({ key }: KeyboardEvent) => {
     if (key === 'Escape') {
@@ -284,6 +302,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
   }
 
+  handleSubstationResize(element: Element, w: number, h: number) {
+    this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
+    this.reset();
+  }
+
   isNewBayOrVL(element: Element) : boolean {
     return ['Bay', 'VoltageLevel'].includes(element.tagName) &&
       (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'));
@@ -374,8 +397,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
               this.startConnecting(detail);
             }}
             @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-              this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
-              this.reset();
+              this.handleSubstationResize(element, w, h);
             }}
             @oscd-sld-resize-tl=${({
               detail: { element, x, y, w, h },
@@ -397,6 +419,12 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
           ></sld-substation-editor>`,
-    )} <oscd-scl-dialogs></oscd-scl-dialogs>`;
+    )}
+    <sld-resize-substation-dialog
+      @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
+        this.handleSubstationResize(element, w, h);
+      }}
+    ></sld-resize-substation-dialog>
+    <oscd-scl-dialogs></oscd-scl-dialogs>`;
   }
 }
