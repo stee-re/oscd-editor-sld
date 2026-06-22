@@ -46,6 +46,21 @@ steps that preserve behavior and keep future options open.
 
 ## Workstreams
 
+## Current Next Steps
+
+1. **Optimize idle mouse rendering.** First make gesture-start handlers read
+   live event-time coordinates. Only after that, add `shouldUpdate` to skip idle
+   mouse-coordinate-only updates.
+2. **Then introduce an explicit interaction mode.** Replace the scattered
+   `placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting` mode fields
+   with one discriminated mode shape or enum, keeping the base layer stack always
+   rendered and centralizing only overlay composition by mode.
+3. **Later structural candidates.** Extract `<sld-substation-header>`, rework or
+   hoist the coordinate tooltip, review the `SldEditor`/`SldSubstationEditor`
+   names, and expose hardcoded artifact colours as CSS variables.
+
+## Completed Workstreams
+
 - [x] Convert menu items to data-driven `ContextMenuAction` shape (discriminated union)
 - [x] Create `OscdSldIcon` for SLD-specific action icons
 - [x] Extract `<sld-context-menu>` as standalone component
@@ -81,6 +96,7 @@ steps that preserve behavior and keep future options open.
   - **Two problems this framing resolves along the way (so they need no separate tracking):**
     - *An earlier worry — "if I extract a `renderSubstationContents` sub-method, how does it get the SVG the other sub-methods produced? Pass it in as arguments, or have it call them itself?" — no longer applies.* That dilemma only exists if the bands depend on each other's output. They don't: every layer reads from the SCL document independently and emits its own SVG, and nothing consumes another layer's result. So `render()` is just a flat list of independent layer calls in paint order — no layer passes anything to another. (This supersedes the older sketch that proposed a single `renderSubstationContents` method with that dependency question attached.)
     - *The two near-identical connectivity-node passes at `sld-substation-editor.ts:693–714` (one filters `!isBusBar`, the next `isBusBar`, split only so busbars paint on top) are **not** a separate cleanup item.* Collapsing them into one block with an explicit "busbars last" stable ordering is simply part of building `renderConnectivityLayer` — it happens as a side effect of the extraction, not as its own task.
+- [x] **Split `equipment-container.ts` internal render stack into named sub-layers.** DONE: extracted the nested container stack into named helpers while keeping the wrapper `<g>` in the parent template to preserve SVG DOM composition. Paint order remains unchanged: highlight/frame → child containers → equipment → transformers → IEDs → preview connectivity → preview labels → resize handles → placing target → resizing target. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`476 passed, 0 failed`), and `npm run format`.
 - [ ] **Make gesture-*start* handlers read live mouse coordinates, then skip idle re-renders.** Today the substation editor keeps `mouseX/mouseY/mouseX2/mouseY2/mouseX2f/mouseY2f` as reactive `@state`, updated on every `mousemove`. This stored state is **load-bearing during an active drag** — it's what makes Lit re-render so the ghost follows the cursor (no click involved), so it is *not* merely "stored just in case". The waste is specifically re-rendering **while idle**. The staleness comes from one narrow place: handlers that fire **while idle** — the gesture-*start* handlers (start-place grab `offset = [mouseX - x, mouseY - y]` at `equipment-container.ts:125`, closed over at :138; plus start-resize, start-connect, context-menu) — snapshot the mouse at *render* time, so the editor must currently re-render on every idle move just to keep them fresh. (Confirmed by experiment: a blanket `shouldUpdate` skip-while-idle broke 8 "move" tests via a stale grab offset.) Note the **drop/commit** handlers do *not* need changing: they fire during an active gesture, when the editor is already re-rendering each move, so their render-time capture is always fresh.
   - **Step 1 (prerequisite):** change only the gesture-*start* handlers to compute their coordinate input at click time from the live pointer (e.g. a `context.liveGrabOffset(element)` helper applying the same `svgCoordinates()` transform + grid quantization to `this.mouseX`/the event). Keep the stored reactive mouse state for the active-drag preview.
   - **Step 2 (payoff):** with no idle-fired handler depending on render-time coords, add `shouldUpdate` to skip re-renders while `idle` when only the mouse-coordinate state changed.
@@ -380,14 +396,14 @@ Latest verification after the `render()` layer decomposition (Phase 1 + 2 + E):
 - `SldSubstationEditor.render()` is now a short paint-order stack of 13 extracted `render*` methods (see the layer-strategy checklist item near the top). The file grew slightly to ~1150 lines purely from the extra method headers/doc comments; `render()` itself dropped from ~483 lines to a readable stack.
 - Remaining: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the resize-dialog hoist, and the header/tooltip component candidates — all logged as workstream items above.
 
-Latest changes after the resize-dialog hoist (pending maintainer verification):
+Latest verification after the resize-dialog hoist:
 
 - Extracted `src/sld-resize-substation-dialog.ts` (`<sld-resize-substation-dialog>`), owned as a single instance by `SldEditor`.
 - `SldSubstationEditor` header "Resize" button now fires `oscd-sld-resize-substation`; removed the local dialog, its three `@query` fields, and the now-unused `OscdDialog`/`OscdTextButton`/`OscdOutlinedTextField`/`updateSLDAttributes` imports + scoped registrations. `sld-substation-editor.ts` reduced ~1150 → ~1029 lines.
 - The dialog emits one `oscd-sld-resize` event; `SldEditor.resizeElement()` consolidates it with the drag-resize edit path (`createResizeEdits` → `newEditEventV2`).
 - Added `src/sld-resize-substation-dialog.spec.ts`; updated the two `sld-editor.spec.ts` substation-resize integration tests to drive through `element.resizeDialog`.
 - **Behaviour correction (latent bug) + UX enhancement:** the old `renderResizeDialog` relied on mwc-style `autoValidate` + `validityTransform` on the text fields to forbid undersizing — but `OscdOutlinedTextField` is Material Web 3 and silently ignores those APIs, so the bound was never enforced; the old "forbids undersizing" test passed only because it clicked a non-matching `slot="primaryAction"` selector (confirm never fired). The new component feeds the substation-bounds rule into the **standard constraint-validation API** (`setCustomValidity` + `reportValidity()` — Material suppresses the native popup via `invalidEvent.preventDefault()`), validating live on `@input` so the inline error appears/clears immediately, and gating `confirm()` on the result. Each field is checked against the other dimension's committed value so the error is attributed to the dimension the user undersized; persistent `supporting-text` gives guidance before any error.
-- **Could not run `npm run format` / `npm run test` in the working environment (the `oscd` CLI from `@omicronenergy/oscd-tooling` is not installed here). Maintainer to run both.**
+- Maintainer verified the resize-dialog hoist; the implementation is complete.
 
 ## Edit Builder Extraction — Complete
 
@@ -613,21 +629,23 @@ Phase B resolves this by deleting `icons.ts`:
 
 ### Near-term (before module split)
 
-1. **~Extract diagram symbols~ (Phase B)** — Move SVG defs/resize paths out of `icons.ts`
-   into `drawing/diagram-symbols.ts`, and move UI icon ownership to `OscdSldIcon`.
-2. **Extract SVG renderers (Phase A)** — Biggest impact. Start with
-   ConductingEquipment as the first functional artifact descriptor. Artifact
-   descriptors live in `drawing/artifacts/` and expose `matches`, `state`,
-   `actions`, and `render`. The editor supplies an explicit
-   `SldArtifactContext` and remains the orchestration layer. For now,
-   `SldSubstationEditor.renderArtifact()` is the generic descriptor invocation
-   path, with `renderEquipment()` and `renderIed()` kept as compatibility
-   wrappers.
-3. **Separate interaction from rendering (Phase C)** — Create viewer/editor boundary.
-4. ~~**`connectivity.ts` boundary**~~ — ✅ Done. Split into queries + edit builders.
-5. **Clean up structural conventions** — consistent file naming, import ordering.
-6. **Consolidate test fixtures/helpers** — shared helpers scattered across spec files.
-7. Refactor ALL themable styles (most notably colours) out into css variables (so developers using this plugin/future module) can override the colours used for the various artifacts. e.g. TopIndicator in equipment is hardcoded to #BB1326, we should probably expose this as --oscd-sld-equip-top-indicator-color:#BB1326; or something like that.
+1. ~~**Extract diagram symbols (Phase B)**~~ — Done. SVG defs/resize paths live in
+   `drawing/diagram-symbols.ts`; UI icon ownership lives in `OscdSldIcon`.
+2. ~~**Extract SVG renderers (Phase A)**~~ — Mostly done. The core artifact
+   renderers now live under `drawing/artifacts/` with co-located specs. The
+   remaining renderer cleanup is the lower-risk `equipment-container.ts`
+   internal sub-layer split tracked above.
+3. **Separate interaction from rendering (Phase C)** — Create viewer/editor
+   boundary. This should wait until the current layer, mode, and idle-render
+   workstreams settle.
+4. ~~**`connectivity.ts` boundary**~~ — Done. Split into queries + edit builders.
+5. ~~**Clean up structural conventions**~~ — Reviewed as done; no broad import-order
+   churn needed because the repo does not enforce import ordering.
+6. ~~**Consolidate test fixtures/helpers**~~ — Done for the repeated artifact SLD
+   scaffolds via `sldFixture()` in `test-helpers.ts`.
+7. **Expose themable artifact colours as CSS variables.** Hardcoded colours such
+   as the equipment top-indicator `#BB1326` should eventually become CSS custom
+   properties so plugin/future-module consumers can theme the rendered diagram.
 
 ### Future (module split preparation)
 
