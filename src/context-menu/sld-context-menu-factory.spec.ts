@@ -2,7 +2,7 @@ import { expect } from '@open-wc/testing';
 
 import { createContextMenuItems } from './sld-context-menu-factory.js';
 import type { ContextMenuAction, ContextMenuItem, MenuItemContext } from './sld-context-menu.js';
-import { createSCLDoc } from '../test-helpers.js';
+import { createSCLDoc, sldFixture } from '../test-helpers.js';
 import { sldNs } from '../foundations.js';
 
 function actions(items: ContextMenuItem[]): ContextMenuAction[] {
@@ -32,21 +32,19 @@ function makeContext(
   };
 }
 
+function bayDoc(children = '', bayName = 'B1'): XMLDocument {
+  return sldFixture({ children, bayName });
+}
+
 describe('sld-context-menu-factory', () => {
   describe('ConductingEquipment', () => {
     it('returns standard equipment menu items', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -61,18 +59,12 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes connect options when no terminal connected', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -82,20 +74,14 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes disconnect when terminal is present', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
-              </ConductingEquipment>
-              <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
+        </ConductingEquipment>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -104,18 +90,12 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('offers Add Text when no Text child exists', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -123,19 +103,13 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('offers Remove Text when Text child exists', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>Label</Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>Label</Text>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -143,18 +117,12 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('does not offer bottom connect for single-terminal equipment', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="G1" type="GEN">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="G1" type="GEN">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const items = createContextMenuItems(makeContext(eq));
@@ -165,18 +133,12 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('dispatches events from handlers', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+        </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
       const dispatched: Event[] = [];
@@ -190,19 +152,13 @@ describe('sld-context-menu-factory', () => {
 
   describe('PowerTransformer', () => {
     it('returns standard transformer menu items', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1"/>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
       `);
       const pt = doc.querySelector('PowerTransformer')!;
       const items = createContextMenuItems(makeContext(pt));
@@ -216,19 +172,13 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Mirror for auto kind', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="auto"/>
-                </Private>
-                <TransformerWinding name="W1"/>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="auto"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
       `);
       const pt = doc.querySelector('PowerTransformer')!;
       const items = createContextMenuItems(makeContext(pt));
@@ -236,20 +186,14 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Mirror for earthing kind with 2 windings', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="earthing"/>
-                </Private>
-                <TransformerWinding name="W1"/>
-                <TransformerWinding name="W2"/>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="earthing"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+          <TransformerWinding name="W2"/>
+        </PowerTransformer>
       `);
       const pt = doc.querySelector('PowerTransformer')!;
       const items = createContextMenuItems(makeContext(pt));
@@ -257,19 +201,13 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('excludes Mirror for default kind', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1"/>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
       `);
       const pt = doc.querySelector('PowerTransformer')!;
       const items = createContextMenuItems(makeContext(pt));
@@ -279,22 +217,16 @@ describe('sld-context-menu-factory', () => {
 
   describe('TransformerWinding', () => {
     it('returns winding items followed by transformer items', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1">
-                  <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
-                </TransformerWinding>
-              </PowerTransformer>
-              <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1">
+            <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
+          </TransformerWinding>
+        </PowerTransformer>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
       `);
       const winding = doc.querySelector('TransformerWinding')!;
       const items = createContextMenuItems(makeContext(winding));
@@ -305,19 +237,13 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Add Tap Changer when none exists', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1"/>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
       `);
       const winding = doc.querySelector('TransformerWinding')!;
       const items = createContextMenuItems(makeContext(winding));
@@ -325,21 +251,15 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Remove/Edit Tap Changer when one exists', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1">
-                  <TapChanger name="LTC" type="LTC"/>
-                </TransformerWinding>
-              </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1">
+            <TapChanger name="LTC" type="LTC"/>
+          </TransformerWinding>
+        </PowerTransformer>
       `);
       const winding = doc.querySelector('TransformerWinding')!;
       const items = createContextMenuItems(makeContext(winding));
@@ -350,22 +270,16 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Detach Neutral Point when present', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <PowerTransformer name="T1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <TransformerWinding name="W1">
-                  <NeutralPoint name="N1" connectivityNode="S1/V1/B1/L1"/>
-                </TransformerWinding>
-              </PowerTransformer>
-              <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1">
+            <NeutralPoint name="N1" connectivityNode="S1/V1/B1/L1"/>
+          </TransformerWinding>
+        </PowerTransformer>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
       `);
       const winding = doc.querySelector('TransformerWinding')!;
       const items = createContextMenuItems(makeContext(winding));
@@ -375,25 +289,19 @@ describe('sld-context-menu-factory', () => {
 
   describe('Bay (busbar)', () => {
     it('returns busbar menu items', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="BB1">
-              <ConnectivityNode name="L1" pathName="S1/V1/BB1/L1">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:Section smth:bus="true">
-                    <smth:Vertex smth:x="1" smth:y="1"/>
-                    <smth:Vertex smth:x="5" smth:y="1"/>
-                  </smth:Section>
-                </Private>
-              </ConnectivityNode>
-              <Private type="OpenSCD-SLD-Layout">
-                <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="1"/>
-              </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+      const doc = bayDoc(
+        `
+          <ConnectivityNode name="L1" pathName="S1/V1/BB1/L1">
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:Section smth:bus="true">
+                <smth:Vertex smth:x="1" smth:y="1"/>
+                <smth:Vertex smth:x="5" smth:y="1"/>
+              </smth:Section>
+            </Private>
+          </ConnectivityNode>
+        `,
+        'BB1',
+      );
       const bay = doc.querySelector('Bay')!;
       const items = createContextMenuItems(makeContext(bay));
       const labels = headlines(items);
@@ -408,17 +316,7 @@ describe('sld-context-menu-factory', () => {
 
   describe('Bay / VoltageLevel (container)', () => {
     it('returns container menu items for Bay', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <Private type="OpenSCD-SLD-Layout">
-                <smth:SLDAttributes smth:x="2" smth:y="2" smth:w="5" smth:h="5"/>
-              </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+      const doc = bayDoc();
       const bay = doc.querySelector('Bay')!;
       const items = createContextMenuItems(makeContext(bay));
       const labels = headlines(items);
@@ -496,19 +394,13 @@ describe('sld-context-menu-factory', () => {
 
   describe('Text', () => {
     it('returns text menu items', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>Label</Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>Label</Text>
+        </ConductingEquipment>
       `);
       const text = doc.querySelector('Text')!;
       const items = createContextMenuItems(makeContext(text));
@@ -520,24 +412,18 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes color options when not already that color', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>
-                  <Private type="OpenSCD-SLD-Layout">
-                    <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                  </Private>
-                  Label
-                </Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
       `);
       const text = doc.querySelector('Text')!;
       const items = createContextMenuItems(makeContext(text));
@@ -548,24 +434,18 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Reset Color when color is set', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>
-                  <Private type="OpenSCD-SLD-Layout">
-                    <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:color="#BB1326"/>
-                  </Private>
-                  Label
-                </Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:color="#BB1326"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
       `);
       const text = doc.querySelector('Text')!;
       const items = createContextMenuItems(makeContext(text));
@@ -576,24 +456,18 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Bold when weight is not 500', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>
-                  <Private type="OpenSCD-SLD-Layout">
-                    <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                  </Private>
-                  Label
-                </Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
       `);
       const text = doc.querySelector('Text')!;
       const items = createContextMenuItems(makeContext(text));
@@ -603,24 +477,18 @@ describe('sld-context-menu-factory', () => {
     });
 
     it('includes Remove Formatting when weight is 500', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
-              <ConductingEquipment name="Q1" type="CBR">
-                <Private type="OpenSCD-SLD-Layout">
-                  <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
-                </Private>
-                <Text>
-                  <Private type="OpenSCD-SLD-Layout">
-                    <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:weight="500"/>
-                  </Private>
-                  Label
-                </Text>
-              </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:weight="500"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
       `);
       const text = doc.querySelector('Text')!;
       const items = createContextMenuItems(makeContext(text));

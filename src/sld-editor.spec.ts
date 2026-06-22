@@ -83,6 +83,7 @@ import {
   placeBR,
   eqPos,
   eqTarget,
+  sldFixture,
 } from './test-helpers.js';
 
 customElements.define('sld-editor', SldEditor);
@@ -409,6 +410,22 @@ describe('SLD Editor', () => {
     );
   }
 
+  function activeModes(): string[] {
+    return [
+      ['placing', element.placing],
+      ['resizingBR', element.resizingBR],
+      ['resizingTL', element.resizingTL],
+      ['placingLabel', element.placingLabel],
+      ['connecting', element.connecting],
+    ]
+      .filter(([, value]) => !!value)
+      .map(([mode]) => mode as string);
+  }
+
+  function expectActiveMode(mode: string | undefined) {
+    expect(activeModes()).to.deep.equal(mode ? [mode] : []);
+  }
+
   beforeEach(async () => {
     const doc = new DOMParser().parseFromString(
       emptyDocString,
@@ -448,6 +465,108 @@ describe('SLD Editor', () => {
     element.placingLabel = undefined;
     await sendMouse({ type: 'click', position: [0, 0] });
     await resetMouse();
+  });
+
+  describe('interaction mode exclusivity', () => {
+    let voltageLevel: Element;
+    let bay: Element;
+    let equipment: Element;
+
+    beforeEach(() => {
+      const modeDoc = sldFixture({
+        children: '<ConductingEquipment name="QA1" type="CBR" />',
+      });
+      voltageLevel = modeDoc.querySelector('VoltageLevel')!;
+      bay = modeDoc.querySelector('Bay')!;
+      equipment = modeDoc.querySelector('ConductingEquipment')!;
+    });
+
+    it('keeps at most one mode active when switching modes', () => {
+      element.startPlacing(voltageLevel);
+      expectActiveMode('placing');
+
+      element.startResizingBottomRight(voltageLevel);
+      expectActiveMode('resizingBR');
+
+      element.startResizingTopLeft(bay);
+      expectActiveMode('resizingTL');
+
+      element.startPlacingLabel(bay);
+      expectActiveMode('placingLabel');
+
+      element.startConnecting({
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      });
+      expectActiveMode('connecting');
+
+      element.reset();
+      expectActiveMode(undefined);
+    });
+
+    it('clears all modes before starting each specific mode', () => {
+      element.placing = voltageLevel;
+      element.resizingBR = voltageLevel;
+      element.resizingTL = bay;
+      element.placingLabel = bay;
+      element.connecting = {
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      };
+
+      element.startPlacing(voltageLevel);
+      expectActiveMode('placing');
+
+      element.resizingBR = voltageLevel;
+      element.resizingTL = bay;
+      element.placingLabel = bay;
+      element.connecting = {
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      };
+
+      element.startResizingBottomRight(voltageLevel);
+      expectActiveMode('resizingBR');
+
+      element.placing = voltageLevel;
+      element.resizingBR = voltageLevel;
+      element.placingLabel = bay;
+      element.connecting = {
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      };
+
+      element.startResizingTopLeft(bay);
+      expectActiveMode('resizingTL');
+
+      element.placing = voltageLevel;
+      element.resizingBR = voltageLevel;
+      element.resizingTL = bay;
+      element.connecting = {
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      };
+
+      element.startPlacingLabel(bay);
+      expectActiveMode('placingLabel');
+
+      element.placing = voltageLevel;
+      element.resizingBR = voltageLevel;
+      element.resizingTL = bay;
+      element.placingLabel = bay;
+
+      element.startConnecting({
+        from: equipment,
+        fromTerminal: 'T1',
+        path: [[1, 1]],
+      });
+      expectActiveMode('connecting');
+    });
   });
 
   describe('given a substation', () => {
