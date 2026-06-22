@@ -48,9 +48,11 @@ export function makeArtifactContext(
     dispatch(event: Event) {
       dispatched.push(event);
     },
+    gridPosition: ({ clientX, clientY }: MouseEvent) => [clientX, clientY],
     groundTerminal(element: Element, terminal: 'T1' | 'T2' | 'N1' | 'N2') {
       grounded.push({ element, terminal });
     },
+    halfGridPosition: ({ clientX, clientY }: MouseEvent) => [clientX, clientY],
     highlight: [],
     idle: true,
     mouseX: 0,

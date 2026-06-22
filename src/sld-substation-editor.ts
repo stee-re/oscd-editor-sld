@@ -239,6 +239,26 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return result;
   }
 
+  gridPosition(event: MouseEvent): Point {
+    if (!event.isTrusted && !event.clientX && !event.clientY) {
+      return [this.mouseX, this.mouseY];
+    }
+
+    const [clientX, clientY] = [event.clientX, event.clientY];
+    const [x, y] = this.svgCoordinates(clientX, clientY);
+    return [Math.floor(x), Math.floor(y)];
+  }
+
+  halfGridPosition(event: MouseEvent): Point {
+    if (!event.isTrusted && !event.clientX && !event.clientY) {
+      return [this.mouseX2, this.mouseY2];
+    }
+
+    const [clientX, clientY] = [event.clientX, event.clientY];
+    const [x, y] = this.svgCoordinates(clientX, clientY);
+    return [Math.round(x * 2) / 2, Math.round(y * 2) / 2];
+  }
+
   renderedLabelPosition(element: Element, { preview = false } = {}): Point {
     let {
       label: [x, y],
@@ -849,6 +869,8 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return {
       disabled: this.disabled,
       dispatch: event => this.dispatchEvent(event),
+      gridPosition: event => this.gridPosition(event),
+      halfGridPosition: event => this.halfGridPosition(event),
       idle: this.idle,
       openContextMenu: (element, event) =>
         this.contextMenu?.open(this.contextMenuContext(element, event)),

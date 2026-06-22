@@ -58,12 +58,15 @@ describe('renderLabel', () => {
     const host = renderToSvg(renderLabel(equipment, context));
     host
       .querySelector('g.label text')!
-      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      .dispatchEvent(
+        new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 11 }),
+      );
     const event = context.dispatched.find(
       e => e.type === 'oscd-sld-start-place-label',
     ) as CustomEvent;
     expect(event).to.not.be.undefined;
     expect(event.detail.element).to.equal(equipment);
+    expect(event.detail.offset).to.deep.equal([9.5, 11.5]);
   });
 
   it('selects on click when disabled and selectable', () => {

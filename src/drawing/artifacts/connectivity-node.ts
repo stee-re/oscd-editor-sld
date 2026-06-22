@@ -88,15 +88,17 @@ export function renderConnectivityNode(
     while (i < vertices.length - 1) {
       const [x1, y1] = context.renderedPosition(vertices[i]);
       let [x2, y2] = context.renderedPosition(vertices[i + 1]);
-      let handleClick: (() => void) | symbol = nothing;
+      let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
       let handleAuxClick: ((e: MouseEvent) => void) | symbol = nothing;
       let handleContextMenu: ((e: MouseEvent) => void) | symbol = nothing;
       if (busBar && bay && !context.disabled) {
         const {
           pos: [x, y],
         } = attributes(bay);
-        const offset: Point = [context.mouseX - x, context.mouseY - y];
-        handleClick = () => context.dispatch(newStartPlaceEvent(bay, offset));
+        handleClick = (e: MouseEvent) => {
+          const [mouseX, mouseY] = context.gridPosition(e);
+          context.dispatch(newStartPlaceEvent(bay, [mouseX - x, mouseY - y]));
+        };
         handleAuxClick = ({ button }: MouseEvent) => {
           if (button === 1) {
             context.dispatch(newStartResizeBREvent(bay));

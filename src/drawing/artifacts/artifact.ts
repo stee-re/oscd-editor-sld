@@ -20,6 +20,8 @@ export type Connecting = {
 export type SldSharedContext = {
   disabled: boolean;
   dispatch(event: Event): void;
+  gridPosition(event: MouseEvent): Point;
+  halfGridPosition(event: MouseEvent): Point;
   idle: boolean;
   openContextMenu(element: Element, event: MouseEvent): void;
   placing?: Element;

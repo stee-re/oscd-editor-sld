@@ -99,7 +99,7 @@ describe('powerTransformerArtifact', () => {
     it('starts placement on click when idle', () => {
       const context = makeArtifactContext({ substation });
       (actionsFor(context).onClick as (e: MouseEvent) => void)(
-        new MouseEvent('click'),
+        new MouseEvent('click', { clientX: 10, clientY: 11 }),
       );
       expect(context.dispatched.map(e => e.type)).to.include(
         'oscd-sld-start-place',
@@ -108,6 +108,7 @@ describe('powerTransformerArtifact', () => {
         e => e.type === 'oscd-sld-start-place',
       ) as CustomEvent;
       expect(event.detail.element).to.equal(transformer);
+      expect(event.detail.offset).to.deep.equal([6, 7]);
     });
 
     it('places into the containing bay when placing itself', () => {

@@ -286,7 +286,6 @@ function render(
   }
 
   let [x, y] = context.renderedPosition(element);
-  const offset: Point = [context.mouseX - x, context.mouseY - y];
   let {
     dim: [w, h],
   } = attributes(element);
@@ -296,10 +295,11 @@ function render(
 
   let handleClick = (e: MouseEvent) => {
     if (context.idle) {
+      const [mouseX, mouseY] = context.gridPosition(e);
       context.dispatch(
         newStartPlaceEvent(
           e.shiftKey ? copyElementForPlacement(element, context.nsp) : element,
-          offset,
+          [mouseX - x, mouseY - y],
         ),
       );
     }
