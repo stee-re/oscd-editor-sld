@@ -6,20 +6,7 @@ import type { OscdFilledButton } from '@omicronenergy/oscd-ui/button/OscdFilledB
 
 import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
 import type { ResizeEvent } from './foundations/events.js';
-
-const docString = `<?xml version="1.0" encoding="UTF-8"?>
-<SCL xmlns:smth="https://openscd.org/SCL/SSD/SLD/v0" xmlns="http://www.iec.ch/61850/2003/SCL" version="2007" revision="B">
-  <Substation name="S1">
-    <Private type="OpenSCD-SLD-Layout">
-      <smth:SLDAttributes smth:w="50" smth:h="25"/>
-    </Private>
-    <VoltageLevel name="V1">
-      <Private type="OpenSCD-SLD-Layout">
-        <smth:SLDAttributes smth:x="1" smth:y="1" smth:lx="1" smth:ly="1" smth:w="48" smth:h="23"/>
-      </Private>
-    </VoltageLevel>
-  </Substation>
-</SCL>`;
+import { sldFixture } from './test-helpers.js';
 
 customElements.define(
   'sld-resize-substation-dialog',
@@ -31,7 +18,7 @@ describe('sld-resize-substation-dialog', () => {
   let substation: Element;
 
   beforeEach(async () => {
-    const doc = new DOMParser().parseFromString(docString, 'application/xml');
+    const doc = sldFixture({ vl: { x: 1, y: 1, w: 48, h: 23 } });
     substation = doc.querySelector('Substation')!;
     element = await fixture(
       html`<sld-resize-substation-dialog></sld-resize-substation-dialog>`,
