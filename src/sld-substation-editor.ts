@@ -95,6 +95,15 @@ function isBay(element: Element) {
   return element.tagName === 'Bay' && !isBusBar(element);
 }
 
+const mouseCoordinateProperties: PropertyKey[] = [
+  'mouseX',
+  'mouseY',
+  'mouseX2',
+  'mouseY2',
+  'mouseX2f',
+  'mouseY2f',
+];
+
 /** An editor [[`plugin`]] for editing the `Substation` section. */
 
 export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
@@ -191,6 +200,16 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     ) {
       this.iedResolutionCache.clear();
     }
+  }
+
+  protected override shouldUpdate(changedProperties: PropertyValues<this>) {
+    if (!this.idle) {
+      return true;
+    }
+
+    return !Array.from(changedProperties.keys()).every(property =>
+      mouseCoordinateProperties.includes(property),
+    );
   }
 
   private resolvedIed(referencedIed: Element): Element | null {

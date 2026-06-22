@@ -87,6 +87,22 @@ import {
 
 customElements.define('sld-editor', SldEditor);
 
+class TestSldSubstationEditor extends SldSubstationEditor {
+  override render() {
+    return html``;
+  }
+
+  shouldUpdateForTest(changedProperties: Map<PropertyKey, unknown>) {
+    return this.shouldUpdate(changedProperties as never);
+  }
+}
+
+customElements.define('test-sld-substation-editor', TestSldSubstationEditor);
+
+function testSldSubstationEditor(): Promise<TestSldSubstationEditor> {
+  return fixture(html`<test-sld-substation-editor></test-sld-substation-editor>`);
+}
+
 function middleOf(element: Element): [number, number] {
   const { x, y, width, height } = element.getBoundingClientRect();
 
@@ -261,6 +277,47 @@ describe('SLD Editor', () => {
   let xmlEditor: XMLEditor;
   let lastCalledSclEdit: Element | undefined;
   let lastSelectedElement: Element | undefined;
+
+  describe('SldSubstationEditor update scheduling', () => {
+    it('skips idle mouse-coordinate-only updates', async () => {
+      const testEditor = await testSldSubstationEditor();
+
+      expect(
+        testEditor.shouldUpdateForTest(
+          new Map<PropertyKey, unknown>([
+            ['mouseX', 0],
+            ['mouseY', 0],
+            ['mouseX2', 0],
+            ['mouseY2', 0],
+            ['mouseX2f', 0],
+            ['mouseY2f', 0],
+          ]),
+        ),
+      ).to.equal(false);
+    });
+
+    it('keeps active mouse-coordinate updates', async () => {
+      const testEditor = await testSldSubstationEditor();
+      testEditor.placing = document.createElement('VoltageLevel');
+
+      expect(
+        testEditor.shouldUpdateForTest(
+          new Map<PropertyKey, unknown>([
+            ['mouseX', 0],
+            ['mouseY', 0],
+          ]),
+        ),
+      ).to.equal(true);
+    });
+
+    it('keeps idle non-mouse updates', async () => {
+      const testEditor = await testSldSubstationEditor();
+
+      expect(
+        testEditor.shouldUpdateForTest(new Map<PropertyKey, unknown>([['doc', null]])),
+      ).to.equal(true);
+    });
+  });
 
   function queryUI({
     scl,
