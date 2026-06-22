@@ -84,6 +84,8 @@ type ContainerKind = {
   ): Element | undefined;
 };
 
+type ContainerClickHandler = (e: MouseEvent) => void;
+
 const voltageLevelKind: ContainerKind = {
   className: 'voltagelevel',
   stroke: '#F5E214',
@@ -102,6 +104,168 @@ const bayKind: ContainerKind = {
       context.substation.querySelectorAll(':root > Substation > VoltageLevel'),
     ).find(vl => containsRect(vl, x, y, w, h)),
 };
+
+function renderHighlightLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): SVGTemplateResult | typeof nothing {
+  if (!isToBeHighlighted(element, context.highlight)) {
+    return nothing;
+  }
+
+  return svg`<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${getHighlightStyle(
+    element,
+    context.highlight,
+  )}" pointer-events="none" />`;
+}
+
+function renderEquipmentLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+) {
+  return Array.from(element.children)
+    .filter(child => child.tagName === 'ConductingEquipment')
+    .map(equipment => context.renderEquipment(equipment));
+}
+
+function renderPowerTransformerLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+) {
+  return Array.from(element.children)
+    .filter(child => child.tagName === 'PowerTransformer')
+    .map(powerTransformer => context.renderPowerTransformer(powerTransformer));
+}
+
+function renderIedLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  preview: boolean,
+) {
+  return iedReferences(element)
+    .filter(
+      referencedIed =>
+        referencedIed.parentElement?.tagName === 'Private' &&
+        referencedIed.parentElement!.parentElement === element,
+    )
+    .map(referencedIed => context.renderIed(referencedIed, { preview }));
+}
+
+function renderPreviewConnectivityLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  preview: boolean,
+) {
+  if (!preview) {
+    return nothing;
+  }
+
+  return Array.from(element.querySelectorAll('ConnectivityNode'))
+    .filter(child => child.getAttribute('name') !== 'grounded')
+    .map(cNode => context.renderConnectivityNode(cNode));
+}
+
+function renderPreviewLabelLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  preview: boolean,
+) {
+  if (!preview) {
+    return nothing;
+  }
+
+  return Array.from(
+    element.querySelectorAll('Bay, ConductingEquipment, PowerTransformer, Text'),
+  )
+    .concat(
+      Array.from(
+        element.querySelector(':scope > Private[type="OpenSCD-SLD-Layout"]')
+          ? iedReferences(
+            element.querySelector(
+              ':scope > Private[type="OpenSCD-SLD-Layout"]',
+            )!,
+          )
+          : [],
+      ),
+    )
+    .concat(element)
+    .map(labelled => context.renderLabel(labelled, { preview }));
+}
+
+function renderResizeHandlesLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  if (!context.idle || context.disabled) {
+    return nothing;
+  }
+
+  return svg`
+    <svg xmlns="${svgNs}" height="1" width="1" fill="black"
+      opacity="0.83" class="handle"
+      @click=${() => context.dispatch(newStartResizeTLEvent(element))}
+      viewBox="0 96 960 960" x="${x}" y="${y}">
+      <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
+      ${resizeTLPath}
+    </svg>
+    <svg xmlns="${svgNs}" height="1" width="1" fill="black"
+      opacity="0.83" class="handle"
+      @click=${() => context.dispatch(newStartResizeBREvent(element))}
+      viewBox="0 96 960 960" x="${w + x - 1}" y="${h + y - 1}">
+      <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
+      ${resizeBRPath}
+    </svg>
+  `;
+}
+
+function renderPlacingTargetLayer(
+  context: EquipmentContainerContext,
+  kind: ContainerKind,
+  handleClick: ContainerClickHandler,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  if (context.placing?.tagName !== kind.placingChildTag) {
+    return nothing;
+  }
+
+  return svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
+    @click=${handleClick} fill="url(#grid)" />`;
+}
+
+function renderResizingTargetLayer(
+  element: Element,
+  context: EquipmentContainerContext,
+  handleClick: ContainerClickHandler | typeof nothing,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  if (
+    context.resizingBR !== element &&
+    context.resizingTL !== element &&
+    !(
+      context.resizingBR?.parentElement === element &&
+      isBusBar(context.resizingBR)
+    )
+  ) {
+    return nothing;
+  }
+
+  return svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
+    @click=${handleClick} fill="url(#grid)" />`;
+}
 
 /**
  * Renders a single SLD equipment container (`VoltageLevel` or `Bay`): its
@@ -223,44 +387,6 @@ function render(
     }
   }
 
-  let placingTarget = svg``;
-  let resizingTarget = svg``;
-  if (context.placing?.tagName === kind.placingChildTag) {
-    placingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-      @click=${handleClick} fill="url(#grid)" />`;
-  }
-
-  if (
-    context.resizingBR === element ||
-    context.resizingTL === element ||
-    (context.resizingBR?.parentElement === element &&
-      isBusBar(context.resizingBR))
-  ) {
-    resizingTarget = svg`<rect x="${x}" y="${y}" width="${w}" height="${h}"
-      @click=${handleClick || nothing} fill="url(#grid)" />`;
-  }
-
-  const resizeBRHandle =
-    context.idle && !context.disabled
-      ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
-        opacity="0.83" class="handle"
-        @click=${() => context.dispatch(newStartResizeBREvent(element))}
-        viewBox="0 96 960 960" x="${w + x - 1}" y="${h + y - 1}">
-        <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-        ${resizeBRPath}
-      </svg>`
-      : nothing;
-  const resizeTLhandle =
-    context.idle && !context.disabled
-      ? svg`<svg xmlns="${svgNs}" height="1" width="1" fill="black"
-        opacity="0.83" class="handle"
-        @click=${() => context.dispatch(newStartResizeTLEvent(element))}
-        viewBox="0 96 960 960" x="${x}" y="${y}">
-        <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
-        ${resizeTLPath}
-      </svg>`
-      : nothing;
-
   const clickthrough =
     context.disabled ||
     (!context.idle &&
@@ -271,14 +397,9 @@ function render(
   const strokeColor = invalid ? '#BB1326' : kind.stroke;
 
   const highlighted = isToBeHighlighted(element, context.highlight);
-  const highlight = highlighted
-    ? svg`<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${getHighlightStyle(
-      element,
-      context.highlight,
-    )}" pointer-events="none" />`
-    : '';
+  const safeHandleClick = handleClick || nothing;
 
-  return svg`${highlight}<g id="${
+  return svg`${renderHighlightLayer(element, context, x, y, w, h)}<g id="${
     element.closest('Substation') === context.substation
       ? identity(element)
       : nothing
@@ -290,63 +411,21 @@ function render(
   }" style="outline: none;">
     <rect x="${x}" y="${y}" width="${w}" height="${h}"
       @contextmenu=${contextmenu}
-      @click=${handleClick || nothing} @mousedown=${preventDefault}
+      @click=${safeHandleClick} @mousedown=${preventDefault}
       @auxclick=${auxclick}
       fill="${highlighted ? 'none' : 'white'}" stroke-dasharray="${
         kind.strokeDasharray
       }"
       stroke="${strokeColor}" />
     ${childContainers}
-    ${Array.from(element.children)
-      .filter(child => child.tagName === 'ConductingEquipment')
-      .map(equipment => context.renderEquipment(equipment))}
-    ${Array.from(element.children)
-      .filter(child => child.tagName === 'PowerTransformer')
-      .map(powerTransformer =>
-        context.renderPowerTransformer(powerTransformer),
-      )}
-    ${iedReferences(element)
-      .filter(
-        referencedIed =>
-          referencedIed.parentElement?.tagName === 'Private' &&
-          referencedIed.parentElement!.parentElement === element,
-      )
-      .map(referencedIed => context.renderIed(referencedIed, { preview }))}
-    ${
-      preview
-        ? Array.from(element.querySelectorAll('ConnectivityNode'))
-          .filter(child => child.getAttribute('name') !== 'grounded')
-          .map(cNode => context.renderConnectivityNode(cNode))
-        : nothing
-    }
-    ${
-      preview
-        ? Array.from(
-          element.querySelectorAll(
-            'Bay, ConductingEquipment, PowerTransformer, Text',
-          ),
-        )
-          .concat(
-            Array.from(
-              element.querySelector(
-                ':scope > Private[type="OpenSCD-SLD-Layout"]',
-              )
-                ? iedReferences(
-                  element.querySelector(
-                    ':scope > Private[type="OpenSCD-SLD-Layout"]',
-                  )!,
-                )
-                : [],
-            ),
-          )
-          .concat(element)
-          .map(labelled => context.renderLabel(labelled, { preview }))
-        : nothing
-    }
-    ${resizeTLhandle}
-    ${resizeBRHandle}
-    ${placingTarget}
-    ${resizingTarget}
+    ${renderEquipmentLayer(element, context)}
+    ${renderPowerTransformerLayer(element, context)}
+    ${renderIedLayer(element, context, preview)}
+    ${renderPreviewConnectivityLayer(element, context, preview)}
+    ${renderPreviewLabelLayer(element, context, preview)}
+    ${renderResizeHandlesLayer(element, context, x, y, w, h)}
+    ${renderPlacingTargetLayer(context, kind, handleClick, x, y, w, h)}
+    ${renderResizingTargetLayer(element, context, safeHandleClick, x, y, w, h)}
   </g>`;
 }
 
