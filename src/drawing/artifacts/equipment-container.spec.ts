@@ -83,13 +83,14 @@ describe('renderVoltageLevel / renderBay', () => {
     it('starts placement of the container on click when idle', () => {
       const context = makeArtifactContext({ substation });
       mainRect(context).dispatchEvent(
-        new MouseEvent('click', { bubbles: true }),
+        new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 11 }),
       );
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-start-place',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.element).to.equal(voltageLevel);
+      expect(event.detail.offset).to.deep.equal([9, 10]);
     });
 
     it('starts placement of a copy on shift-click', () => {

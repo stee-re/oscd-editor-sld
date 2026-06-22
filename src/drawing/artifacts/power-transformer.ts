@@ -236,7 +236,6 @@ function powerTransformerActions(
   state: PowerTransformerRenderState,
 ): PowerTransformerRenderActions {
   const [x, y] = state.position;
-  const offset: Point = [context.mouseX - x, context.mouseY - y];
 
   let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
   if (context.placing === transformer) {
@@ -270,6 +269,8 @@ function powerTransformerActions(
       if (e.shiftKey) {
         placing = copyElementForPlacement(transformer, context.nsp);
       }
+      const [mouseX, mouseY] = context.gridPosition(e);
+      const offset: Point = [mouseX - x, mouseY - y];
       context.dispatch(newStartPlaceEvent(placing, offset));
     };
   } else if (context.disabled && state.selectable) {
@@ -282,6 +283,8 @@ function powerTransformerActions(
       if (e.shiftKey) {
         placing = copyElementForPlacement(transformer, context.nsp);
       }
+      const [mouseX, mouseY] = context.gridPosition(e);
+      const offset: Point = [mouseX - x, mouseY - y];
       context.dispatch(newStartPlaceEvent(placing, offset));
     };
   }

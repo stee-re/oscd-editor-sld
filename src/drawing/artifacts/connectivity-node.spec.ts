@@ -66,13 +66,14 @@ describe('renderConnectivityNode', () => {
     it('starts placement of the bay on click', () => {
       const context = makeArtifactContext({ substation });
       interactiveLine(context).dispatchEvent(
-        new MouseEvent('click', { bubbles: true }),
+        new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 11 }),
       );
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-start-place',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.element).to.equal(bay);
+      expect(event.detail.offset).to.deep.equal([8, 9]);
     });
 
     it('starts a bottom-right resize on middle-button auxclick', () => {

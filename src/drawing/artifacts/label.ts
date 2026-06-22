@@ -99,12 +99,14 @@ export function renderLabel(
   const fontSize = element.tagName === 'ConductingEquipment' ? 0.45 : 0.6;
   let events = 'none';
 
-  let handleClick: (() => void) | symbol = nothing;
+  let handleClick: ((event: MouseEvent) => void) | symbol = nothing;
   if (context.idle && !context.disabled) {
     events = 'all';
-    const offset = [context.mouseX2 - x - 0.5, context.mouseY2 - y + 0.5] as Point;
-    handleClick = () =>
+    handleClick = (event: MouseEvent) => {
+      const [mouseX2, mouseY2] = context.halfGridPosition(event);
+      const offset = [mouseX2 - x - 0.5, mouseY2 - y + 0.5] as Point;
       context.dispatch(newStartPlaceLabelEvent(element, offset));
+    };
   } else if (context.disabled && isSelectable(element, context.selectable)) {
     events = 'all';
     handleClick = () => context.dispatch(newSelectEvent(element));
