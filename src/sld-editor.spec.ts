@@ -283,6 +283,7 @@ describe('SLD Editor', () => {
     it('skips idle mouse-coordinate-only updates', async () => {
       const testEditor = await testSldSubstationEditor();
 
+      expect(testEditor.interactionMode).to.equal('idle');
       expect(
         testEditor.shouldUpdateForTest(
           new Map<PropertyKey, unknown>([
@@ -301,6 +302,7 @@ describe('SLD Editor', () => {
       const testEditor = await testSldSubstationEditor();
       testEditor.placing = document.createElement('VoltageLevel');
 
+      expect(testEditor.interactionMode).to.equal('placing');
       expect(
         testEditor.shouldUpdateForTest(
           new Map<PropertyKey, unknown>([
@@ -314,6 +316,7 @@ describe('SLD Editor', () => {
     it('keeps idle non-mouse updates', async () => {
       const testEditor = await testSldSubstationEditor();
 
+      expect(testEditor.interactionMode).to.equal('idle');
       expect(
         testEditor.shouldUpdateForTest(new Map<PropertyKey, unknown>([['doc', null]])),
       ).to.equal(true);
@@ -424,6 +427,7 @@ describe('SLD Editor', () => {
 
   function expectActiveMode(mode: string | undefined) {
     expect(activeModes()).to.deep.equal(mode ? [mode] : []);
+    expect(element.interactionMode).to.equal(mode ?? 'idle');
   }
 
   beforeEach(async () => {
