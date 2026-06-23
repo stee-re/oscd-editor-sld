@@ -46,6 +46,7 @@ import type {
   StartPlaceEvent,
 } from './foundations/events.js';
 import type { Point } from './foundations/geometry.js';
+import type { InteractionMode } from './foundations/interaction-mode.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 export type PlacementResult = {
@@ -121,6 +122,25 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     path: Point[];
     fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
   };
+
+  get interactionMode(): InteractionMode {
+    if (this.placing) {
+      return 'placing';
+    }
+    if (this.resizingBR) {
+      return 'resizingBR';
+    }
+    if (this.resizingTL) {
+      return 'resizingTL';
+    }
+    if (this.placingLabel) {
+      return 'placingLabel';
+    }
+    if (this.connecting) {
+      return 'connecting';
+    }
+    return 'idle';
+  }
 
   connectedCallback() {
     super.connectedCallback();

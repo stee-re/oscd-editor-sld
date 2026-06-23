@@ -89,6 +89,7 @@ import {
 } from './context-menu/sld-context-menu.js';
 
 import type { Point } from './foundations/geometry.js';
+import type { InteractionMode } from './foundations/interaction-mode.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 function isBay(element: Element) {
@@ -166,13 +167,26 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
 
   @state()
   get idle(): boolean {
-    return !(
-      this.placing ||
-      this.resizingBR ||
-      this.resizingTL ||
-      this.placingLabel ||
-      this.connecting
-    );
+    return this.interactionMode === 'idle';
+  }
+
+  get interactionMode(): InteractionMode {
+    if (this.placing) {
+      return 'placing';
+    }
+    if (this.resizingBR) {
+      return 'resizingBR';
+    }
+    if (this.resizingTL) {
+      return 'resizingTL';
+    }
+    if (this.placingLabel) {
+      return 'placingLabel';
+    }
+    if (this.connecting) {
+      return 'connecting';
+    }
+    return 'idle';
   }
 
   @query('svg#sld')
@@ -203,7 +217,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   }
 
   protected override shouldUpdate(changedProperties: PropertyValues<this>) {
-    if (!this.idle) {
+    if (this.interactionMode !== 'idle') {
       return true;
     }
 
