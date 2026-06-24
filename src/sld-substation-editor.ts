@@ -10,7 +10,6 @@ import {
 
 import { property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { createRef, Ref, ref } from 'lit/directives/ref.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
@@ -19,6 +18,7 @@ import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
 // TODO: Replace with oscd-ui notification when available
 import { SldSnackbar } from './sld-snackbar.js';
+import { SldCoordinateTooltip } from './sld-coordinate-tooltip.js';
 
 import {
   resizePath,
@@ -55,11 +55,7 @@ import {
   cleanPath,
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
-import {
-  canPlaceAt,
-  canResizeTo,
-  canResizeToTL,
-} from './foundations/sld-placement.js';
+import { canPlaceAt } from './foundations/sld-placement.js';
 import {
   createGroundTerminalEdits,
 } from './foundations/edits.js';
@@ -68,6 +64,7 @@ import {
   attributes,
   getSLDAttributes,
 } from './foundations/sld-attributes.js';
+import { coordinateTooltipState } from './sld-coordinate-tooltip-state.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
@@ -114,6 +111,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     // TODO: Replace with oscd-ui notification when available
     'sld-snackbar': SldSnackbar,
     'sld-context-menu': SldContextMenu,
+    'sld-coordinate-tooltip': SldCoordinateTooltip,
   };
 
   @property()
@@ -246,16 +244,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
   @state()
   mouseY2f = 0;
 
-  coordinatesRef: Ref<HTMLElement> = createRef();
-
-  positionCoordinates(e: MouseEvent) {
-    const coordinatesDiv = this.coordinatesRef?.value;
-    if (coordinatesDiv) {
-      coordinatesDiv.style.top = `${e.clientY}px`;
-      coordinatesDiv.style.left = `${e.clientX + 16}px`;
-    }
-  }
-
   private contextMenuContext(element: Element, e: MouseEvent): MenuContext {
     const [gridX, gridY] =
       e.clientX || e.clientY
@@ -347,16 +335,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return [x, y];
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    window.addEventListener('click', this.positionCoordinates);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    window.removeEventListener('click', this.positionCoordinates);
-  }
-
   handleExport() {
     exportSVG({
       svg: this.sld,
@@ -445,7 +423,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           this.mouseY2 = Math.round(y * 2) / 2;
           this.mouseX2f = Math.floor(x * 2) / 2;
           this.mouseY2f = Math.floor(y * 2) / 2;
-          this.positionCoordinates(e);
         }}
       >
         <style>
@@ -810,60 +787,22 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
    * `hidden` stays true (the tooltip is collapsed) while idle.
    */
   private renderCoordinateTooltip() {
-    let coordinates = html``;
-    let invalid = false;
-    let hidden = true;
+    const { text, invalid, hidden } = coordinateTooltipState({
+      substation: this.substation,
+      placing: this.placing,
+      placingOffset: this.placingOffset,
+      resizingBR: this.resizingBR,
+      resizingTL: this.resizingTL,
+      mouseX: this.mouseX,
+      mouseY: this.mouseY,
+    });
 
-    if (this.placing) {
-      const {
-        dim: [w0, h0],
-      } = attributes(this.placing);
-      hidden = false;
-      const [offsetX, offsetY] = this.placingOffset;
-      const x = this.mouseX - offsetX;
-      const y = this.mouseY - offsetY;
-      invalid = !canPlaceAt(this.substation, this.placing, x, y, w0, h0);
-      coordinates = html`${x},${y}`;
-    }
-
-    if (this.resizingBR && !isBusBar(this.resizingBR)) {
-      const {
-        pos: [x, y],
-      } = attributes(this.resizingBR);
-      const newW = Math.max(1, this.mouseX - x + 1);
-      const newH = Math.max(1, this.mouseY - y + 1);
-      hidden = false;
-      invalid = !canResizeTo(this.substation, this.resizingBR, newW, newH);
-      coordinates = html`${newW}&times;${newH}`;
-    }
-
-    if (this.resizingTL) {
-      const {
-        pos: [x, y],
-        dim: [resW, resH],
-      } = attributes(this.resizingTL);
-      const newW = Math.max(1, x + resW - this.mouseX);
-      const newH = Math.max(1, y + resH - this.mouseY);
-      const newX = Math.min(this.mouseX, x + resH - 1);
-      const newY = Math.min(this.mouseY, y + resW - 1);
-      hidden = false;
-      invalid = !canResizeToTL(
-        this.substation,
-        this.resizingTL,
-        newX,
-        newY,
-        newW,
-        newH,
-      );
-      coordinates = html`${newW}&times;${newH}`;
-    }
-
-    return html`<div
-      ${ref(this.coordinatesRef)}
-      class="${classMap({ coordinates: true, invalid, hidden })}"
-    >
-      (${coordinates})
-    </div>`;
+    return html`<sld-coordinate-tooltip
+      .text=${text}
+      .invalid=${invalid}
+      .tooltipHidden=${hidden}
+      .anchor=${this.sld}
+    ></sld-coordinate-tooltip>`;
   }
 
   private containerContext(): EquipmentContainerContext {
@@ -1046,26 +985,6 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       --md-icon-button-state-layer-height: 28px;
       --md-icon-button-state-layer-width: 28px;
       --md-icon-button-icon-size: 24px;
-    }
-
-    .hidden {
-      display: none;
-    }
-    svg:not(:hover) ~ .coordinates {
-      display: none;
-    }
-    .coordinates {
-      position: fixed;
-      pointer-events: none;
-      font-size: 16px;
-      font-family: 'Roboto', sans-serif;
-      padding: 8px;
-      border-radius: 16px;
-      background: #fffd;
-      color: rgb(0, 0, 0 / 0.83);
-    }
-    .coordinates.invalid {
-      color: #bb1326;
     }
 
     .disabled:not(.selectable) {
