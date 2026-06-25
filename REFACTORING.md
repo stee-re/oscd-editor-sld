@@ -44,26 +44,38 @@ temporary package boundaries too early. Prefer extracting cohesive rendering,
 validation, edit-building, and plugin-orchestration responsibilities in small
 steps that preserve behavior and keep future options open.
 
-## Workstreams
+## Planned Workstreams
 
-## Current Next Steps
+The single source of truth for open work, listed in priority order (highest
+first). There is no separate "next steps" list.
 
-- [ ] **Finish explicit interaction mode usage, derived only.** Keep existing mode
-  fields as the source of truth. Use `interactionMode` for pure mode/idle gates
-  where no payload is needed; keep direct fields for payload access.
-- [ ] **Drive overlay composition by mode.** Keep the base layer stack always
-  rendered. Centralize only pure overlay layers by mode and preserve z-order.
-- [ ] **Extract `<sld-substation-header>`.** Lower risk and lower payoff; do after
-  the mode/tooltip work unless it becomes an obvious local cleanup.
-- [ ] **Consider hoisting to one parent-owned coordinate tooltip.** The current
-  tooltip is cleaner and self-contained, but still rendered once per substation.
-  Hoist only if the event/ownership contract stays simple.
-- [ ] **Review `SldEditor` / `SldSubstationEditor` names.** Delay until mode and
-  overlay responsibilities make the final names obvious.
-- [ ] **Fixture cleanup follow-up.** Opportunistically review remaining hand-built
-  SCL fixtures in larger specs when touching those files.
+- [ ] **Drive overlay-layer composition declaratively by mode — finishing the interaction-mode work, derived only.**
+  - Existing mode fields stay the single source of truth; use `interactionMode` only where it creates a real simplification — pure mode/idle gates where no payload is needed — and keep the direct fields for payload access. Do not force local payload gates like `if (this.placing)` into `interactionMode` checks. The target is a readable `base stack + overlays(mode)` shape: keep the base layer stack always rendered, and centralize only the pure overlay layers by mode while preserving z-order.
+    The model is **not** a full layer stack per mode.
+  - **Invariant test added:** `sld-editor.spec.ts` now verifies the current state model is truly exclusive: switching through `placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting` leaves exactly one active mode, and each start method clears any previously-active modes before setting its own. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
+  - **Derived mode projection added:** `InteractionMode` now lives in `foundations/interaction-mode.ts`, with derived `interactionMode` getters on `SldEditor` and `SldSubstationEditor`. Existing fields remain the only source of truth; the getter is used for pure idle/mode questions (`idle`, `shouldUpdate`) while direct fields remain for payload access. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
+  - **Two traps to avoid:** the model is **not** a full layer stack per mode, and some always-on layers are parameterised by mode internally. Most layers render in every mode; only a handful are mode-specific overlays.
+- [ ] **Extract `renderHeader` → `<sld-substation-header>` component.** Lower risk
+      and lower payoff; do after the mode work unless it becomes an obvious local
+      cleanup. Unlike the dialog/tooltip, the header is legitimately per-substation
+      (each substation has its own name + edit/delete/resize/export buttons), so it
+      does NOT collapse to a single instance. Clean contract: inputs = name +
+      disabled; outputs = edit / delete events. Export stays a view concern because it
+      reads `this.sld`; the component can keep export or re-emit.
+- [ ] **Hoist the coordinate tooltip to a single parent-owned instance.** The
+      tooltip is now self-contained, but there is still one `<sld-coordinate-tooltip>`
+      instance per substation. A future hoist to `SldEditor` would remove the
+      remaining per-substation instances/listeners, but only do it if the
+      child-to-parent tooltip-state event stays simple and does not duplicate grid
+      interaction state.
+- [ ] **Review the names of `sld-editor.ts` (`SldEditor`) and `sld-substation-editor.ts` (`SldSubstationEditor`).** Delay until mode and overlay responsibilities make the final names obvious. The names misrepresent the responsibilities:
+  - `SldEditor` is the **controller / interaction state-machine** for the whole diagram. It renders one `SldSubstationEditor` per `:root > Substation` and broadcasts the single active gesture (`placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting`) down to all of them. It intercepts the gesture events bubbling up, and on completion **builds the `EditV2` document edits and dispatches `newEditEventV2` upward** to the OpenSCD host (which actually applies them). It owns the promise-based placement API.
+  - `SldSubstationEditor` is, for the most part, a **per-substation view**: it renders one substation's subtree to SVG for the current gesture and reports raw user gestures back to its parent. It owns almost no durable state (only transient mouse coordinates).
+  - In MVC terms, `SldEditor` ≈ **Controller**, `SldSubstationEditor` ≈ **View** — i.e. the current names are roughly inverted. This seam is also the future **viewer / editor / plugin** module split. Park as its own deliberate cross-file rename until the target names are obvious.
+- [ ] **Fixture cleanup follow-up.** Opportunistically, when touching the specs,
+      review remaining hand-built SCL fixtures in `context-menu/sld-context-menu.spec.ts`, `foundations/edits.spec.ts`, `sld-editor.spec.ts`, and `oscd-editor-sld.spec.ts`. Many are scenario/integration fixtures or non-Bay shapes, so convert only where `sldFixture()` reduces noise without hiding important document shape.
 - [ ] **Expose themable artifact colours as CSS variables.** Valuable, but separate
-  from the current rendering/interaction boundary work.
+      from the current rendering/interaction boundary work. Hardcoded colours such as the equipment top-indicator `#BB1326` should eventually become CSS custom properties so plugin/future-module consumers can theme the rendered diagram.
 
 ## Completed Workstreams
 
@@ -118,21 +130,6 @@ steps that preserve behavior and keep future options open.
   - **Open implementation choice (decided):** went with (b) the dedicated component (cleanest contract: input = substation, output = one resize event).
 - [x] **Rework the coordinate tooltip.** DONE: extracted the semantic tooltip state into pure `coordinateTooltipState(...)` and extracted `<sld-coordinate-tooltip>` for cursor-following DOM positioning + visual rendering. `SldSubstationEditor` now keeps only the diagram/grid interaction state, passes the derived tooltip state into the component, and no longer owns `coordinatesRef`, `positionCoordinates()`, the per-substation `window.click` listener, or tooltip CSS. The component accepts an optional `anchor` so it preserves the old “hide when the SVG is not hovered” behavior without reintroducing imperative positioning in the editor. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`492 passed, 0 failed`), and `npm run format`.
 
-## Pending Workstreams
-
-- [ ] **Drive overlay-layer composition declaratively by mode.** Use `interactionMode` only where it creates a real simplification. Do not force local payload gates like `if (this.placing)` into `interactionMode` checks. The real target is a readable `base stack + overlays(mode)` shape, not a full stack per mode.
-  - **Invariant test added:** `sld-editor.spec.ts` now verifies the current state model is truly exclusive: switching through `placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting` leaves exactly one active mode, and each start method clears any previously-active modes before setting its own. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
-  - **Derived mode projection added:** `InteractionMode` now lives in `foundations/interaction-mode.ts`, with derived `interactionMode` getters on `SldEditor` and `SldSubstationEditor`. Existing fields remain the only source of truth; the getter is used for pure idle/mode questions (`idle`, `shouldUpdate`) while direct fields remain for payload access. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
-  - **Two traps to avoid:** the model is **not** a full layer stack per mode, and some always-on layers are parameterised by mode internally. Most layers render in every mode; only a handful are mode-specific overlays.
-- [ ] **`renderHeader` → `<sld-substation-header>` component.** Unlike the dialog/tooltip, the header is legitimately per-substation (each substation has its own name + edit/delete/resize/export buttons), so it does NOT collapse to a single instance. Clean contract: inputs = name + disabled; outputs = edit / delete events. Export stays a view concern because it reads `this.sld`; the component can keep export or re-emit.
-- [ ] **Consider hoisting to one parent-owned coordinate tooltip.** The tooltip is now self-contained, but there is still one `<sld-coordinate-tooltip>` instance per substation. A future hoist to `SldEditor` would remove the remaining per-substation instances/listeners, but only do it if the child-to-parent tooltip-state event stays simple and does not duplicate grid interaction state.
-- [ ] **Review the names of `sld-editor.ts` (`SldEditor`) and `sld-substation-editor.ts` (`SldSubstationEditor`).** The names misrepresent the responsibilities:
-  - `SldEditor` is the **controller / interaction state-machine** for the whole diagram. It renders one `SldSubstationEditor` per `:root > Substation` and broadcasts the single active gesture (`placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting`) down to all of them. It intercepts the gesture events bubbling up, and on completion **builds the `EditV2` document edits and dispatches `newEditEventV2` upward** to the OpenSCD host (which actually applies them). It owns the promise-based placement API.
-  - `SldSubstationEditor` is, for the most part, a **per-substation view**: it renders one substation's subtree to SVG for the current gesture and reports raw user gestures back to its parent. It owns almost no durable state (only transient mouse coordinates).
-  - In MVC terms, `SldEditor` ≈ **Controller**, `SldSubstationEditor` ≈ **View** — i.e. the current names are roughly inverted. This seam is also the future **viewer / editor / plugin** module split. Park as its own deliberate cross-file rename until the target names are obvious.
-- [ ] **Fixture cleanup follow-up.** Review remaining hand-built SCL fixtures in `context-menu/sld-context-menu.spec.ts`, `foundations/edits.spec.ts`, `sld-editor.spec.ts`, and `oscd-editor-sld.spec.ts`. Many are scenario/integration fixtures or non-Bay shapes, so convert only where `sldFixture()` reduces noise without hiding important document shape.
-- [ ] **Expose themable artifact colours as CSS variables.** Hardcoded colours such as the equipment top-indicator `#BB1326` should eventually become CSS custom properties so plugin/future-module consumers can theme the rendered diagram.
-
 ## Reference Principles
 
 - **GUIDING PRINCIPLE for the viewer/editor split — the edit-vs-view litmus test.** When deciding where an operation belongs, ask: _does it produce an `EditV2` (mutate the SCL document)?_ → it belongs in the **editor/controller** layer (`SldEditor`). _Does it read/serialise the rendered view?_ → it belongs in the **view** layer (`SldSubstationEditor`). This is the rule that should drive the eventual `viewer / editor / plugin` module split. Confirmed state of the four `renderHeader` buttons against this test:
@@ -148,18 +145,18 @@ steps that preserve behavior and keep future options open.
 
 ### Root & Editor
 
-- `src/oscd-editor-sld.ts` (210 lines) — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
-- `src/sld-editor.ts` (402 lines) — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API. Owns the single `<sld-resize-substation-dialog>` instance.
-- `src/sld-substation-editor.ts` (~1029 lines) — SVG rendering orchestration + context menu delegation. `render()` is now a paint-order layer stack of `render*` sub-methods. Future split target for viewer extraction.
-- `src/sld-resize-substation-dialog.ts` (150 lines) — Self-contained substation resize dialog (width/height form + `canResizeTo` validation). Input: `.substation`; output: a single `oscd-sld-resize` event. Owned by `SldEditor`.
+- `src/oscd-editor-sld.ts` — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor
+- `src/sld-editor.ts` — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API. Owns the single `<sld-resize-substation-dialog>` instance.
+- `src/sld-substation-editor.ts` — SVG rendering orchestration + context menu delegation. `render()` is now a paint-order layer stack of `render*` sub-methods. Future split target for viewer extraction.
+- `src/sld-resize-substation-dialog.ts` — Self-contained substation resize dialog (width/height form + `canResizeTo` validation). Input: `.substation`; output: a single `oscd-sld-resize` event. Owned by `SldEditor`.
 
 ### Toolbar (`src/toolbar/`)
 
-- `src/toolbar/sld-toolbar.ts` (470 lines) — Layout compositor with data-driven FAB groups. Equipment, structural, transformer, and view-control sections. Owns the about dialog and `insertSubstation` logic.
+- `src/toolbar/sld-toolbar.ts` — Layout compositor with data-driven FAB groups. Equipment, structural, transformer, and view-control sections. Owns the about dialog and `insertSubstation` logic.
 - `src/toolbar/sld-toolbar.spec.ts` — Unit tests: substation insertion, zoom events, placement events, view toggles, about/cancel
-- `src/toolbar/sld-ied-importer.ts` (93 lines) — FAB + hidden file input for bay typical import. Parses SCL, converts layout, emits placement event with IEDs.
+- `src/toolbar/sld-ied-importer.ts` — FAB + hidden file input for bay typical import. Parses SCL, converts layout, emits placement event with IEDs.
 - `src/toolbar/sld-ied-importer.spec.ts` — Unit tests: FAB rendering, file input, event dispatch
-- `src/toolbar/sld-ied-menu.ts` (251 lines) — IED selection menu with 3 sections (unmatched refs, available IEDs, used IEDs). Emits `start-placing`.
+- `src/toolbar/sld-ied-menu.ts` — IED selection menu with 3 sections (unmatched refs, available IEDs, used IEDs). Emits `start-placing`.
 - `src/toolbar/sld-ied-menu.spec.ts` — Unit tests: menu items, status markers, start-placing event, remove unmatched
 
 ### Context Menu (`src/context-menu/`)
@@ -420,20 +417,20 @@ while edit-building logic lives as pure functions in `foundations/`.
 
 Current files are well-grouped by domain concept:
 
-| File                    | Lines | Responsibility                                                                  | Notes        |
-| ----------------------- | ----- | ------------------------------------------------------------------------------- | ------------ |
-| `geometry.ts`           | 118   | Pure math (Rect, Point, contains, overlaps)                                     | ✅           |
-| `element-geometry.ts`   | 37    | Bridges geometry ↔ SCL elements                                                 | ✅           |
-| `sld-placement.ts`      | 132   | Validation (`canPlaceAt`, `canResizeTo`)                                        | ✅ read-only |
-| `equipment.ts`          | 38    | Type constants & guards                                                         | ✅           |
-| `transformer.ts`        | 258   | Rendering geometry for windings                                                 | ✅           |
-| `sld-attributes.ts`     | 177   | Read/write SLD namespace attributes                                             | ✅           |
-| `events.ts`             | 214   | Custom event factories & types                                                  | ✅           |
-| `export.ts`             | 98    | XML pretty-print & download                                                     | ✅           |
-| `ied.ts`                | 74    | IED resolution + one edit builder                                               | ✅           |
-| `connectivity.ts`       | 106   | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`)          | ✅ pure      |
-| `connectivity-edits.ts` | 334   | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅           |
-| `edits.ts`              | 838   | Pure edit builders (ground, flip, delete, copy, connect)                        | ✅           |
+| File                    | Responsibility                                                                  | Notes        |
+| ----------------------- | ------------------------------------------------------------------------------- | ------------ |
+| `geometry.ts`           | Pure math (Rect, Point, contains, overlaps)                                     | ✅           |
+| `element-geometry.ts`   | Bridges geometry ↔ SCL elements                                                 | ✅           |
+| `sld-placement.ts`      | Validation (`canPlaceAt`, `canResizeTo`)                                        | ✅ read-only |
+| `equipment.ts`          | Type constants & guards                                                         | ✅           |
+| `transformer.ts`        | Rendering geometry for windings                                                 | ✅           |
+| `sld-attributes.ts`     | Read/write SLD namespace attributes                                             | ✅           |
+| `events.ts`             | Custom event factories & types                                                  | ✅           |
+| `export.ts`             | XML pretty-print & download                                                     | ✅           |
+| `ied.ts`                | IED resolution + one edit builder                                               | ✅           |
+| `connectivity.ts`       | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`)          | ✅ pure      |
+| `connectivity-edits.ts` | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅           |
+| `edits.ts`              | Pure edit builders (ground, flip, delete, copy, connect)                        | ✅           |
 
 `connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`,
 `busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`,
