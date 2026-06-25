@@ -187,6 +187,19 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     return 'idle';
   }
 
+  /**
+   * True when `element` is, or is contained by, the element currently being
+   * placed. Such an element moves with the cursor as the placing-preview ghost,
+   * so the base layers suppress it (the preview paints it instead) and the
+   * position helpers apply the live mouse offset to it. This is the one way a
+   * base layer's appearance is parameterised by the placing mode.
+   */
+  private isPartOfPlacingElement(element: Element): boolean {
+    return (
+      !!this.placing && element.closest(this.placing.localName) === this.placing
+    );
+  }
+
   @query('svg#sld')
   sld!: SVGGraphicsElement;
 
@@ -290,13 +303,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       preview
         ? [-1, -1]
         : this.placingOffset;
-    if (
-      this.placing &&
-      element.closest(this.placing.localName) === this.placing
-    ) {
+    if (this.isPartOfPlacingElement(element)) {
       const {
         pos: [parentX, parentY],
-      } = attributes(this.placing);
+      } = attributes(this.placing!);
       x += this.mouseX - parentX - offsetX;
       y += this.mouseY - parentY - offsetY;
     }
@@ -321,13 +331,10 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     let {
       pos: [x, y],
     } = attributes(element);
-    if (
-      this.placing &&
-      element.closest(this.placing.localName) === this.placing
-    ) {
+    if (this.isPartOfPlacingElement(element)) {
       const {
         pos: [parentX, parentY],
-      } = attributes(this.placing);
+      } = attributes(this.placing!);
       const [offsetX, offsetY] = this.placingOffset;
       x += this.mouseX - parentX - offsetX;
       y += this.mouseY - parentY - offsetY;
@@ -395,6 +402,26 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(newEditEventV2(edits));
   }
 
+  /**
+   * Composes the substation SVG as one z-ordered stack of layers (paint order =
+   * z-order; last drawn wins). Each layer is one of two kinds by *presence*:
+   *
+   * - **base layers** — always in the stack: `renderVoltageLevelLayer`,
+   *   `renderConnectivityLayer`, `renderPowerTransformerLayer`, `renderIedLayer`,
+   *   `renderLabelLayer`.
+   * - **mode layers** — present only during one interaction mode, each gated on
+   *   the relevant field/payload: `renderVoltageLevelPlacingTarget` (placing a
+   *   VoltageLevel), `renderConnectionPreviewLayer` +
+   *   `renderConnectModeEquipmentLayer` (connecting), `renderPlacingTargetsLayer`
+   *   + `renderPlacingPreview` (placing), and the DOM `renderCoordinateTooltip`
+   *   (placing/resizing).
+   *
+   * Mode layers are NOT a top tier — they are interleaved at fixed z-positions
+   * (the VL placing target paints at the back; the connection preview in the
+   * middle), so the call order here must not change. Base-layer *appearance* may
+   * still vary by mode via `isPartOfPlacingElement` (the placed element is
+   * suppressed here and re-painted as the preview ghost).
+   */
   render() {
     const {
       dim: [w, h],
@@ -727,10 +754,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
       .filter(
         node =>
           node.getAttribute('name') !== 'grounded' &&
-          !(
-            this.placing &&
-            node.closest(this.placing.localName) === this.placing
-          ),
+          !this.isPartOfPlacingElement(node),
       )
       .sort(
         (a, b) =>
@@ -754,8 +778,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           !['Bay', 'VoltageLevel'].includes(
             referencedIed.parentElement!.parentElement!.tagName,
           ) &&
-          (!this.placing ||
-            referencedIed.closest(this.placing.localName) !== this.placing),
+          !this.isPartOfPlacingElement(referencedIed),
       )
       .map(ied => this.renderIed(ied));
   }
@@ -773,10 +796,7 @@ export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
           ) ?? [],
         ).flatMap(privateLayout => iedReferences(privateLayout)),
       )
-      .filter(
-        e =>
-          !this.placing || e.closest(this.placing.localName) !== this.placing,
-      )
+      .filter(e => !this.isPartOfPlacingElement(e))
       .map(element => this.renderLabel(element));
   }
 

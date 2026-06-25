@@ -49,12 +49,6 @@ steps that preserve behavior and keep future options open.
 The single source of truth for open work, listed in priority order (highest
 first). There is no separate "next steps" list.
 
-- [ ] **Drive overlay-layer composition declaratively by mode — finishing the interaction-mode work, derived only.**
-  - Existing mode fields stay the single source of truth; use `interactionMode` only where it creates a real simplification — pure mode/idle gates where no payload is needed — and keep the direct fields for payload access. Do not force local payload gates like `if (this.placing)` into `interactionMode` checks. The target is a readable `base stack + overlays(mode)` shape: keep the base layer stack always rendered, and centralize only the pure overlay layers by mode while preserving z-order.
-    The model is **not** a full layer stack per mode.
-  - **Invariant test added:** `sld-editor.spec.ts` now verifies the current state model is truly exclusive: switching through `placing`/`resizingBR`/`resizingTL`/`placingLabel`/`connecting` leaves exactly one active mode, and each start method clears any previously-active modes before setting its own. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
-  - **Derived mode projection added:** `InteractionMode` now lives in `foundations/interaction-mode.ts`, with derived `interactionMode` getters on `SldEditor` and `SldSubstationEditor`. Existing fields remain the only source of truth; the getter is used for pure idle/mode questions (`idle`, `shouldUpdate`) while direct fields remain for payload access. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`481 passed, 0 failed`), and `npm run format`.
-  - **Two traps to avoid:** the model is **not** a full layer stack per mode, and some always-on layers are parameterised by mode internally. Most layers render in every mode; only a handful are mode-specific overlays.
 - [ ] **Extract `renderHeader` → `<sld-substation-header>` component.** Lower risk
       and lower payoff; do after the mode work unless it becomes an obvious local
       cleanup. Unlike the dialog/tooltip, the header is legitimately per-substation
@@ -78,6 +72,9 @@ first). There is no separate "next steps" list.
       from the current rendering/interaction boundary work. Hardcoded colours such as the equipment top-indicator `#BB1326` should eventually become CSS custom properties so plugin/future-module consumers can theme the rendered diagram.
 
 ## Completed Workstreams
+
+- [x] **Make the base-layer / mode-layer split explicit in `render()` (interaction-mode vocabulary).** Replaced the misleading "overlay-layer composition" framing with a **base layer** (always present) vs **mode layer** (present only during one interaction mode) distinction — deliberately dropping "overlay", which wrongly implies a top tier when mode layers are interleaved at fixed z-positions (the VL placing target paints at the back, the connection preview in the middle). Documented this on `SldSubstationEditor.render()` (the stack is base + mode layers in paint order; order is load-bearing and must not change). Centralized the placing-suppression predicate — `this.placing && el.closest(this.placing.localName) === this.placing`, previously repeated in 5 sites — into a single named `isPartOfPlacingElement(element)` helper, naming the one way a base layer's appearance is parameterised by the placing mode (the placed element is suppressed in base layers and re-painted as the preview ghost; the position helpers shift it to follow the cursor). Behaviour-preserving; existing mode fields remain the single source of truth and `interactionMode` is used only for pure mode/idle questions. Verified with `./node_modules/.bin/tsc --noEmit`, `npm run test` (`492 passed, 0 failed`), and `npm run format`.
+  - **Earlier sub-steps (already in place):** `sld-editor.spec.ts` invariant test that the mode model is exclusive (exactly one active mode; each start method clears the others); and the derived `interactionMode` projection in `foundations/interaction-mode.ts` with getters on `SldEditor`/`SldSubstationEditor` (fields stay the source of truth; the getter answers `idle`/`shouldUpdate`).
 
 - [x] Convert menu items to data-driven `ContextMenuAction` shape (discriminated union)
 - [x] Create `OscdSldIcon` for SLD-specific action icons
