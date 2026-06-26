@@ -9,7 +9,7 @@ import { EditEventV2 } from '@openscd/oscd-api';
 import { identity } from '@openscd/scl-lib';
 
 import OscdEditorSld from './oscd-editor-sld.js';
-import { SldSubstationEditor } from './sld-substation-editor.js';
+import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldEditor } from './sld-editor.js';
 import { getSLDAttributes } from './foundations/sld-attributes.js';
 import { iedReferences, resolveIed } from './foundations/ied.js';
@@ -424,12 +424,12 @@ export const iedNameAndLegacyCoordinatesDocString = `<?xml version="1.0" encodin
 </SCL>
 `;
 
-function getSldSubstationEditor(
+function getSldSubstationViewer(
   element: OscdEditorSld,
-): SldSubstationEditor | null | undefined {
+): SldSubstationViewer | null | undefined {
   return element.shadowRoot
-    ?.querySelector<SldSubstationEditor>('sld-editor')
-    ?.shadowRoot?.querySelector('sld-substation-editor');
+    ?.querySelector<SldSubstationViewer>('sld-editor')
+    ?.shadowRoot?.querySelector('sld-substation-viewer');
 }
 
 function getToolbarRoot(element: OscdEditorSld): ShadowRoot | null | undefined {
@@ -461,9 +461,9 @@ function clickInteractive(element: HTMLElement): void {
 
 async function waitForSubstationEditor(
   element: OscdEditorSld,
-): Promise<{ sldEditor: SldEditor; sldSubstationEditor: SldSubstationEditor }> {
+): Promise<{ sldEditor: SldEditor; sldSubstationViewer: SldSubstationViewer }> {
   let sldEditor: SldEditor;
-  let sldSubstationEditor: SldSubstationEditor;
+  let sldSubstationViewer: SldSubstationViewer;
 
   await waitUntil(() => {
     const el = element.shadowRoot?.querySelector(
@@ -473,19 +473,19 @@ async function waitForSubstationEditor(
       return false;
     }
     const sub = el.shadowRoot.querySelector(
-      'sld-substation-editor',
-    ) as SldSubstationEditor | null;
+      'sld-substation-viewer',
+    ) as SldSubstationViewer | null;
     if (!sub?.shadowRoot) {
       return false;
     }
     sldEditor = el;
-    sldSubstationEditor = sub;
+    sldSubstationViewer = sub;
     return true;
-  }, 'Timed out waiting for sld-substation-editor');
+  }, 'Timed out waiting for sld-substation-viewer');
 
   await sldEditor!.updateComplete;
-  await sldSubstationEditor!.updateComplete;
-  return { sldEditor: sldEditor!, sldSubstationEditor: sldSubstationEditor! };
+  await sldSubstationViewer!.updateComplete;
+  return { sldEditor: sldEditor!, sldSubstationViewer: sldSubstationViewer! };
 }
 
 function svgClientPosition(
@@ -493,7 +493,7 @@ function svgClientPosition(
   x: number,
   y: number,
 ): [number, number] {
-  const substationEditor = getSldSubstationEditor(element)!;
+  const substationEditor = getSldSubstationViewer(element)!;
   return gridPosToViewportCoords(findSubstationSvgRoot(substationEditor), x, y);
 }
 
@@ -864,7 +864,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given a voltage level', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
     let sldEditor: SldEditor;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
@@ -876,7 +876,7 @@ describe('SLD Editor', () => {
       await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
-      sldSubstationEditor = editors.sldSubstationEditor;
+      sldSubstationViewer = editors.sldSubstationViewer;
     });
 
     it('allows placing a new bay', async () => {
@@ -892,7 +892,7 @@ describe('SLD Editor', () => {
         type: 'click',
         position: svgClientPosition(element, 11, 10),
       });
-      expect(sldSubstationEditor.resizingBR).to.be.undefined;
+      expect(sldSubstationViewer.resizingBR).to.be.undefined;
       const bay = sldEditor.doc.querySelector('Bay')!;
       expect(!!bay).to.be.true;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -910,7 +910,7 @@ describe('SLD Editor', () => {
       expect(sldEditor.resizingBR?.tagName).to.equal('Bay');
       const [x2, y2] = svgClientPosition(element, 11, 10);
       await sendMouse({ type: 'click', position: [x2, y2] });
-      expect(sldSubstationEditor.resizingBR).to.be.undefined;
+      expect(sldSubstationViewer.resizingBR).to.be.undefined;
       const bus = sldEditor.doc.querySelector('Bay');
       expect(!!bus).to.be.true;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
@@ -924,7 +924,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given a bay', () => {
-    let _sldSubstationEditor: SldSubstationEditor;
+    let _sldSubstationViewer: SldSubstationViewer;
     let sldEditor: SldEditor;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
@@ -936,7 +936,7 @@ describe('SLD Editor', () => {
       await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
-      _sldSubstationEditor = editors.sldSubstationEditor;
+      _sldSubstationViewer = editors.sldSubstationViewer;
     });
 
     it('allows placing new conducting equipment', async () => {

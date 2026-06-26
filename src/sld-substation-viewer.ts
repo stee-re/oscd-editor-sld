@@ -104,7 +104,7 @@ const mouseCoordinateProperties: PropertyKey[] = [
 
 /** An editor [[`plugin`]] for editing the `Substation` section. */
 
-export class SldSubstationEditor extends ScopedElementsMixin(LitElement) {
+export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'oscd-icon': OscdIcon,
     'oscd-icon-button': OscdIconButton,

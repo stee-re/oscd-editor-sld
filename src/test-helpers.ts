@@ -90,7 +90,7 @@ export function sldFixture({
  */
 
 /**
- * Return the `#sld` SVG element from a SldSubstationEditor shadow root.
+ * Return the `#sld` SVG element from a SldSubstationViewer shadow root.
  */
 export function findSubstationSvgRoot(
   substationEditor: Element,
@@ -98,7 +98,7 @@ export function findSubstationSvgRoot(
   const svg =
     substationEditor.shadowRoot!.querySelector<SVGSVGElement>('svg#sld');
   if (!svg) {
-    throw new Error('Could not find svg#sld in SldSubstationEditor');
+    throw new Error('Could not find svg#sld in SldSubstationViewer');
   }
   return svg;
 }
