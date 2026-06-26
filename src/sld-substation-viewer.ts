@@ -86,7 +86,8 @@ import {
 } from './context-menu/sld-context-menu.js';
 
 import type { Point } from './foundations/geometry.js';
-import type { InteractionMode } from './foundations/interaction-mode.js';
+import type { Interaction } from './foundations/interaction-mode.js';
+import type { StartConnectDetail } from './foundations/events.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 function isBay(element: Element) {
@@ -129,27 +130,55 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   @property()
   nsp = 'esld';
 
-  @property()
-  resizingBR?: Element;
+  @property({ attribute: false })
+  interaction: Interaction = { mode: 'idle' };
 
-  @property()
-  resizingTL?: Element;
+  /**
+   * The following read-only getters project the single {@link interaction}
+   * value into the per-gesture shapes the render layers and drawing artifacts
+   * consume. The view stores no interaction state of its own — it derives these
+   * from the one `interaction` property supplied by the controller.
+   */
+  get placing(): Element | undefined {
+    return this.interaction.mode === 'placing'
+      ? this.interaction.element
+      : undefined;
+  }
 
-  @property()
-  placing?: Element;
+  get placingOffset(): Point {
+    return this.interaction.mode === 'placing' ||
+      this.interaction.mode === 'placingLabel'
+      ? this.interaction.offset
+      : [0, 0];
+  }
 
-  @property()
-  placingOffset: Point = [0, 0];
+  get placingLabel(): Element | undefined {
+    return this.interaction.mode === 'placingLabel'
+      ? this.interaction.element
+      : undefined;
+  }
 
-  @property()
-  placingLabel?: Element;
+  get resizingBR(): Element | undefined {
+    return this.interaction.mode === 'resizingBR'
+      ? this.interaction.element
+      : undefined;
+  }
 
-  @property()
-  connecting?: {
-    from: Element;
-    path: Point[];
-    fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
-  };
+  get resizingTL(): Element | undefined {
+    return this.interaction.mode === 'resizingTL'
+      ? this.interaction.element
+      : undefined;
+  }
+
+  get connecting(): StartConnectDetail | undefined {
+    return this.interaction.mode === 'connectingFrom'
+      ? {
+        from: this.interaction.element,
+        path: this.interaction.path,
+        fromTerminal: this.interaction.terminal,
+      }
+      : undefined;
+  }
 
   @property()
   showLabels?: boolean;
@@ -165,26 +194,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
 
   @state()
   get idle(): boolean {
-    return this.interactionMode === 'idle';
-  }
-
-  get interactionMode(): InteractionMode {
-    if (this.placing) {
-      return 'placing';
-    }
-    if (this.resizingBR) {
-      return 'resizingBR';
-    }
-    if (this.resizingTL) {
-      return 'resizingTL';
-    }
-    if (this.placingLabel) {
-      return 'placingLabel';
-    }
-    if (this.connecting) {
-      return 'connecting';
-    }
-    return 'idle';
+    return this.interaction.mode === 'idle';
   }
 
   /**
@@ -228,7 +238,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   protected override shouldUpdate(changedProperties: PropertyValues<this>) {
-    if (this.interactionMode !== 'idle') {
+    if (this.interaction.mode !== 'idle') {
       return true;
     }
 

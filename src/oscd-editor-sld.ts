@@ -81,7 +81,7 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   }
   reset() {
     this.inAction = false;
-    this.sldEditor?.resetWithOffset();
+    this.sldEditor?.reset();
   }
 
   handleKeydown = ({ key }: KeyboardEvent) => {

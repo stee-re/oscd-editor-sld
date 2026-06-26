@@ -46,7 +46,8 @@ import type {
   StartPlaceEvent,
 } from './foundations/events.js';
 import type { Point } from './foundations/geometry.js';
-import type { InteractionMode } from './foundations/interaction-mode.js';
+import * as interactions from './foundations/interaction-mode.js';
+import type {Interaction} from './foundations/interaction-mode.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 export type PlacementResult = {
@@ -77,12 +78,13 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   }
 
   set docVersion(value: number) {
-    this.connecting = undefined;
-    if (!this.resizingBR?.parentElement) {
-      this.resizingBR = undefined;
-    }
-    if (!this.placingLabel?.parentElement) {
-      this.placingLabel = undefined;
+    const i = this.interaction;
+    if (
+      i.mode === 'connectingFrom' ||
+      (i.mode === 'resizingBR' && !i.element.parentElement) ||
+      (i.mode === 'placingLabel' && !i.element.parentElement)
+    ) {
+      this.interaction = interactions.idle();
     }
     this._docVersion = value;
   }
@@ -104,42 +106,42 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   @state() nsp = 'eoscd';
 
-  @state() resizingBR?: Element;
-
-  @state() resizingTL?: Element;
-
-  @state() placing?: Element;
-
-  @state() placingOffset: Point = [0, 0];
-
-  @state() placingLabel?: Element;
+  @state() interaction: Interaction = interactions.idle();
 
   @state() showLabels: boolean = true;
 
-  @state()
-  connecting?: {
-    from: Element;
-    path: Point[];
-    fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
-  };
+  get placing(): Element | undefined {
+    return this.interaction.mode === 'placing'
+      ? this.interaction.element
+      : undefined;
+  }
 
-  get interactionMode(): InteractionMode {
-    if (this.placing) {
-      return 'placing';
-    }
-    if (this.resizingBR) {
-      return 'resizingBR';
-    }
-    if (this.resizingTL) {
-      return 'resizingTL';
-    }
-    if (this.placingLabel) {
-      return 'placingLabel';
-    }
-    if (this.connecting) {
-      return 'connecting';
-    }
-    return 'idle';
+  get placingLabel(): Element | undefined {
+    return this.interaction.mode === 'placingLabel'
+      ? this.interaction.element
+      : undefined;
+  }
+
+  get resizingBR(): Element | undefined {
+    return this.interaction.mode === 'resizingBR'
+      ? this.interaction.element
+      : undefined;
+  }
+
+  get resizingTL(): Element | undefined {
+    return this.interaction.mode === 'resizingTL'
+      ? this.interaction.element
+      : undefined;
+  }
+
+  get connecting(): StartConnectDetail | undefined {
+    return this.interaction.mode === 'connectingFrom'
+      ? {
+        from: this.interaction.element,
+        path: this.interaction.path,
+        fromTerminal: this.interaction.terminal,
+      }
+      : undefined;
   }
 
   connectedCallback() {
@@ -246,11 +248,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   }
 
   reset() {
-    this.resizingBR = undefined;
-    this.resizingTL = undefined;
-    this.placing = undefined;
-    this.placingLabel = undefined;
-    this.connecting = undefined;
+    this.interaction = interactions.idle();
     this._resolvePlacement?.(undefined);
     this._resolvePlacement = undefined;
     this.dispatchEvent(
@@ -258,14 +256,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  resetWithOffset() {
-    this.placingOffset = [0, 0];
-    this.reset();
-  }
-
   startResizingBottomRight(element: Element | undefined) {
     this.reset();
-    this.resizingBR = element;
+    if (element) {
+      this.interaction = interactions.resizingBR(element);
+    }
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
@@ -273,7 +268,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   startResizingTopLeft(element: Element | undefined) {
     this.reset();
-    this.resizingTL = element;
+    if (element) {
+      this.interaction = interactions.resizingTL(element);
+    }
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
@@ -290,8 +287,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     }
 
     this.reset();
-    this.placing = element;
-    this.placingOffset = offset;
+    if (element) {
+      this.interaction = interactions.placing(element, offset);
+    }
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
@@ -303,8 +301,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   startPlacingLabel(element: Element | undefined, offset: Point = [0, 0]) {
     this.reset();
-    this.placingLabel = element;
-    this.placingOffset = offset;
+    if (element) {
+      this.interaction = interactions.placingLabel(element, offset);
+    }
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
@@ -312,7 +311,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   startConnecting(detail: StartConnectDetail) {
     this.reset();
-    this.connecting = detail;
+    this.interaction = interactions.connectingFrom(
+      detail.from,
+      detail.fromTerminal,
+      detail.path,
+    );
     this.dispatchEvent(
       new CustomEvent('sld-editor-in-action', { detail: true }),
     );
@@ -386,12 +389,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             .docVersion=${this.docVersion}
             .substation=${substation}
             .gridSize=${this.gridSize}
-            .resizingBR=${this.resizingBR}
-            .resizingTL=${this.resizingTL}
-            .placing=${this.placing}
-            .placingOffset=${this.placingOffset}
-            .placingLabel=${this.placingLabel}
-            .connecting=${this.connecting}
+            .interaction=${this.interaction}
             .showLabels=${this.showLabels}
             .showIeds=${this.showIeds}
             .disabled=${this.disabled}

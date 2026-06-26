@@ -69,6 +69,14 @@ import {
   setSLDAttributes,
 } from './foundations/sld-attributes.js';
 import { iedReferences, resolveIed } from './foundations/ied.js';
+import {
+  connectingFrom,
+  idle,
+  placing,
+  placingLabel,
+  resizingBR,
+  resizingTL,
+} from './foundations/interaction-mode.js';
 import { sldNs } from './foundations.js';
 
 import { SldEditor } from './sld-editor.js';
@@ -283,7 +291,7 @@ describe('SLD Editor', () => {
     it('skips idle mouse-coordinate-only updates', async () => {
       const testEditor = await testSldSubstationViewer();
 
-      expect(testEditor.interactionMode).to.equal('idle');
+      expect(testEditor.interaction.mode).to.equal('idle');
       expect(
         testEditor.shouldUpdateForTest(
           new Map<PropertyKey, unknown>([
@@ -300,9 +308,12 @@ describe('SLD Editor', () => {
 
     it('keeps active mouse-coordinate updates', async () => {
       const testEditor = await testSldSubstationViewer();
-      testEditor.placing = document.createElement('VoltageLevel');
+      testEditor.interaction = placing(
+        document.createElement('VoltageLevel'),
+        [0, 0],
+      );
 
-      expect(testEditor.interactionMode).to.equal('placing');
+      expect(testEditor.interaction.mode).to.equal('placing');
       expect(
         testEditor.shouldUpdateForTest(
           new Map<PropertyKey, unknown>([
@@ -316,7 +327,7 @@ describe('SLD Editor', () => {
     it('keeps idle non-mouse updates', async () => {
       const testEditor = await testSldSubstationViewer();
 
-      expect(testEditor.interactionMode).to.equal('idle');
+      expect(testEditor.interaction.mode).to.equal('idle');
       expect(
         testEditor.shouldUpdateForTest(new Map<PropertyKey, unknown>([['doc', null]])),
       ).to.equal(true);
@@ -413,21 +424,8 @@ describe('SLD Editor', () => {
     );
   }
 
-  function activeModes(): string[] {
-    return [
-      ['placing', element.placing],
-      ['resizingBR', element.resizingBR],
-      ['resizingTL', element.resizingTL],
-      ['placingLabel', element.placingLabel],
-      ['connecting', element.connecting],
-    ]
-      .filter(([, value]) => !!value)
-      .map(([mode]) => mode as string);
-  }
-
   function expectActiveMode(mode: string | undefined) {
-    expect(activeModes()).to.deep.equal(mode ? [mode] : []);
-    expect(element.interactionMode).to.equal(mode ?? 'idle');
+    expect(element.interaction.mode).to.equal(mode ?? 'idle');
   }
 
   beforeEach(async () => {
@@ -462,11 +460,7 @@ describe('SLD Editor', () => {
   afterEach(async () => {
     lastCalledSclEdit = undefined;
     lastSelectedElement = undefined;
-    element.placing = undefined;
-    element.resizingBR = undefined;
-    element.resizingTL = undefined;
-    element.connecting = undefined;
-    element.placingLabel = undefined;
+    element.interaction = idle();
     await sendMouse({ type: 'click', position: [0, 0] });
     await resetMouse();
   });
@@ -503,73 +497,36 @@ describe('SLD Editor', () => {
         fromTerminal: 'T1',
         path: [[1, 1]],
       });
-      expectActiveMode('connecting');
+      expectActiveMode('connectingFrom');
 
       element.reset();
       expectActiveMode(undefined);
     });
 
-    it('clears all modes before starting each specific mode', () => {
-      element.placing = voltageLevel;
-      element.resizingBR = voltageLevel;
-      element.resizingTL = bay;
-      element.placingLabel = bay;
-      element.connecting = {
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      };
-
+    it('clears any prior mode before starting each specific mode', () => {
+      element.interaction = connectingFrom(equipment, 'T1', [[1, 1]]);
       element.startPlacing(voltageLevel);
       expectActiveMode('placing');
 
-      element.resizingBR = voltageLevel;
-      element.resizingTL = bay;
-      element.placingLabel = bay;
-      element.connecting = {
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      };
-
+      element.interaction = placingLabel(bay, [0, 0]);
       element.startResizingBottomRight(voltageLevel);
       expectActiveMode('resizingBR');
 
-      element.placing = voltageLevel;
-      element.resizingBR = voltageLevel;
-      element.placingLabel = bay;
-      element.connecting = {
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      };
-
+      element.interaction = placing(voltageLevel, [0, 0]);
       element.startResizingTopLeft(bay);
       expectActiveMode('resizingTL');
 
-      element.placing = voltageLevel;
-      element.resizingBR = voltageLevel;
-      element.resizingTL = bay;
-      element.connecting = {
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      };
-
+      element.interaction = resizingBR(voltageLevel);
       element.startPlacingLabel(bay);
       expectActiveMode('placingLabel');
 
-      element.placing = voltageLevel;
-      element.resizingBR = voltageLevel;
-      element.resizingTL = bay;
-      element.placingLabel = bay;
-
+      element.interaction = resizingTL(bay);
       element.startConnecting({
         from: equipment,
         fromTerminal: 'T1',
         path: [[1, 1]],
       });
-      expectActiveMode('connecting');
+      expectActiveMode('connectingFrom');
     });
   });
 
