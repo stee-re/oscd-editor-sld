@@ -8,6 +8,7 @@ import { OscdFab } from '@omicronenergy/oscd-ui/fab/OscdFab.js';
 import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 
 import { convertSldLayout } from '../converter.js';
+import { defaultSldNsPrefix } from '../foundations.js';
 
 export type StartPlacingTypicalDetail = {
   bayTypical: Element;
@@ -39,7 +40,7 @@ export class SldIedImporter extends ScopedElementsMixin(LitElement) {
     'oscd-icon': OscdIcon,
   };
 
-  nsp = 'eosld';
+  nsp = defaultSldNsPrefix;
 
   @query('input') private fileInput?: HTMLInputElement;
 

@@ -4,12 +4,14 @@ import { property, query, state } from 'lit/decorators.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
 import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
+import type { EditEventV2 } from '@openscd/oscd-api';
 import { insertIed } from '@openscd/scl-lib';
 
 import { SldEditor } from './sld-editor.js';
 
 import { makeBusBar } from './foundations/connectivity.js';
-import { sldNs, xmlnsNs } from './foundations.js';
+import { withSldNamespace } from './foundations/edits.js';
+import { sldPrefix } from './foundations.js';
 import { convertSldLayout, hasOldNamespace } from './converter.js';
 
 import { SldToolbar } from './toolbar/sld-toolbar.js';
@@ -29,8 +31,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   @state()
   gridSize = 32;
 
-  @state()
-  nsp = 'eosld';
+  get nsp(): string {
+    return sldPrefix(this.doc);
+  }
 
   @state()
   templateElements: Record<string, Element> = {};
@@ -75,7 +78,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     if (result) {
       const scl = this.doc.querySelector('SCL')!;
       ieds.forEach((ied) => {
-        this.dispatchEvent(newEditEventV2(insertIed(scl, ied)));
+        this.dispatchEvent(
+          newEditEventV2(withSldNamespace(this.doc, insertIed(scl, ied))),
+        );
       });
     }
   }
@@ -104,16 +109,6 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     if (!changedProperties.has('doc')) {
       return;
     }
-    const sldNsPrefix = this.doc.documentElement.lookupPrefix(sldNs);
-    if (sldNsPrefix) {
-      this.nsp = sldNsPrefix;
-    } else {
-      this.doc.documentElement.setAttributeNS(
-        xmlnsNs,
-        `xmlns:${this.nsp}`,
-        sldNs,
-      );
-    }
 
     [
       'Substation',
@@ -133,8 +128,32 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
 
   convertSldAttributes() {
     const convertEdits = convertSldLayout(this.doc, this.nsp);
-    this.dispatchEvent(newEditEventV2(convertEdits));
+    this.dispatchEvent(newEditEventV2(withSldNamespace(this.doc, convertEdits)));
   }
+
+  /**
+   * Intercepts `oscd-edit-v2` events bubbling up from the editor and toolbar and,
+   * when the edit writes SLD-layout content to a document that does not yet
+   * declare the namespace, re-emits it with the declaration prepended (one
+   * undoable commit). Re-dispatching on the root — an ancestor of both children
+   * — means the replacement never re-enters this listener, so no loop guard is
+   * needed. This is the single place that enforces the namespace for child
+   * edits; the root's own edits (insertIed, convertSldAttributes) apply it
+   * directly at their dispatch sites.
+   */
+  private normalizeEditsWithSldNS = (event: EditEventV2) => {
+    const edit = withSldNamespace(this.doc, event.detail.edit);
+    if (edit === event.detail.edit) {
+      return;
+    }
+    event.stopPropagation();
+    this.dispatchEvent(
+      newEditEventV2(edit, {
+        title: event.detail.title,
+        squash: event.detail.squash,
+      }),
+    );
+  };
 
   render() {
     if (!this.doc) {
@@ -151,10 +170,10 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       <sld-toolbar
         .doc=${this.doc}
         .docVersion=${this.docVersion}
-        .nsp=${this.nsp}
         .templateElements=${this.templateElements}
         .inAction=${this.inAction}
         .gridSize=${this.gridSize}
+        @oscd-edit-v2=${this.normalizeEditsWithSldNS}
         @start-placing=${({ detail }: CustomEvent) => {
           this.startPlacing(detail.element);
         }}
@@ -184,6 +203,7 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         .gridSize=${this.gridSize}
         .showLabels=${this.showLabels}
         .showIeds=${this.showIeds}
+        @oscd-edit-v2=${this.normalizeEditsWithSldNS}
         @sld-editor-in-action=${({ detail }: CustomEvent) => {
           this.inAction = detail;
         }}

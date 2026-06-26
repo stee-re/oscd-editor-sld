@@ -28,7 +28,7 @@ import {
   isIedReferenceElement,
   resolveIed,
 } from './foundations/ied.js';
-import { reparentElement, sldNs, xmlnsNs } from './foundations.js';
+import { reparentElement, sldNs, sldPrefix } from './foundations.js';
 
 import type {
   ConnectDetail,
@@ -104,7 +104,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   @state() gridSize = 32;
 
-  @state() nsp = 'eoscd';
+  get nsp(): string {
+    return sldPrefix(this.doc);
+  }
 
   @state() interaction: Interaction = interactions.idle();
 
@@ -230,22 +232,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       }),
     );
   };
-
-  willUpdate(changedProperties: Map<string, unknown>) {
-    if (!changedProperties.has('doc')) {
-      return;
-    }
-    const sldNsPrefix = this.doc.documentElement.lookupPrefix(sldNs);
-    if (sldNsPrefix) {
-      this.nsp = sldNsPrefix;
-    } else {
-      this.doc.documentElement.setAttributeNS(
-        xmlnsNs,
-        `xmlns:${this.nsp}`,
-        sldNs,
-      );
-    }
-  }
 
   reset() {
     this.interaction = interactions.idle();
