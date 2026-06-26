@@ -6,7 +6,7 @@ import type { EditV2, SetAttributes } from '@openscd/oscd-api';
 
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
 
-import { SldSubstationEditor } from './sld-substation-editor.js';
+import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
 import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
 import {
@@ -58,7 +58,7 @@ export type PlacementResult = {
 
 export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
-    'sld-substation-editor': SldSubstationEditor,
+    'sld-substation-viewer': SldSubstationViewer,
     'sld-resize-substation-dialog': SldResizeSubstationDialog,
     'oscd-scl-dialogs': OscdSclDialogs,
   };
@@ -381,7 +381,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       this.doc.querySelectorAll(':root > Substation'),
     ).map(
       substation =>
-        html`<sld-substation-editor
+        html`<sld-substation-viewer
             .doc=${this.doc}
             .docVersion=${this.docVersion}
             .substation=${substation}
@@ -438,7 +438,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
               this.connectEquipment(detail)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
-          ></sld-substation-editor>`,
+          ></sld-substation-viewer>`,
     )}
     <sld-resize-substation-dialog
       @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {

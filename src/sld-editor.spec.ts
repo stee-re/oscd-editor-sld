@@ -62,7 +62,7 @@ import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 import type { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import type { EditEventV2 } from '@openscd/oscd-api';
-import { SldSubstationEditor } from './sld-substation-editor.js';
+import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { busSections, makeBusBar } from './foundations/connectivity.js';
 import {
   getSLDAttributes,
@@ -88,7 +88,7 @@ import {
 
 customElements.define('sld-editor', SldEditor);
 
-class TestSldSubstationEditor extends SldSubstationEditor {
+class TestSldSubstationViewer extends SldSubstationViewer {
   override render() {
     return html``;
   }
@@ -98,10 +98,10 @@ class TestSldSubstationEditor extends SldSubstationEditor {
   }
 }
 
-customElements.define('test-sld-substation-editor', TestSldSubstationEditor);
+customElements.define('test-sld-substation-viewer', TestSldSubstationViewer);
 
-function testSldSubstationEditor(): Promise<TestSldSubstationEditor> {
-  return fixture(html`<test-sld-substation-editor></test-sld-substation-editor>`);
+function testSldSubstationViewer(): Promise<TestSldSubstationViewer> {
+  return fixture(html`<test-sld-substation-viewer></test-sld-substation-viewer>`);
 }
 
 function middleOf(element: Element): [number, number] {
@@ -267,10 +267,10 @@ export const iedDocString = `<?xml version="1.0" encoding="UTF-8"?>
 </SCL>
 `;
 
-function getSldSubstationEditor(
+function getSldSubstationViewer(
   element: SldEditor,
-): SldSubstationEditor | null | undefined {
-  return element.shadowRoot?.querySelector('sld-substation-editor');
+): SldSubstationViewer | null | undefined {
+  return element.shadowRoot?.querySelector('sld-substation-viewer');
 }
 
 describe('SLD Editor', () => {
@@ -279,9 +279,9 @@ describe('SLD Editor', () => {
   let lastCalledSclEdit: Element | undefined;
   let lastSelectedElement: Element | undefined;
 
-  describe('SldSubstationEditor update scheduling', () => {
+  describe('SldSubstationViewer update scheduling', () => {
     it('skips idle mouse-coordinate-only updates', async () => {
-      const testEditor = await testSldSubstationEditor();
+      const testEditor = await testSldSubstationViewer();
 
       expect(testEditor.interactionMode).to.equal('idle');
       expect(
@@ -299,7 +299,7 @@ describe('SLD Editor', () => {
     });
 
     it('keeps active mouse-coordinate updates', async () => {
-      const testEditor = await testSldSubstationEditor();
+      const testEditor = await testSldSubstationViewer();
       testEditor.placing = document.createElement('VoltageLevel');
 
       expect(testEditor.interactionMode).to.equal('placing');
@@ -314,7 +314,7 @@ describe('SLD Editor', () => {
     });
 
     it('keeps idle non-mouse updates', async () => {
-      const testEditor = await testSldSubstationEditor();
+      const testEditor = await testSldSubstationViewer();
 
       expect(testEditor.interactionMode).to.equal('idle');
       expect(
@@ -333,7 +333,7 @@ describe('SLD Editor', () => {
     let target: {
       getElementById?: (id: string) => Element | null;
       querySelector: (sel: string) => Element | null;
-    } = getSldSubstationEditor(element)!.shadowRoot!;
+    } = getSldSubstationViewer(element)!.shadowRoot!;
     if (scl) {
       const sclTarget = element.doc.querySelector(scl);
       target = target.getElementById?.(<string>identity(sclTarget))!;
@@ -349,7 +349,7 @@ describe('SLD Editor', () => {
 
   function contextMenu(): OscdMenu | null {
     return (
-      getSldSubstationEditor(element)!
+      getSldSubstationViewer(element)!
         .shadowRoot!.querySelector('sld-context-menu')
         ?.shadowRoot?.querySelector<OscdMenu>('oscd-menu') ??
       null
@@ -391,7 +391,7 @@ describe('SLD Editor', () => {
 
   function gridPos(gx: number, gy: number): [number, number] {
     return gridPosToViewportCoords(
-      findSubstationSvgRoot(getSldSubstationEditor(element)!),
+      findSubstationSvgRoot(getSldSubstationViewer(element)!),
       gx,
       gy,
     );
@@ -399,7 +399,7 @@ describe('SLD Editor', () => {
 
   function labelPos(lx: number, ly: number): [number, number] {
     return sclLabelToViewportCoords(
-      findSubstationSvgRoot(getSldSubstationEditor(element)!),
+      findSubstationSvgRoot(getSldSubstationViewer(element)!),
       lx,
       ly,
     );
@@ -407,7 +407,7 @@ describe('SLD Editor', () => {
 
   function svgPoint(svgX: number, svgY: number): [number, number] {
     return svgToViewportCoords(
-      findSubstationSvgRoot(getSldSubstationEditor(element)!),
+      findSubstationSvgRoot(getSldSubstationViewer(element)!),
       svgX,
       svgY,
     );
@@ -574,7 +574,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given a substation', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
     beforeEach(async () => {
       const subSt = element.doc.createElement('Substation');
       subSt.setAttribute('name', 'S1');
@@ -583,8 +583,8 @@ describe('SLD Editor', () => {
       element.requestUpdate();
       await element.updateComplete;
 
-      sldSubstationEditor = getSldSubstationEditor(element)!;
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer = getSldSubstationViewer(element)!;
+      await sldSubstationViewer.updateComplete;
     });
 
     it('adds the SLD XML namespace if doc lacks it', async () => {
@@ -592,7 +592,7 @@ describe('SLD Editor', () => {
     });
 
     it('allows resizing substations', async () => {
-      sldSubstationEditor.shadowRoot
+      sldSubstationViewer.shadowRoot
         ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
@@ -622,8 +622,8 @@ describe('SLD Editor', () => {
       width.value = '1337';
       height.value = '42';
       confirm();
-      expect(sldAttribute(sldSubstationEditor.substation, 'h')).to.equal('42');
-      expect(sldAttribute(sldSubstationEditor.substation, 'w')).to.equal(
+      expect(sldAttribute(sldSubstationViewer.substation, 'h')).to.equal('42');
+      expect(sldAttribute(sldSubstationViewer.substation, 'w')).to.equal(
         '1337',
       );
     });
@@ -665,7 +665,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given a voltage level', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
         voltageLevelDocString,
@@ -673,12 +673,12 @@ describe('SLD Editor', () => {
       );
       element.doc = doc;
       await element.updateComplete;
-      sldSubstationEditor = getSldSubstationEditor(element)!;
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer = getSldSubstationViewer(element)!;
+      await sldSubstationViewer.updateComplete;
     });
 
     it('forbids undersizing the substation', async () => {
-      sldSubstationEditor.shadowRoot
+      sldSubstationViewer.shadowRoot
         ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
@@ -698,13 +698,13 @@ describe('SLD Editor', () => {
         )
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
-      expect(sldAttribute(sldSubstationEditor.substation, 'h')).to.equal('25');
-      expect(sldAttribute(sldSubstationEditor.substation, 'w')).to.equal('50');
+      expect(sldAttribute(sldSubstationViewer.substation, 'h')).to.equal('25');
+      expect(sldAttribute(sldSubstationViewer.substation, 'w')).to.equal('50');
     });
 
     it('allows resizing voltage levels', async () => {
       const moveHandle =
-        sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+        sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
           '.handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
@@ -749,10 +749,10 @@ describe('SLD Editor', () => {
         scl: 'VoltageLevel',
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('contextmenu'));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       const item = menuItem(0);
       clickInteractive(item);
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(element)
         .property('resizingBR')
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
@@ -788,7 +788,7 @@ describe('SLD Editor', () => {
       // Select "Move" menu item
       const item = menuItem(2);
       clickInteractive(item);
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       await waitForMenuClose();
 
       expect(element)
@@ -811,7 +811,7 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       clickInteractive(menuItem(-2));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(lastCalledSclEdit).to.equal(
         element.doc.querySelector('VoltageLevel'),
       );
@@ -824,7 +824,7 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       clickInteractive(menuItem(-4));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(element)
         .property('placingLabel')
         .to.have.property('tagName', 'VoltageLevel');
@@ -861,7 +861,7 @@ describe('SLD Editor', () => {
       // reset leaves the mouse at [0,0], so the offset bakes in the label's
       // original position (1,1). We target SVG (3.9, 3.4) which, after the
       // offset is applied, results in the label being stored at lx=5, ly=4.5.
-      const svg = findSubstationSvgRoot(getSldSubstationEditor(element)!);
+      const svg = findSubstationSvgRoot(getSldSubstationViewer(element)!);
       const rect = svg.getBoundingClientRect();
       const vb = svg.viewBox.baseVal;
       const clickX = Math.round(
@@ -896,7 +896,7 @@ describe('SLD Editor', () => {
       expect(element).to.have.property('placing', undefined);
       expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(sldSubstationEditor).to.have.property('resizingBR', undefined);
+      expect(sldSubstationViewer).to.have.property('resizingBR', undefined);
       const bay = element.doc.querySelector('Bay')!;
       expect(bay).to.exist;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -914,7 +914,7 @@ describe('SLD Editor', () => {
       expect(element).to.have.property('placing', undefined);
       expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(sldSubstationEditor).to.have.property('resizingBR', undefined);
+      expect(sldSubstationViewer).to.have.property('resizingBR', undefined);
       const bus = element.doc.querySelector('Bay');
       expect(bus).to.exist;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
@@ -928,7 +928,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given a bay', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
         bayDocString,
@@ -936,13 +936,13 @@ describe('SLD Editor', () => {
       );
       element.doc = doc;
       await element.updateComplete;
-      sldSubstationEditor = getSldSubstationEditor(element)!;
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer = getSldSubstationViewer(element)!;
+      await sldSubstationViewer.updateComplete;
     });
 
     it('allows resizing bays', async () => {
       const moveHandle =
-        sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+        sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
           'g.bay .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
@@ -973,13 +973,13 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       clickInteractive(menuItem(-2));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(lastCalledSclEdit).to.equal(element.doc.querySelector('Bay'));
     });
 
     it('forbids resizing bays out of bounds', async () => {
       const moveHandle =
-        sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+        sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
           'g.bay .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
@@ -996,7 +996,7 @@ describe('SLD Editor', () => {
 
     it('forbids undersizing voltage levels containing bays', async () => {
       const moveHandle =
-        sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+        sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
           'g.voltagelevel > .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
@@ -1030,7 +1030,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
 
       clickInteractive(menuItem(2));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
 
       expect(element)
         .property('placing')
@@ -1145,7 +1145,7 @@ describe('SLD Editor', () => {
 
       it('allows the bay to overlap its sibling bus bar', async () => {
         const moveHandle =
-          sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+          sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
             'g.bay .handle',
           )[1];
         moveHandle.dispatchEvent(new PointerEvent('click'));
@@ -1180,7 +1180,7 @@ describe('SLD Editor', () => {
         await element.updateComplete;
 
         clickInteractive(menuItem(1));
-        await sldSubstationEditor.updateComplete;
+        await sldSubstationViewer.updateComplete;
         await waitForMenuClose();
 
         await sendMouse({ type: 'click', position: gridPos(...eqTarget) });
@@ -1206,7 +1206,7 @@ describe('SLD Editor', () => {
         await element.updateComplete;
 
         clickInteractive(menuItem(0));
-        await sldSubstationEditor.updateComplete;
+        await sldSubstationViewer.updateComplete;
 
         expect(sldAttribute(bus!, 'w')).to.equal('1');
         expect(sldAttribute(bus!, 'h')).to.equal('8');
@@ -1218,13 +1218,13 @@ describe('SLD Editor', () => {
   });
 
   describe('given IED references', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
 
     async function settle() {
       await aTimeout(20);
       await element.updateComplete;
-      sldSubstationEditor = getSldSubstationEditor(element)!;
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer = getSldSubstationViewer(element)!;
+      await sldSubstationViewer.updateComplete;
     }
 
     function referencedIed(name: string): Element | undefined {
@@ -1256,12 +1256,12 @@ describe('SLD Editor', () => {
       element.startPlacing(reference);
       await settle();
 
-      sldSubstationEditor.mouseX = x;
-      sldSubstationEditor.mouseY = y;
-      sldSubstationEditor.requestUpdate();
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer.mouseX = x;
+      sldSubstationViewer.mouseY = y;
+      sldSubstationViewer.requestUpdate();
+      await sldSubstationViewer.updateComplete;
 
-      const previewRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const previewRect = sldSubstationViewer.shadowRoot?.querySelector(
         'g.ied.preview rect',
       ) as SVGElement;
       expect(previewRect).to.exist;
@@ -1275,12 +1275,12 @@ describe('SLD Editor', () => {
       element.startPlacing(ied!);
       await settle();
 
-      sldSubstationEditor.mouseX = x;
-      sldSubstationEditor.mouseY = y;
-      sldSubstationEditor.requestUpdate();
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer.mouseX = x;
+      sldSubstationViewer.mouseY = y;
+      sldSubstationViewer.requestUpdate();
+      await sldSubstationViewer.updateComplete;
 
-      const previewRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const previewRect = sldSubstationViewer.shadowRoot?.querySelector(
         'g.ied.preview rect',
       ) as SVGElement;
       expect(previewRect).to.exist;
@@ -1340,7 +1340,7 @@ describe('SLD Editor', () => {
       const oldLx = getSLDAttributes(ied, 'lx');
       const oldLy = getSLDAttributes(ied, 'ly');
 
-      const label = sldSubstationEditor.shadowRoot?.querySelector(
+      const label = sldSubstationViewer.shadowRoot?.querySelector(
         '*[id="label:IED1"] text',
       ) as SVGElement | null;
       expect(label).to.exist;
@@ -1376,7 +1376,7 @@ describe('SLD Editor', () => {
         return [];
       };
 
-      const label = sldSubstationEditor.shadowRoot?.querySelector(
+      const label = sldSubstationViewer.shadowRoot?.querySelector(
         '*[id="label:IED1"] text',
       ) as SVGElement | null;
       expect(label).to.exist;
@@ -1417,7 +1417,7 @@ describe('SLD Editor', () => {
         return [];
       };
 
-      const iedRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedRect = sldSubstationViewer.shadowRoot?.querySelector(
         '#IEDRef-IED1 rect',
       ) as SVGElement | null;
       expect(iedRect).to.exist;
@@ -1475,7 +1475,7 @@ describe('SLD Editor', () => {
         ],
       ];
 
-      const iedRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedRect = sldSubstationViewer.shadowRoot?.querySelector(
         '#IEDRef-IED1 rect',
       ) as SVGElement | null;
       expect(iedRect).to.exist;
@@ -1520,7 +1520,7 @@ describe('SLD Editor', () => {
     it('moves an IED via the right-click context menu', async () => {
       await placeIedFromScl('IED1', 10, 10);
 
-      const iedRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedRect = sldSubstationViewer.shadowRoot?.querySelector(
         '#IEDRef-IED1 rect',
       ) as SVGElement | null;
       expect(iedRect).to.exist;
@@ -1548,12 +1548,12 @@ describe('SLD Editor', () => {
       expect(element.placing).to.exist;
       expect(element.placing!.localName).to.equal('Reference');
 
-      sldSubstationEditor.mouseX = 15;
-      sldSubstationEditor.mouseY = 15;
-      sldSubstationEditor.requestUpdate();
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer.mouseX = 15;
+      sldSubstationViewer.mouseY = 15;
+      sldSubstationViewer.requestUpdate();
+      await sldSubstationViewer.updateComplete;
 
-      const previewRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const previewRect = sldSubstationViewer.shadowRoot?.querySelector(
         'g.ied.preview rect',
       ) as SVGElement;
       expect(previewRect).to.exist;
@@ -1567,12 +1567,12 @@ describe('SLD Editor', () => {
     it('removes an IED from the SLD via right-click menu', async () => {
       await placeIedFromScl('IED1', 10, 10);
 
-      let iedGroup = sldSubstationEditor.shadowRoot?.querySelector(
+      let iedGroup = sldSubstationViewer.shadowRoot?.querySelector(
         'g[id="IEDRef-IED1"]',
       );
       expect(iedGroup).to.exist;
 
-      const iedRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedRect = sldSubstationViewer.shadowRoot?.querySelector(
         '#IEDRef-IED1 rect',
       ) as SVGElement | null;
       expect(iedRect).to.exist;
@@ -1600,7 +1600,7 @@ describe('SLD Editor', () => {
       const sclIed = element.doc.querySelector(':root > IED[name="IED1"]');
       expect(sclIed).to.exist;
 
-      iedGroup = sldSubstationEditor.shadowRoot?.querySelector(
+      iedGroup = sldSubstationViewer.shadowRoot?.querySelector(
         'g[id="IEDRef-IED1"]',
       );
       expect(iedGroup).to.not.exist;
@@ -1612,7 +1612,7 @@ describe('SLD Editor', () => {
       let sclIed = element.doc.querySelector(':root > IED[name="IED1"]');
       expect(sclIed).to.exist;
 
-      const iedRect = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedRect = sldSubstationViewer.shadowRoot?.querySelector(
         '#IEDRef-IED1 rect',
       ) as SVGElement | null;
       expect(iedRect).to.exist;
@@ -1640,7 +1640,7 @@ describe('SLD Editor', () => {
       sclIed = element.doc.querySelector(':root > IED[name="IED1"]');
       expect(sclIed).to.not.exist;
 
-      const iedGroup = sldSubstationEditor.shadowRoot?.querySelector(
+      const iedGroup = sldSubstationViewer.shadowRoot?.querySelector(
         'g[id="IEDRef-IED1"]',
       );
       expect(iedGroup).to.not.exist;
@@ -1648,7 +1648,7 @@ describe('SLD Editor', () => {
   });
 
   describe('given conducting equipment', () => {
-    let sldSubstationEditor: SldSubstationEditor;
+    let sldSubstationViewer: SldSubstationViewer;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
         equipmentDocString,
@@ -1656,8 +1656,8 @@ describe('SLD Editor', () => {
       );
       element.doc = doc;
       await element.updateComplete;
-      sldSubstationEditor = getSldSubstationEditor(element)!;
-      await sldSubstationEditor.updateComplete;
+      sldSubstationViewer = getSldSubstationViewer(element)!;
+      await sldSubstationViewer.updateComplete;
     });
 
     it('requests equipment scl edit on edit menu item select', async () => {
@@ -1667,7 +1667,7 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       clickInteractive(menuItem(-2));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(lastCalledSclEdit).to.equal(
         element.doc.querySelector('[type="SMC"]'),
       );
@@ -1680,7 +1680,7 @@ describe('SLD Editor', () => {
       }).dispatchEvent(new PointerEvent('contextmenu'));
       await element.updateComplete;
       clickInteractive(menuItem(-4));
-      await sldSubstationEditor.updateComplete;
+      await sldSubstationViewer.updateComplete;
       expect(element)
         .property('placingLabel')
         .to.have.property('tagName', 'ConductingEquipment');
@@ -1703,7 +1703,7 @@ describe('SLD Editor', () => {
     it('copies equipment on shift click', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const id = identity(equipment);
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
       eqClickTarget.dispatchEvent(
@@ -1734,7 +1734,7 @@ describe('SLD Editor', () => {
     it('rotates equipment on middle mouse button click', () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const id = identity(equipment);
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
       expect(sldAttribute(equipment!, 'rot')).to.equal('1');
@@ -1754,7 +1754,7 @@ describe('SLD Editor', () => {
     it('flips equipment on mirror menu item select', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const id = identity(equipment);
-      let eqClickTarget = sldSubstationEditor
+      let eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
@@ -1765,7 +1765,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       item.selected = false;
       expect(sldAttribute(equipment!, 'flip')).to.equal('true');
-      eqClickTarget = sldSubstationEditor
+      eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
@@ -1779,7 +1779,7 @@ describe('SLD Editor', () => {
     it('rotates equipment on rotate menu item select', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const id = identity(equipment);
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
@@ -1794,7 +1794,7 @@ describe('SLD Editor', () => {
     it('moves equipment on move menu item select', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
       const id = identity(equipment);
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>id)!
         .querySelector('rect')!;
 
@@ -1831,7 +1831,7 @@ describe('SLD Editor', () => {
 
     it('grounds equipment on connection point right click', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment')!;
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>identity(equipment))!
         .querySelector('circle')!;
       eqClickTarget.dispatchEvent(new PointerEvent('contextmenu'));
@@ -1843,7 +1843,7 @@ describe('SLD Editor', () => {
       );
       await element.updateComplete;
       await aTimeout(10);
-      const eqClickTarget2 = sldSubstationEditor
+      const eqClickTarget2 = sldSubstationViewer
         .shadowRoot!.getElementById(<string>identity(equipment))!
         .querySelector('circle')!;
       eqClickTarget2.dispatchEvent(new PointerEvent('contextmenu'));
@@ -1888,13 +1888,13 @@ describe('SLD Editor', () => {
 
     it('connects equipment on connection point and equipment click', async () => {
       const equipment = element.doc.querySelectorAll('ConductingEquipment')[0];
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>identity(equipment))!
         .querySelector('circle:nth-of-type(2)')!;
       eqClickTarget.dispatchEvent(new PointerEvent('click'));
       await element.updateComplete;
       const equipment2 = element.doc.querySelectorAll('ConductingEquipment')[1];
-      const eq2ClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+      const eq2ClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
         <string>identity(equipment2),
       )!;
       const position = middleOf(eq2ClickTarget);
@@ -1959,12 +1959,12 @@ describe('SLD Editor', () => {
 
     it('will not connect equipment directly to itself', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>identity(equipment))!
         .querySelector('circle:nth-of-type(1)')!;
       eqClickTarget.dispatchEvent(new PointerEvent('click'));
       await element.updateComplete;
-      const eq2ClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+      const eq2ClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
         <string>identity(equipment),
       )!;
       const position = middleOf(eq2ClickTarget);
@@ -1975,7 +1975,7 @@ describe('SLD Editor', () => {
 
     it('retargets grounded terminals when reparenting equipment', async () => {
       const equipment = element.doc.querySelector('ConductingEquipment');
-      const eqClickTarget = sldSubstationEditor
+      const eqClickTarget = sldSubstationViewer
         .shadowRoot!.getElementById(<string>identity(equipment))!
         .querySelector('circle:nth-of-type(2)')!;
       expect(
@@ -2002,7 +2002,7 @@ describe('SLD Editor', () => {
     describe('with established connectivity', () => {
       beforeEach(async () => {
         const equipment = element.doc.querySelector('ConductingEquipment');
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         eqClickTarget.dispatchEvent(new PointerEvent('click'));
@@ -2010,7 +2010,7 @@ describe('SLD Editor', () => {
         const equipment2 = element.doc.querySelector(
           'ConductingEquipment[type="DIS"]',
         );
-        const eq2ClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+        const eq2ClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
           <string>identity(equipment2),
         )!;
         const position = middleOf(eq2ClickTarget);
@@ -2020,7 +2020,7 @@ describe('SLD Editor', () => {
 
       it('uniquely names new connectivity nodes', async () => {
         const equipment = element.doc.querySelector('ConductingEquipment');
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         eqClickTarget.dispatchEvent(new PointerEvent('click'));
@@ -2028,7 +2028,7 @@ describe('SLD Editor', () => {
         const equipment2 = element.doc.querySelector(
           'ConductingEquipment[type="CTR"]',
         );
-        const eq2ClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+        const eq2ClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
           <string>identity(equipment2),
         )!;
         const position = middleOf(eq2ClickTarget);
@@ -2049,12 +2049,12 @@ describe('SLD Editor', () => {
         const equipment = element.doc.querySelector(
           'ConductingEquipment[type="CTR"]',
         );
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         eqClickTarget.dispatchEvent(new PointerEvent('click'));
         const cNode = element.doc.querySelector('ConnectivityNode');
-        const cNodeClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+        const cNodeClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
           <string>identity(cNode),
         )!;
         await sendMouse({
@@ -2076,12 +2076,12 @@ describe('SLD Editor', () => {
         const equipment = element.doc.querySelector(
           'ConductingEquipment[type="DIS"]',
         );
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         eqClickTarget.dispatchEvent(new PointerEvent('click'));
         const cNode = element.doc.querySelector('ConnectivityNode');
-        const cNodeClickTarget = sldSubstationEditor.shadowRoot!.getElementById(
+        const cNodeClickTarget = sldSubstationViewer.shadowRoot!.getElementById(
           <string>identity(cNode),
         )!;
         expect(equipment!.querySelectorAll('Terminal')).to.have.lengthOf(1);
@@ -2099,7 +2099,7 @@ describe('SLD Editor', () => {
         const equipment = element.doc.querySelector(
           'ConductingEquipment[type="CTR"]',
         );
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         eqClickTarget.dispatchEvent(new PointerEvent('click'));
@@ -2110,7 +2110,7 @@ describe('SLD Editor', () => {
         const equipment2 = element.doc.querySelector(
           'ConductingEquipment[type="NEW"]',
         );
-        const eq2ClickTarget = sldSubstationEditor
+        const eq2ClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment2))!
           .querySelector('circle')!;
         eq2ClickTarget.dispatchEvent(new PointerEvent('click'));
@@ -2118,7 +2118,7 @@ describe('SLD Editor', () => {
         const equipment3 = element.doc.querySelector(
           'ConductingEquipment[type="VTR"]',
         );
-        const eq3ClickTarget = sldSubstationEditor
+        const eq3ClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment3))!
           .querySelector('circle')!;
         eq3ClickTarget.dispatchEvent(new PointerEvent('click'));
@@ -2185,7 +2185,7 @@ describe('SLD Editor', () => {
           queryUI({ scl: '[type="CTR"]', ui: 'rect' }).dispatchEvent(
             new PointerEvent('contextmenu'),
           );
-          await sldSubstationEditor.updateComplete;
+          await sldSubstationViewer.updateComplete;
           expect(equipment.querySelector('Terminal[name="T2"]')).to.exist;
           clickInteractive(menuItem(2));
           await element.updateComplete;
@@ -2553,7 +2553,7 @@ describe('SLD Editor', () => {
             await element.updateComplete;
 
             clickInteractive(menuItem(1));
-            await sldSubstationEditor.updateComplete;
+            await sldSubstationViewer.updateComplete;
             await waitForMenuClose();
 
             expect(sldAttribute(bus!, 'y')).to.equal(initialY);
@@ -2572,7 +2572,7 @@ describe('SLD Editor', () => {
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
             clickInteractive(menuItem(-4));
-            await sldSubstationEditor.updateComplete;
+            await sldSubstationViewer.updateComplete;
             expect(element)
               .property('placingLabel')
               .to.have.attribute('name', 'BB1');
@@ -2589,7 +2589,7 @@ describe('SLD Editor', () => {
             }).dispatchEvent(new PointerEvent('contextmenu'));
             await element.updateComplete;
             clickInteractive(menuItem(-2));
-            await sldSubstationEditor.updateComplete;
+            await sldSubstationViewer.updateComplete;
             expect(lastCalledSclEdit).to.equal(
               element.doc.querySelector('[name="BB1"]'),
             );
@@ -2603,7 +2603,7 @@ describe('SLD Editor', () => {
             await element.updateComplete;
             expect(element.doc.querySelector('[name="BB1"]')).to.exist;
             clickInteractive(menuItem(-1));
-            await sldSubstationEditor.updateComplete;
+            await sldSubstationViewer.updateComplete;
             expect(element.doc.querySelector('[name="BB1"]')).to.not.exist;
             await expect(element.doc.documentElement).dom.to.equalSnapshot({
               ignoreAttributes: ['esldoscd:uuid'],
@@ -2684,7 +2684,7 @@ describe('SLD Editor', () => {
     });
 
     describe('given a substation', () => {
-      let sldSubstationEditor: SldSubstationEditor;
+      let sldSubstationViewer: SldSubstationViewer;
       beforeEach(async () => {
         const subSt = element.doc.createElement('Substation');
         subSt.setAttribute('name', 'S1');
@@ -2693,12 +2693,12 @@ describe('SLD Editor', () => {
         element.requestUpdate();
         await element.updateComplete;
 
-        sldSubstationEditor = getSldSubstationEditor(element)!;
-        await sldSubstationEditor.updateComplete;
+        sldSubstationViewer = getSldSubstationViewer(element)!;
+        await sldSubstationViewer.updateComplete;
       });
 
       it('disables substation buttons', async () => {
-        const h2 = sldSubstationEditor.shadowRoot?.querySelector('h2');
+        const h2 = sldSubstationViewer.shadowRoot?.querySelector('h2');
         await expect(h2).dom.to.equalSnapshot();
       });
 
@@ -2712,7 +2712,7 @@ describe('SLD Editor', () => {
     });
 
     describe('given a voltage level', () => {
-      let sldSubstationEditor: SldSubstationEditor;
+      let sldSubstationViewer: SldSubstationViewer;
       beforeEach(async () => {
         const doc = new DOMParser().parseFromString(
           voltageLevelDocString,
@@ -2720,13 +2720,13 @@ describe('SLD Editor', () => {
         );
         element.doc = doc;
         await element.updateComplete;
-        sldSubstationEditor = getSldSubstationEditor(element)!;
-        await sldSubstationEditor.updateComplete;
+        sldSubstationViewer = getSldSubstationViewer(element)!;
+        await sldSubstationViewer.updateComplete;
       });
 
       it('does not render resize handlers', async () => {
         const moveHandle =
-          sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+          sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
             '.handle',
           )[1];
         expect(moveHandle).to.be.undefined;
@@ -2781,7 +2781,7 @@ describe('SLD Editor', () => {
         element.selectable = ['S1>V1'];
         element.requestUpdate();
         await element.updateComplete;
-        await sldSubstationEditor.updateComplete;
+        await sldSubstationViewer.updateComplete;
         await element.updateComplete;
 
         await sendMouse({
@@ -2795,7 +2795,7 @@ describe('SLD Editor', () => {
     });
 
     describe('given a bay', () => {
-      let sldSubstationEditor: SldSubstationEditor;
+      let sldSubstationViewer: SldSubstationViewer;
       beforeEach(async () => {
         const doc = new DOMParser().parseFromString(
           bayDocString,
@@ -2803,13 +2803,13 @@ describe('SLD Editor', () => {
         );
         element.doc = doc;
         await element.updateComplete;
-        sldSubstationEditor = getSldSubstationEditor(element)!;
-        await sldSubstationEditor.updateComplete;
+        sldSubstationViewer = getSldSubstationViewer(element)!;
+        await sldSubstationViewer.updateComplete;
       });
 
       it('does not render resize handlers', async () => {
         const moveHandle =
-          sldSubstationEditor.shadowRoot!.querySelectorAll<SVGElement>(
+          sldSubstationViewer.shadowRoot!.querySelectorAll<SVGElement>(
             'g.bay .handle',
           )[1];
 
@@ -2853,7 +2853,7 @@ describe('SLD Editor', () => {
         element.selectable = ['S1>V1>B1'];
         element.requestUpdate();
         await element.updateComplete;
-        await sldSubstationEditor.updateComplete;
+        await sldSubstationViewer.updateComplete;
         await element.updateComplete;
 
         // Click on equipment to start placing/moving
@@ -2876,7 +2876,7 @@ describe('SLD Editor', () => {
     });
 
     describe('given conducting equipment', () => {
-      let sldSubstationEditor: SldSubstationEditor;
+      let sldSubstationViewer: SldSubstationViewer;
       beforeEach(async () => {
         const doc = new DOMParser().parseFromString(
           equipmentDocString,
@@ -2885,8 +2885,8 @@ describe('SLD Editor', () => {
         element.doc = doc;
         element.selectable = [];
         await element.updateComplete;
-        sldSubstationEditor = getSldSubstationEditor(element)!;
-        await sldSubstationEditor.updateComplete;
+        sldSubstationViewer = getSldSubstationViewer(element)!;
+        await sldSubstationViewer.updateComplete;
       });
 
       it('disables contextmenu', async () => {
@@ -2910,7 +2910,7 @@ describe('SLD Editor', () => {
       it('does not rotate on auxclick', () => {
         const equipment = element.doc.querySelector('ConductingEquipment');
         const id = identity(equipment);
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>id)!
           .querySelector('rect')!;
         expect(sldAttribute(equipment!, 'rot')).to.equal('1');
@@ -2930,7 +2930,7 @@ describe('SLD Editor', () => {
 
       it('does not render connector', async () => {
         const equipment = element.doc.querySelector('ConductingEquipment')!;
-        const eqClickTarget = sldSubstationEditor
+        const eqClickTarget = sldSubstationViewer
           .shadowRoot!.getElementById(<string>identity(equipment))!
           .querySelector('circle')!;
         expect(eqClickTarget).to.not.exist;
@@ -2971,7 +2971,7 @@ describe('SLD Editor', () => {
         element.selectable = ['S1>V1>B1>CBR1', 'S1>V2>B1>NEW1'];
         element.requestUpdate();
         await element.updateComplete;
-        await sldSubstationEditor.updateComplete;
+        await sldSubstationViewer.updateComplete;
         await element.updateComplete;
 
         // Click on equipment to start placing/moving
