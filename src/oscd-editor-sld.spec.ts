@@ -6,6 +6,7 @@ import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js'
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import { EditEventV2 } from '@openscd/oscd-api';
+import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import { identity } from '@openscd/scl-lib';
 
 import OscdEditorSld from './oscd-editor-sld.js';
@@ -533,8 +534,38 @@ describe('SLD Editor', () => {
     );
   });
 
-  it('adds the SLD XML namespace if doc lacks it', async () => {
-    expect(element.doc.documentElement.hasAttribute('xmlns:eosld')).to.be.true;
+  it('does not declare the SLD namespace on load when the document has no SLD metadata', async () => {
+    expect(element.doc.documentElement.hasAttribute('xmlns:eosld')).to.be.false;
+    expect(xmlEditor.past.length).to.equal(0);
+  });
+
+  it('declares the SLD namespace as part of the first SLD edit, and removes it on undo', async () => {
+    const scl = element.doc.documentElement;
+    expect(scl.hasAttribute('xmlns:eosld')).to.be.false;
+    const original = new XMLSerializer().serializeToString(element.doc);
+
+    // a child fires a plain SLD edit (no namespace declaration of its own)
+    const sldEditor = element.shadowRoot!.querySelector('sld-editor')!;
+    sldEditor.dispatchEvent(
+      newEditEventV2({
+        element: scl,
+        attributesNS: { [sldNs]: { 'eosld:test': '1' } },
+      }),
+    );
+    await element.updateComplete;
+
+    // the edit applied AND the namespace was declared, in a single undoable commit
+    expect(scl.hasAttribute('xmlns:eosld')).to.be.true;
+    expect(scl.getAttributeNS(sldNs, 'test')).to.equal('1');
+    expect(xmlEditor.past.length).to.equal(1);
+
+    // undoing the one user edit also removes the namespace declaration
+    xmlEditor.undo();
+    expect(scl.hasAttribute('xmlns:eosld')).to.be.false;
+    expect(scl.getAttributeNS(sldNs, 'test')).to.equal(null);
+    expect(new XMLSerializer().serializeToString(element.doc)).to.equal(
+      original,
+    );
   });
 
   it('converts old Transpower SLD layout to OpenSCD layout', async () => {

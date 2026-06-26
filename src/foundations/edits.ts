@@ -13,13 +13,88 @@ import {
   setSLDAttributes,
   updateSLDAttributes,
 } from './sld-attributes.js';
-import { privType, sldNs, uuid } from '../foundations.js';
+import { privType, sldNs, uuid, xmlnsNs, hasSldNamespace, defaultSldNsPrefix } from '../foundations.js';
+
+import { isInsert, isSetAttributes } from '@openscd/oscd-api/utils.js';
 
 import type { EditV2, SetAttributes } from '@openscd/oscd-api';
 import type { Point } from './geometry.js';
 import type { ConnectDetail } from './events.js';
 
 export type TerminalName = 'T1' | 'T2' | 'N1' | 'N2';
+
+function elementInSldNs(element: Element): boolean {
+  return (
+    element.namespaceURI === sldNs ||
+    Array.from(element.attributes).some(attr => attr.namespaceURI === sldNs)
+  );
+}
+
+function nodeRequiresSldNamespace(node: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  const element = node as Element;
+  return (
+    elementInSldNs(element) ||
+    Array.from(element.querySelectorAll('*')).some(elementInSldNs)
+  );
+}
+
+/**
+ * Whether applying `edit` would introduce content in the SLD-layout namespace
+ * ({@link sldNs}) — i.e. it sets an `attributesNS` entry in that namespace or
+ * inserts a node that is (or contains) an element/attribute in it. Removals do
+ * not count: SLD content can only be removed from a document that already
+ * declares the namespace, so {@link withSldNamespace}'s declaration guard makes
+ * the remove cases moot.
+ */
+export function requiresSldNamespace(edit: EditV2): boolean {
+  if (Array.isArray(edit)) {
+    return edit.some(requiresSldNamespace);
+  }
+  if (isSetAttributes(edit)) {
+    return !!edit.attributesNS && sldNs in edit.attributesNS;
+  }
+  if (isInsert(edit)) {
+    return nodeRequiresSldNamespace(edit.node);
+  }
+  return false;
+}
+
+/**
+ * A tracked edit that declares the SLD-layout namespace ({@link sldNs}) on a
+ * document's root element using {@link defaultSldNsPrefix}. Only ever invoked
+ * (via {@link withSldNamespace}) on a document that declares no SLD prefix yet,
+ * so the default is the correct prefix to introduce. Bundling this into the same
+ * commit as the triggering SLD edit keeps it undoable in one step.
+ */
+export function declareSldNamespaceEdit(doc: XMLDocument): SetAttributes {
+  return {
+    element: doc.documentElement,
+    attributesNS: {
+      [xmlnsNs]: { [`xmlns:${defaultSldNsPrefix}`]: sldNs },
+    },
+  };
+}
+
+/**
+ * Prepends a {@link declareSldNamespaceEdit} to `edits` iff the document does
+ * not yet declare the SLD-layout namespace and `edits` actually introduces
+ * SLD content. This is the only writer of the namespace declaration, and it
+ * only ever runs as part of a user-triggered edit — never on load. Safe to call
+ * around any dispatch: non-SLD edits and already-declared documents pass through
+ * unchanged.
+ */
+export function withSldNamespace(doc: XMLDocument, edits: EditV2): EditV2 {
+  if (hasSldNamespace(doc)) {
+    return edits;
+  }
+  if (!requiresSldNamespace(edits)) {
+    return edits;
+  }
+  return [declareSldNamespaceEdit(doc), edits];
+}
 
 export function copyElementForPlacement(
   element: Element,

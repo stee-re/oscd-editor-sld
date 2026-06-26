@@ -79,7 +79,7 @@ import {
   newSclEditDialogEvent,
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
-import { svgNs, xlinkNs } from './foundations.js';
+import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
 import {
   SldContextMenu,
   type MenuContext,
@@ -127,8 +127,9 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   @property()
   gridSize = 32;
 
-  @property()
-  nsp = 'esld';
+  get nsp(): string {
+    return sldPrefix(this.doc);
+  }
 
   @property({ attribute: false })
   interaction: Interaction = { mode: 'idle' };

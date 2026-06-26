@@ -16,6 +16,7 @@ import { OscdSldIcon } from '../oscd-sld-icon.js';
 import { isBusBar } from '../foundations/connectivity.js';
 import { eqTypes } from '../foundations/equipment.js';
 import { setSLDAttributes } from '../foundations/sld-attributes.js';
+import { sldPrefix } from '../foundations.js';
 
 import { SldIedImporter } from './sld-ied-importer.js';
 import { SldIedMenu } from './sld-ied-menu.js';
@@ -90,8 +91,9 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
   @property({ type: Number })
   docVersion: number = -1;
 
-  @property({ type: String })
-  nsp = 'eosld';
+  get nsp(): string {
+    return sldPrefix(this.doc);
+  }
 
   @property({ type: Object })
   templateElements: Record<string, Element> = {};
@@ -262,7 +264,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
 
     return html`<sld-ied-importer .nsp=${this.nsp}></sld-ied-importer>
       ${this.hasIeds
-        ? html`<sld-ied-menu .doc=${this.doc} .docVersion=${this.docVersion} .nsp=${this.nsp}></sld-ied-menu>`
+        ? html`<sld-ied-menu .doc=${this.doc} .docVersion=${this.docVersion}></sld-ied-menu>`
         : nothing}`;
   }
 

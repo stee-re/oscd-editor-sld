@@ -77,7 +77,7 @@ import {
   resizingBR,
   resizingTL,
 } from './foundations/interaction-mode.js';
-import { sldNs } from './foundations.js';
+import { defaultSldNsPrefix, sldNs } from './foundations.js';
 
 import { SldEditor } from './sld-editor.js';
 import {
@@ -544,8 +544,10 @@ describe('SLD Editor', () => {
       await sldSubstationViewer.updateComplete;
     });
 
-    it('adds the SLD XML namespace if doc lacks it', async () => {
-      expect(element.doc.documentElement).to.have.attribute('xmlns:eoscd');
+    it('does not declare the SLD namespace on load', async () => {
+      expect(element.doc.documentElement).to.not.have.attribute(
+        `xmlns:${defaultSldNsPrefix}`,
+      );
     });
 
     it('allows resizing substations', async () => {
@@ -2960,3 +2962,49 @@ describe('SLD Editor', () => {
     });
   });
 });
+
+describe('SLD namespace prefix forwarding', () => {
+  it('forwards the document SLD prefix from the editor down to the substation viewer', async () => {
+    const doc = new DOMParser().parseFromString(
+      voltageLevelDocString,
+      'application/xml',
+    );
+    const editor: SldEditor = await fixture(
+      html`<sld-editor docName="testDoc" .doc=${doc}></sld-editor>`,
+    );
+    await editor.updateComplete;
+    const viewer = getSldSubstationViewer(editor)!;
+    await viewer.updateComplete;
+
+    // The document declares the SLD namespace under the `smth` prefix. The
+    // editor detects it; the view must adopt the SAME prefix so that any edit
+    // it builds (context menu, placing copy) is written under the document's
+    // prefix rather than the view's standalone default.
+    expect(editor.nsp).to.equal('smth');
+    expect(viewer.nsp).to.equal(editor.nsp);
+  });
+
+  it('stamps view-built SLD attributes with the document prefix, not the view default', async () => {
+    const doc = new DOMParser().parseFromString(
+      voltageLevelDocString,
+      'application/xml',
+    );
+    const editor: SldEditor = await fixture(
+      html`<sld-editor docName="testDoc" .doc=${doc}></sld-editor>`,
+    );
+    await editor.updateComplete;
+    const viewer = getSldSubstationViewer(editor)!;
+
+    // Write an SLD attribute through the prefix the VIEW would use for its
+    // edits and assert the LITERAL prefix on the produced attribute node —
+    // a namespace-URI read would be prefix-agnostic and miss the divergence.
+    const vl = doc.querySelector('VoltageLevel')!;
+    setSLDAttributes(vl, viewer.nsp, { rot: '1' });
+    const sldAttrs = vl.querySelector(
+      'Private[type="OpenSCD-SLD-Layout"] > *',
+    )!;
+    const written = sldAttrs.getAttributeNodeNS(sldNs, 'rot')!;
+    expect(written.prefix).to.equal('smth');
+  });
+});
+

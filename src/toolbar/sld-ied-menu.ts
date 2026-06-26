@@ -12,7 +12,7 @@ import { OscdListItem } from '@omicronenergy/oscd-ui/list/OscdListItem.js';
 import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 
-import { sldNs } from '../foundations.js';
+import { sldNs, sldPrefix } from '../foundations.js';
 import {
   createRemoveIedReferenceEdit,
   iedReferences,
@@ -40,8 +40,9 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
   @property({ type: Number })
   docVersion: number = -1;
 
-  @property({ type: String })
-  nsp = 'eosld';
+  get nsp(): string {
+    return sldPrefix(this.doc);
+  }
 
   @state()
   private menuOpen = false;
