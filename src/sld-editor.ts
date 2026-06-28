@@ -33,6 +33,7 @@ import { reparentElement, sldNs, sldPrefix } from './foundations.js';
 import type {
   ConnectDetail,
   ConnectEvent,
+  ExtendConnectPointEvent,
   EditIedDetail,
   EditSclDetail,
   PlaceEvent,
@@ -365,6 +366,23 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.reset();
   }
 
+  /**
+   * Grow the in-progress connection path. The view reports the next path
+   * (computed from the click + live cursor) and the controller — the single
+   * owner of the interaction state — reassigns `interaction` immutably so Lit
+   * reactivity is automatic and the value is never mutated behind its back.
+   */
+  extendConnectPoint(path: Point[]) {
+    if (this.interaction.mode !== 'connectingFrom') {
+      return;
+    }
+    this.interaction = interactions.connectingFrom(
+      this.interaction.element,
+      this.interaction.terminal,
+      path,
+    );
+  }
+
   render() {
     return html`${Array.from(
       this.doc.querySelectorAll(':root > Substation'),
@@ -420,6 +438,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             }}
             @oscd-sld-connect=${({ detail }: ConnectEvent) =>
               this.connectEquipment(detail)}
+            @oscd-sld-extend-connect-point=${({
+              detail,
+            }: ExtendConnectPointEvent) => this.extendConnectPoint(detail.path)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
           ></sld-substation-viewer>`,

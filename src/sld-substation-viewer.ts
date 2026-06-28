@@ -52,7 +52,7 @@ import type { EquipmentContext } from './drawing/artifacts/conducting-equipment.
 import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
 import type { LabelContext } from './drawing/artifacts/label.js';
 import {
-  cleanPath,
+  extendConnectPointPaths,
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
 import { canPlaceAt } from './foundations/sld-placement.js';
@@ -73,6 +73,7 @@ import {
 } from './foundations/ied.js';
 import {
   newConnectEvent,
+  newExtendConnectPointEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
   newResizeSubstationEvent,
@@ -722,17 +723,14 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       connectionPreview.push(
         svg`<rect width="100%" height="100%" fill="url(#grid)"
       @click=${() => {
-        path[path.length - 1] = [x2, y2];
-        path.push([x3, y3]);
-        path.push([x4, y4]);
-        cleanPath(path);
-        this.requestUpdate();
+        const newPath = extendConnectPointPaths(path, [x2, y2], [x3, y3], [x4, y4]);
+        this.dispatchEvent(newExtendConnectPointEvent(newPath));
         if (targetEq && toTerminal) {
           this.dispatchEvent(
             newConnectEvent({
               from,
               fromTerminal,
-              path,
+              path: newPath,
               to: targetEq,
               toTerminal,
             }),

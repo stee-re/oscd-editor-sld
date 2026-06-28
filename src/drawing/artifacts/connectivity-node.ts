@@ -9,7 +9,10 @@ import { identity } from '@openscd/scl-lib';
 
 import { isBusBar } from '../../foundations/connectivity.js';
 import { attributes, xmlBoolean } from '../../foundations/sld-attributes.js';
-import { cleanPath, findIntersection } from '../../foundations/geometry.js';
+import {
+  extendConnectPointPaths,
+  findIntersection,
+} from '../../foundations/geometry.js';
 import {
   newConnectEvent,
   newPlaceEvent,
@@ -189,14 +192,12 @@ export function renderConnectivityNode(
           newX2 = vertical ? oldX2 : x3;
           newY2 = vertical ? y3 : oldY2;
 
-          path[path.length - 1] = [newX2, newY2];
-          path.push([x3, y3]);
-          cleanPath(path);
+          const newPath = extendConnectPointPaths(path, [newX2, newY2], [x3, y3]);
           context.dispatch(
             newConnectEvent({
               from,
               fromTerminal,
-              path,
+              path: newPath,
               to: cNode,
             }),
           );
