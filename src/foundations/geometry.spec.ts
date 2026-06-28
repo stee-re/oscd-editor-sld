@@ -6,6 +6,7 @@ import {
   distance,
   findIntersection,
   cleanPath,
+  extendConnectPointPaths,
 } from './geometry.js';
 import type { Point, Rect } from './geometry.js';
 
@@ -177,6 +178,28 @@ describe('geometry', () => {
       const path: Point[] = [];
       cleanPath(path);
       expect(path).to.deep.equal([]);
+    });
+  });
+
+  describe('extendConnectPointPaths', () => {
+    it('replaces the provisional last waypoint and appends the rest', () => {
+      const path: Point[] = [[0, 0], [5, 0]];
+      const next = extendConnectPointPaths(path, [5, 2], [5, 5], [8, 5]);
+      expect(next).to.deep.equal([[0, 0], [5, 2], [5, 5], [8, 5]]);
+    });
+
+    it('does not mutate the input array', () => {
+      const path: Point[] = [[0, 0], [5, 0]];
+      const snapshot: Point[] = [[0, 0], [5, 0]];
+      extendConnectPointPaths(path, [5, 2], [5, 5]);
+      expect(path).to.deep.equal(snapshot);
+    });
+
+    it('normalises the result with cleanPath', () => {
+      const path: Point[] = [[0, 0], [3, 0]];
+      // replacing the last point keeps the run collinear, so it collapses
+      const next = extendConnectPointPaths(path, [5, 0], [8, 0]);
+      expect(next).to.deep.equal([[0, 0], [8, 0]]);
     });
   });
 });

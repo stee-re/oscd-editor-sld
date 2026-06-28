@@ -85,6 +85,20 @@ export function newConnectEvent(detail: ConnectDetail): ConnectEvent {
   });
 }
 
+export type ExtendConnectPointDetail = { path: Point[] };
+
+export type ExtendConnectPointEvent = CustomEvent<ExtendConnectPointDetail>;
+
+export function newExtendConnectPointEvent(
+  path: Point[],
+): ExtendConnectPointEvent {
+  return new CustomEvent('oscd-sld-extend-connect-point', {
+    bubbles: true,
+    composed: true,
+    detail: { path },
+  });
+}
+
 export type StartEvent = CustomEvent<Element>;
 
 export function newRotateEvent(detail: Element): StartEvent {
@@ -215,6 +229,7 @@ declare global {
     ['oscd-sld-place']: PlaceEvent;
     ['oscd-sld-place-label']: PlaceLabelEvent;
     ['oscd-sld-connect']: ConnectEvent;
+    ['oscd-sld-extend-connect-point']: ExtendConnectPointEvent;
     ['oscd-sld-rotate']: StartEvent;
     ['oscd-sld-start-resize-br']: StartEvent;
     ['oscd-sld-start-resize-tl']: StartEvent;

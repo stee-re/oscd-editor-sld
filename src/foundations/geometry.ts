@@ -97,6 +97,36 @@ export function findIntersection(
   return closestPointOnLine(p2, lp1, lp2);
 }
 
+/**
+ * Extend a connection path with a newly committed waypoint while the user is
+ * drawing a connection.
+ *
+ * A connection path is the list of orthogonal waypoints running from the source
+ * terminal to the cursor. Its *final* point is provisional: it tracks the live
+ * cursor so the in-progress segment can be previewed as the user moves the
+ * mouse. Committing a waypoint is therefore not a plain append — the provisional
+ * last point must first be **replaced** by `corner` (the now-fixed bend where
+ * the previewed segment turns), and only then are the new live endpoints
+ * (`rest`) appended so the path keeps tracking the cursor from the new bend.
+ *
+ * The result is normalised with {@link cleanPath}, which drops any duplicate or
+ * collinear points the new bend may have introduced.
+ *
+ * @param path - the current connection path
+ * @param corner - the fixed bend that replaces the provisional last waypoint
+ * @param rest - the new live endpoint(s) extending the path past the bend
+ * @returns the extended, normalised path
+ */
+export function extendConnectPointPaths(
+  path: Point[],
+  corner: Point,
+  ...rest: Point[]
+): Point[] {
+  const next: Point[] = [...path.slice(0, -1), corner, ...rest];
+  cleanPath(next);
+  return next;
+}
+
 export function cleanPath(path: Point[]): void {
   let i = path.length - 2;
 
