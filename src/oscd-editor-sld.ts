@@ -15,6 +15,7 @@ import { sldPrefix } from './foundations.js';
 import { convertSldLayout, hasOldNamespace } from './converter.js';
 
 import { SldToolbar } from './toolbar/sld-toolbar.js';
+import { sldThemeStyles } from './theme.js';
 
 export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
@@ -212,7 +213,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     </main>`;
   }
 
-  static styles = css`
+  static styles = [
+    sldThemeStyles,
+    css`
     :host {
       display: block;
       container-type: inline-size;
@@ -226,5 +229,6 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     div {
       margin-top: 12px;
     }
-  `;
+  `,
+  ];
 }

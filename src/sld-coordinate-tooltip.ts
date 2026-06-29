@@ -2,6 +2,8 @@ import { css, html, LitElement } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
+import { sldThemeStyles } from './theme.js';
+
 export class SldCoordinateTooltip extends LitElement {
   @property()
   text = '';
@@ -58,7 +60,9 @@ export class SldCoordinateTooltip extends LitElement {
     </div>`;
   }
 
-  static styles = css`
+  static styles = [
+    sldThemeStyles,
+    css`
     .hidden {
       display: none;
     }
@@ -70,12 +74,13 @@ export class SldCoordinateTooltip extends LitElement {
       font-family: 'Roboto', sans-serif;
       padding: 8px;
       border-radius: 16px;
-      background: #fffd;
-      color: rgb(0, 0, 0 / 0.83);
+      background: var(--oscd-sld-tooltip-background-color);
+      color: var(--md-sys-color-on-surface, var(--oscd-base00));
     }
 
     .coordinates.invalid {
-      color: #bb1326;
+      color: var(--oscd-sld-invalid-placement-color);
     }
-  `;
+  `,
+  ];
 }

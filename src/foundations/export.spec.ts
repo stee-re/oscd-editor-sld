@@ -68,7 +68,7 @@ describe('export', () => {
       expect(svg.querySelector('.label.container')).to.not.be.null;
     });
 
-    it('removes outline rect from voltagelevel groups', () => {
+    it('removes outline rect from voltagelevel/bay groups', async () => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       const vlGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       vlGroup.classList.add('voltagelevel');
@@ -79,8 +79,40 @@ describe('export', () => {
       svg.appendChild(vlGroup);
 
       exportSVG({ svg, filename: 'test.svg' });
-      // Original not mutated
+      // original not mutated; frame stripped only from the export clone
       expect(vlGroup.querySelector('rect')).to.not.be.null;
+    });
+
+    it('forces a monochrome black-on-white palette regardless of theme', async () => {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.style.setProperty('--oscd-sld-terminal-color', 'rgb(187, 19, 38)');
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.style.fill = 'var(--oscd-sld-terminal-color)';
+      svg.appendChild(rect);
+      document.body.appendChild(svg);
+
+      let captured: Blob | undefined;
+      const originalCreate = URL.createObjectURL;
+      URL.createObjectURL = (blob: Blob) => {
+        captured = blob;
+        return 'blob:test';
+      };
+
+      try {
+        exportSVG({ svg, filename: 'test.svg' });
+      } finally {
+        URL.createObjectURL = originalCreate;
+      }
+
+      const exported = await captured!.text();
+      svg.remove();
+
+      expect(exported).to.contain('<style');
+      expect(exported).to.contain('--md-sys-color-surface: white');
+      expect(exported).to.contain('--md-sys-color-on-surface: black');
+      expect(exported).to.contain('--oscd-sld-terminal-color: black');
+      // markup keeps its var() reference; the pinned :root resolves it black
+      expect(exported).to.contain('var(--oscd-sld-terminal-color)');
     });
   });
 });

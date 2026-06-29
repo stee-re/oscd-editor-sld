@@ -65,6 +65,7 @@ import {
   getSLDAttributes,
 } from './foundations/sld-attributes.js';
 import { coordinateTooltipState } from './sld-coordinate-tooltip-state.js';
+import { sldThemeStyles } from './theme.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
@@ -491,7 +492,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
           }
         </style>
         ${symbols}
-        <rect width="100%" height="100%" fill="white" />
+        <rect width="100%" height="100%" style="fill: var(--md-sys-color-surface, var(--oscd-base3))" />
         ${this.renderVoltageLevelPlacingTarget()}
         ${this.renderVoltageLevelLayer()}
         ${this.renderConnectionPreviewLayer()}
@@ -545,6 +546,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
           height="24"
           viewBox="0 96 960 960"
           opacity="0.83"
+          fill="currentColor"
         >
           ${resizePath}
         </svg>
@@ -677,7 +679,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
         const [x2, y2] = path[i + 1];
         connectionPreview.push(
           svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="black" />`,
+                stroke-linecap="square" stroke="currentColor" />`,
         );
         i += 1;
       }
@@ -714,11 +716,11 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
 
       connectionPreview.push(
         svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="black" />`,
+                stroke-linecap="square" stroke="currentColor" />`,
         svg`<line x1="${x2}" y1="${y2}" x2="${x3}" y2="${y3}"
-                stroke-linecap="square" stroke="black" />`,
+                stroke-linecap="square" stroke="currentColor" />`,
         svg`<line x1="${x3}" y1="${y3}" x2="${x4}" y2="${y4}"
-                stroke-linecap="square" stroke="black" />`,
+                stroke-linecap="square" stroke="currentColor" />`,
       );
       connectionPreview.push(
         svg`<rect width="100%" height="100%" fill="url(#grid)"
@@ -1004,13 +1006,19 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  static styles = css`
+  static styles = [
+    sldThemeStyles,
+    css`
+    #sld {
+      color: var(--md-sys-color-on-surface, var(--oscd-base03));
+    }
+
     h2 {
       font-family: Roboto;
       font-weight: 300;
       font-size: 24px;
       margin-bottom: 4px;
-      color: rgba(0, 0, 0, 0.83);
+      color: var(--md-sys-color-on-surface, var(--oscd-base00));
       --md-icon-button-state-layer-height: 28px;
       --md-icon-button-state-layer-width: 28px;
       --md-icon-button-icon-size: 24px;
@@ -1028,5 +1036,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     * {
       user-select: none;
     }
-  `;
+  `,
+  ];
 }

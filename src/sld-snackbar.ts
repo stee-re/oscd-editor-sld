@@ -1,6 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 
+import { sldThemeStyles } from './theme.js';
+
 /**
  * Minimal snackbar component for temporary toast notifications.
  * API-compatible subset of mwc-snackbar: supports `labelText`, `.show()`, and auto-dismiss.
@@ -28,7 +30,9 @@ export class SldSnackbar extends LitElement {
     clearTimeout(this.hideTimeout);
   }
 
-  static styles = css`
+  static styles = [
+    sldThemeStyles,
+    css`
     :host {
       position: fixed;
       bottom: 16px;
@@ -54,13 +58,14 @@ export class SldSnackbar extends LitElement {
       min-height: 48px;
       padding: 0 16px;
       border-radius: 4px;
-      background: #333;
-      color: #fff;
+      background: var(--md-sys-color-inverse-surface, var(--oscd-base02));
+      color: var(--md-sys-color-inverse-on-surface, var(--oscd-base3));
       font-family: Roboto, sans-serif;
       font-size: 14px;
       box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
     }
-  `;
+  `,
+  ];
 
   render() {
     return html`<div class="surface">${this.labelText}</div>`;

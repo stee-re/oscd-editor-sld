@@ -410,7 +410,7 @@ function iedMenuItems(
         headline: 'Delete IED',
         icon: 'delete',
         style:
-          '--mdc-theme-text-primary-on-background: #BB1326; --mdc-theme-text-icon-on-background: #BB1326;',
+          '--md-menu-item-label-text-color: var(--md-sys-color-error, var(--oscd-error, #BB1326)); --md-menu-item-leading-icon-color: var(--md-sys-color-error, var(--oscd-error, #BB1326));',
         handler: () => {
           const edits: EditV2[] = [createRemoveIedReferenceEdit(referencedIed)];
           edits.push(...removeIED({ node: sclIed }));
@@ -610,7 +610,7 @@ function textMenuItems(
       headline: 'Red',
       icon: 'format_color_text',
       style:
-        '--mdc-theme-text-primary-on-background: #BB1326; --mdc-theme-text-icon-on-background: #BB1326;',
+        '--md-menu-item-label-text-color: #BB1326; --md-menu-item-leading-icon-color: #BB1326;',
       handler: () => {
         const colorRed = updateSLDAttributes(text, context.nsp, {
           color: '#BB1326',
@@ -625,7 +625,7 @@ function textMenuItems(
       headline: 'Blue',
       icon: 'format_color_text',
       style:
-        '--mdc-theme-text-primary-on-background: #12579B; --mdc-theme-text-icon-on-background: #12579B;',
+        '--md-menu-item-label-text-color: #12579B; --md-menu-item-leading-icon-color: #12579B;',
       handler: () => {
         const colorBlue = updateSLDAttributes(text, context.nsp, {
           color: '#12579B',

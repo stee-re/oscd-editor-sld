@@ -71,7 +71,7 @@ export function renderConnectivityNode(
     )
     .map(([_, [vertex]]) => context.renderedPosition(vertex));
   intersections.forEach(([x, y]) =>
-    circles.push(svg`<circle fill="black" cx="${x}" cy="${y}" r="0.15" />`),
+    circles.push(svg`<circle fill="currentColor" cx="${x}" cy="${y}" r="0.15" />`),
   );
   const lines = [] as TemplateResult<2>[];
   const sections = Array.from(priv.getElementsByTagNameNS(sldNs, 'Section'));
@@ -207,7 +207,7 @@ export function renderConnectivityNode(
       lines.push(
         svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
               pointer-events="${pointerEvents}"
-              stroke-width="${busBar ? 0.12 : nothing}" stroke="black"
+              stroke-width="${busBar ? 0.12 : nothing}" stroke="currentColor"
               stroke-linecap="${busBar ? 'round' : 'square'}" />`,
       );
       lines.push(
