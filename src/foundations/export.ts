@@ -1,3 +1,5 @@
+import { sldThemeTokens } from '../theme.js';
+
 const prettifyXSLT = new DOMParser().parseFromString(
   [
     // Describes how we want to modify the XML: indent everything.
@@ -28,6 +30,34 @@ function prettyPrint(xmlDoc: XMLDocument | Element): string {
     : xmlDoc;
 
   return new XMLSerializer().serializeToString(doc);
+}
+
+// SLD theme tokens the artifacts consume via `style="…: var(--oscd-sld-…)"`.
+// The export is monochrome by spec, so every token is pinned to black ink on a
+// white surface (overriding the live theme) — the diagram markup keeps its
+// var() references and just resolves to black/white once serialised.
+
+/**
+ * Pins the SLD tokens to a fixed black-on-white palette on the exported root so
+ * the SVG is self-contained and monochrome regardless of the live theme. The
+ * diagram markup keeps its `var()` references unchanged; surface resolves to
+ * white, ink (`color` → `currentColor` symbols) and every other token to black.
+ */
+function forceMonochromeTokens(clone: Element): void {
+  const declarations = [
+    'color: black;',
+    '--md-sys-color-surface: white;',
+    '--md-sys-color-on-surface: black;',
+  ];
+
+  sldThemeTokens.forEach(token => declarations.push(`${token}: black;`));
+
+  const style = clone.ownerDocument.createElementNS(
+    'http://www.w3.org/2000/svg',
+    'style',
+  );
+  style.textContent = `:root { ${declarations.join(' ')} }`;
+  clone.insertBefore(style, clone.firstChild);
 }
 
 function cleanXML(element: Element): void {
@@ -88,6 +118,7 @@ export function exportSVG({
 }): void {
   const exportedSvg = svg.cloneNode(true) as Element;
 
+  forceMonochromeTokens(exportedSvg);
   cleanXML(exportedSvg);
 
   const blob = new Blob([prettyPrint(exportedSvg)], {

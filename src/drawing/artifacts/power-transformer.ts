@@ -107,7 +107,7 @@ function renderTransformerWinding(
   const ports: TemplateResult<2>[] = [];
   Object.entries(grounded).forEach(([_, [[x1, y1], [x2, y2]]]) => {
     ports.push(
-      svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="black" stroke-width="0.06" marker-start="url(#grounded)" />`,
+      svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="0.06" marker-start="url(#grounded)" />`,
     );
   });
   const groundable = winding.closest('Bay');
@@ -130,7 +130,9 @@ function renderTransformerWinding(
       const x1 = Number.isInteger(x * 2) ? x : x + 1;
       const y1 = Number.isInteger(y * 2) ? y : y + 1;
       const terminal = name.startsWith('T');
-      const fill = terminal ? 'BB1326' : '12579B';
+      const fill = terminal
+        ? 'var(--oscd-sld-terminal-color)'
+        : 'var(--oscd-sld-neutral-terminal-color)';
       ports.push(svg`<circle class="port" cx="${x}" cy="${y}" r="0.2" opacity="0.4"
             @contextmenu=${(e: MouseEvent) => {
               if (terminal) {
@@ -159,8 +161,7 @@ function renderTransformerWinding(
                 }),
               );
             }}
-            fill="#${fill}"
-            stroke="${groundable && !terminal ? '#F5E214' : fill}" />`);
+            style="fill: ${fill}; stroke: ${groundable && !terminal ? 'var(--oscd-sld-groundable-terminal-color)' : 'none'}" />`);
     });
   }
   let longArrow = false;
@@ -179,19 +180,19 @@ function renderTransformerWinding(
     if (flip && xfc > xf) {
       longArrow = true;
     }
-    arcPath = svg`<path d="M ${xf} ${yf} C ${xfc} ${yfc}, ${xtc} ${ytc}, ${xt} ${yt}" stroke="black" stroke-width="0.06" />`;
+    arcPath = svg`<path d="M ${xf} ${yf} C ${xfc} ${yfc}, ${xtc} ${ytc}, ${xt} ${yt}" stroke="currentColor" stroke-width="0.06" />`;
   }
   const tapChanger = winding.querySelector('TapChanger');
   const ltcArrow = tapChanger
     ? svg`<line x1="${cx - 0.8}" y1="${cy + 0.8}" x2="${cx + 0.8}" y2="${
       cy - (longArrow ? 1 : 0.8)
     }"
-            stroke="black" stroke-width="0.06" marker-end="url(#arrow)" />`
+            stroke="currentColor" stroke-width="0.06" marker-end="url(#arrow)" />`
     : nothing;
   const zigZag =
     zigZagTransform === undefined
       ? nothing
-      : svg`<g stroke="black" stroke-linecap="round"
+      : svg`<g stroke="currentColor" stroke-linecap="round"
               transform="rotate(${rot * 90} ${cx} ${cy})
               translate(${cx - 1.5} ${cy - 1.5})
               ${zigZagTransform}">${zigZagPath}</g>`;
@@ -204,7 +205,7 @@ function renderTransformerWinding(
         }
         context.openContextMenu(winding, e);
       }}
-  ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="black" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
+  ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="currentColor" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
 }
 
 function powerTransformerState(

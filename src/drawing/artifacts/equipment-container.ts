@@ -88,7 +88,7 @@ type ContainerClickHandler = (e: MouseEvent) => void;
 
 const voltageLevelKind: ContainerKind = {
   className: 'voltagelevel',
-  stroke: '#F5E214',
+  stroke: 'var(--oscd-sld-voltage-level-color)',
   strokeDasharray: nothing,
   placingChildTag: 'Bay',
   resolvePlacementParent: (_element, context) => context.substation,
@@ -96,7 +96,7 @@ const voltageLevelKind: ContainerKind = {
 
 const bayKind: ContainerKind = {
   className: 'bay',
-  stroke: '#12579B',
+  stroke: 'var(--oscd-sld-bay-color)',
   strokeDasharray: '0.18',
   placingChildTag: 'ConductingEquipment',
   resolvePlacementParent: (_element, context, x, y, w, h) =>
@@ -394,7 +394,9 @@ function render(
       context.resizingBR !== element &&
       context.resizingTL !== element);
 
-  const strokeColor = invalid ? '#BB1326' : kind.stroke;
+  const strokeColor = invalid
+    ? 'var(--oscd-sld-invalid-placement-color)'
+    : kind.stroke;
 
   const highlighted = isToBeHighlighted(element, context.highlight);
   const safeHandleClick = handleClick || nothing;
@@ -413,10 +415,10 @@ function render(
       @contextmenu=${contextmenu}
       @click=${safeHandleClick} @mousedown=${preventDefault}
       @auxclick=${auxclick}
-      fill="${highlighted ? 'none' : 'white'}" stroke-dasharray="${
-        kind.strokeDasharray
-      }"
-      stroke="${strokeColor}" />
+      stroke-dasharray="${kind.strokeDasharray}"
+      style="stroke: ${strokeColor}; fill: ${
+        highlighted ? 'none' : 'var(--md-sys-color-surface, var(--oscd-base3))'
+      }" />
     ${childContainers}
     ${renderEquipmentLayer(element, context)}
     ${renderPowerTransformerLayer(element, context)}

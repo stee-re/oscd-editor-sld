@@ -315,8 +315,7 @@ function renderEquipment(
         cy="0"
         r="0.2"
         opacity="0.4"
-        fill="#BB1326"
-        stroke="#F5E214"
+        style="fill: var(--oscd-sld-terminal-color); stroke: var(--oscd-sld-terminal-outline-color)"
         pointer-events="${state.portPointerEventsDisabled ? 'none' : nothing}"
         @click=${actions.onStartTopConnect}
         @contextmenu=${actions.onGroundTop}
@@ -326,7 +325,7 @@ function renderEquipment(
   const topIndicator = state.showTopConnectIndicator
     ? svg`<polygon
         points="0.3,0 0.7,0 0.5,0.4"
-        fill="#BB1326"
+        style="fill: var(--oscd-sld-terminal-color)"
         opacity="0.4"
       />`
     : nothing;
@@ -337,7 +336,7 @@ function renderEquipment(
         y1="-0.1"
         x2="0.5"
         y2="0.16"
-        stroke="black"
+        stroke="currentColor"
         stroke-width="0.06"
         marker-start="url(#grounded)"
       />`
@@ -350,8 +349,7 @@ function renderEquipment(
         cy="1"
         r="0.2"
         opacity="0.4"
-        fill="#BB1326"
-        stroke="#F5E214"
+        style="fill: var(--oscd-sld-terminal-color); stroke: var(--oscd-sld-terminal-outline-color)"
         pointer-events="${state.portPointerEventsDisabled ? 'none' : nothing}"
         @click=${actions.onStartBottomConnect}
         @contextmenu=${actions.onGroundBottom}
@@ -361,7 +359,7 @@ function renderEquipment(
   const bottomIndicator = state.showBottomConnectIndicator
     ? svg`<polygon
         points="0.3,1 0.7,1 0.5,0.6"
-        fill="#BB1326"
+        style="fill: var(--oscd-sld-terminal-color)"
         opacity="0.4"
       />`
     : nothing;
@@ -372,7 +370,7 @@ function renderEquipment(
         y1="1.1"
         x2="0.5"
         y2="0.84"
-        stroke="black"
+        stroke="currentColor"
         stroke-width="0.06"
         marker-start="url(#grounded)"
       />`

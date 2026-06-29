@@ -16,6 +16,7 @@ import { OscdSldIcon } from '../oscd-sld-icon.js';
 import { isBusBar } from '../foundations/connectivity.js';
 import { eqTypes } from '../foundations/equipment.js';
 import { setSLDAttributes } from '../foundations/sld-attributes.js';
+import { sldThemeStyles } from '../theme.js';
 import { sldPrefix } from '../foundations.js';
 
 import { SldIedImporter } from './sld-ied-importer.js';
@@ -231,7 +232,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
             this.templateElements.Bay!.cloneNode() as Element;
           this.startPlacing(element);
         }}
-        style="--md-fab-container-color: #12579B; --md-fab-icon-color: white;"
+        style="--md-fab-container-color: var(--oscd-sld-icon-bay-background-color); --md-fab-icon-color: var(--oscd-sld-icon-bay-foreground-color);"
       >
         <oscd-sld-icon slot="icon">sld_bay</oscd-sld-icon>
       </oscd-fab>`;
@@ -251,7 +252,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
           this.templateElements.VoltageLevel!.cloneNode() as Element;
         this.startPlacing(element);
       }}
-      style="--md-fab-container-color: #F5E214;"
+      style="--md-fab-container-color: var(--oscd-sld-icon-voltage-level-background-color); --md-fab-icon-color: var(--oscd-sld-icon-voltage-level-foreground-color);"
     >
       <oscd-sld-icon slot="icon">sld_voltage_level</oscd-sld-icon>
     </oscd-fab>`;
@@ -289,7 +290,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
       size="small"
       @click=${() => this.insertSubstation()}
       aria-label="Add Substation"
-      style="--md-fab-container-color: #BB1326; --md-fab-icon-color: white;"
+      style="--md-fab-container-color: var(--oscd-sld-icon-substation-background-color); --md-fab-icon-color: var(--oscd-sld-icon-substation-foreground-color);"
       title="Add Substation"
       ><oscd-icon slot="icon">margin</oscd-icon>
     </oscd-fab>`;
@@ -442,7 +443,9 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
     ${this.renderAboutDialog()}`;
   }
 
-  static styles = css`
+  static styles = [
+    sldThemeStyles,
+    css`
     * {
       --md-fab-small-container-shape: 50%;
     }
@@ -453,7 +456,7 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
       left: 16px;
       width: fit-content;
       max-width: calc(100cqi - 32px);
-      background: #fffd;
+      background: var(--oscd-sld-toolbar-background-color);
       border-radius: 24px;
       z-index: 1;
       display: flex;
@@ -465,14 +468,18 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
     }
 
     oscd-icon-button {
-      color: rgb(0, 0, 0 / 0.83);
+      color: var(--md-sys-color-on-surface, var(--oscd-base00));
     }
     oscd-icon-button[disabled] {
       opacity: 0.38;
     }
     oscd-fab {
-      --md-fab-container-color: #fff;
-      --md-fab-icon-color: rgb(0, 0, 0 / 0.83);
+      /* one tonal step lighter than the nav surface so FABs read as raised
+         even in dark mode, where shadows recede (shell maps every
+         surface-container tier to base3, so reference the base ladder) */
+      --md-fab-container-color: var(--oscd-base2);
+      --md-fab-icon-color: var(--md-sys-color-on-surface, var(--oscd-base00));
     }
-  `;
+  `,
+  ];
 }

@@ -52,6 +52,12 @@ npm run start
 
 To run a local development server that serves the basic demo located in `demo/index.html`
 
+## Theming
+
+The diagram's colours are exposed as `--oscd-editor-sld-*` CSS custom properties
+that fall back to the OpenSCD shell theme. See [THEMING.md](THEMING.md) for the
+full list of override hooks and what they affect.
+
 &copy; 2025 OMICRON electronics GmbH
 
 ## License

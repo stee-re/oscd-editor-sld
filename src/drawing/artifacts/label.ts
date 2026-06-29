@@ -77,7 +77,7 @@ export function renderLabel(
 
   let deg = 0;
   let weight = 400;
-  let color = 'black';
+  let color = 'var(--md-sys-color-on-surface, var(--oscd-base00))';
   const [x, y] = context.renderedLabelPosition(element, { preview });
   const ied = resolveIed(element);
   let text = labelText(element, ied, x);
@@ -87,13 +87,13 @@ export function renderLabel(
     deg = attributes(element).rot * 90;
     if (!element.textContent) {
       text = '<Middle click to edit>';
-      color = '#aaa';
+      color = 'var(--oscd-sld-label-placeholder-color)';
       weight = 500;
     }
   }
 
   if (isIedReferenceElement(element) && !context.placing && !context.placingLabel) {
-    color = ied ? color : '#BB1326';
+    color = ied ? color : 'var(--oscd-sld-unresolved-reference-color)';
   }
 
   const fontSize = element.tagName === 'ConductingEquipment' ? 0.45 : 0.6;
@@ -170,11 +170,10 @@ export function renderLabel(
       @click=${handleClick}
       @contextmenu=${contextmenu}
       pointer-events="${events}"
-      fill="${color}"
       font-weight="${weight}"
       font-size="${fontSize}px"
       font-family="Roboto, sans-serif"
-      style="cursor: default;"
+      style="fill: ${color}; cursor: default;"
     >
       ${text}
     </text>

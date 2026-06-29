@@ -12,6 +12,7 @@ import { OscdListItem } from '@omicronenergy/oscd-ui/list/OscdListItem.js';
 import { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { OscdMenuItem } from '@omicronenergy/oscd-ui/menu/OscdMenuItem.js';
 
+import { sldThemeStyles } from '../theme.js';
 import { sldNs, sldPrefix } from '../foundations.js';
 import {
   createRemoveIedReferenceEdit,
@@ -26,6 +27,8 @@ import { getSLDAttributes } from '../foundations/sld-attributes.js';
  * IEDs, and already-used IEDs (repositionable).
  */
 export class SldIedMenu extends ScopedElementsMixin(LitElement) {
+  static styles = [sldThemeStyles];
+
   static scopedElements = {
     'oscd-fab': OscdFab,
     'oscd-icon': OscdIcon,
@@ -150,7 +153,7 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
 
     return html`<oscd-menu-item
       data-name="Delete Unmatched"
-      style="color: #BB1326;"
+      style="color: var(--oscd-sld-unresolved-reference-color);"
       @click=${() => this.handleDeleteUnmatched()}
     >
       <oscd-icon slot="start">delete</oscd-icon>
