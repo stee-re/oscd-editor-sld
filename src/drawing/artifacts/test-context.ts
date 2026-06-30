@@ -3,6 +3,7 @@ import { nothing, render as litRender, svg } from 'lit';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { svgNs } from '../../foundations.js';
 import { newOpenContextMenuEvent } from '../../foundations/events.js';
+import { resolveIed } from '../../foundations/ied.js';
 
 import type { EquipmentContext } from './conducting-equipment.js';
 import type { PowerTransformerContext } from './power-transformer.js';
@@ -73,6 +74,7 @@ export function makeArtifactContext(
         }),
       );
     },
+    resolveIed: referencedIed => resolveIed(referencedIed),
     renderConnectivityNode: () => nothing,
     renderEquipment(element: Element) {
       renderedChildren.push(element);

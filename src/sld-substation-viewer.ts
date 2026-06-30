@@ -63,6 +63,7 @@ import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
   isIedReferenceElement,
+  resolveIed as resolveReferencedIed,
 } from './foundations/ied.js';
 import {
   newConnectEvent,
@@ -232,6 +233,17 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     return !Array.from(changedProperties.keys()).every(property =>
       mouseCoordinateProperties.includes(property),
     );
+  }
+
+  private resolveIed(referencedIed: Element): Element | null {
+    if (!this.iedResolutionCache.has(referencedIed)) {
+      this.iedResolutionCache.set(
+        referencedIed,
+        resolveReferencedIed(referencedIed),
+      );
+    }
+
+    return this.iedResolutionCache.get(referencedIed) ?? null;
   }
 
   @state()
@@ -842,6 +854,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       placingLabel: this.placingLabel,
       requestContextMenu: (element, event) =>
         this.requestContextMenu(element, event),
+      resolveIed: referencedIed => this.resolveIed(referencedIed),
       renderLabel: (element, options) => this.renderLabel(element, options),
       renderedPosition: element => this.renderedPosition(element),
       selectable: this.selectable,

@@ -3,10 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { identity } from '@openscd/scl-lib';
 
 import { isBusBar } from '../../foundations/connectivity.js';
-import {
-  isIedReferenceElement,
-  resolveIed,
-} from '../../foundations/ied.js';
+import { isIedReferenceElement } from '../../foundations/ied.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import {
   newEditIedEvent,
@@ -76,7 +73,7 @@ export function renderLabel(
   let weight = 400;
   let color = 'var(--md-sys-color-on-surface, var(--oscd-base00))';
   const [x, y] = context.renderedLabelPosition(element, { preview });
-  const ied = resolveIed(element);
+  const ied = context.resolveIed(element);
   let text = labelText(element, ied, x);
 
   if (element.tagName === 'Text') {

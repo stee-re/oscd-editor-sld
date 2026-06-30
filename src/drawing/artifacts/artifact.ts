@@ -27,6 +27,7 @@ export type SldSharedContext = {
   placing?: Element;
   placingLabel?: Element;
   requestContextMenu(element: Element, event: MouseEvent): void;
+  resolveIed(referencedIed: Element): Element | null;
   renderLabel(
     element: Element,
     options?: { preview?: boolean },
