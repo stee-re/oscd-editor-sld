@@ -1,4 +1,5 @@
 import type { nothing, SVGTemplateResult } from 'lit';
+
 import type { Point } from '../../foundations/geometry.js';
 
 export type ArtifactRenderOptions = {
@@ -23,9 +24,9 @@ export type SldSharedContext = {
   gridPosition(event: MouseEvent): Point;
   halfGridPosition(event: MouseEvent): Point;
   idle: boolean;
-  openContextMenu(element: Element, event: MouseEvent): void;
   placing?: Element;
   placingLabel?: Element;
+  requestContextMenu(element: Element, event: MouseEvent): void;
   renderLabel(
     element: Element,
     options?: { preview?: boolean },

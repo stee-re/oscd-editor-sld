@@ -18,10 +18,7 @@ import { sldNs } from '../../foundations.js';
 
 import type { Point } from '../../foundations/geometry.js';
 import { isSelectable } from './highlight.js';
-import type {
-  ArtifactRenderOptions,
-  SldSharedContext,
-} from './artifact.js';
+import type { ArtifactRenderOptions, SldSharedContext } from './artifact.js';
 
 export type LabelContext = SldSharedContext & {
   mouseX2: number;
@@ -133,7 +130,7 @@ export function renderLabel(
       if (!context.idle) {
         return;
       }
-      context.openContextMenu(element, e);
+      context.requestContextMenu(element, e);
     };
   }
 

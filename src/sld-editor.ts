@@ -5,13 +5,16 @@ import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import type { EditV2, SetAttributes } from '@openscd/oscd-api';
 
 import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs.js';
+import { OscdSnackbar } from '@omicronenergy/oscd-ui/snackbar/OscdSnackbar.js';
 
 import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
+import { SldContextMenu } from './context-menu/sld-context-menu.js';
 import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
 import {
   busBarVertexEdits,
   createConnectEdits,
+  createGroundTerminalEdits,
   createPlaceLabelEdit,
   createResizeEdits,
   createResizeTLEdits,
@@ -33,9 +36,12 @@ import { reparentElement, sldNs, sldPrefix } from './foundations.js';
 import type {
   ConnectDetail,
   ConnectEvent,
+  DeleteSubstationEvent,
   ExtendConnectPointEvent,
   EditIedDetail,
   EditSclDetail,
+  GroundTerminalEvent,
+  OpenContextMenuEvent,
   PlaceEvent,
   PlaceLabelEvent,
   ResizeEvent,
@@ -62,7 +68,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-substation-viewer': SldSubstationViewer,
     'sld-resize-substation-dialog': SldResizeSubstationDialog,
+    'sld-context-menu': SldContextMenu,
     'oscd-scl-dialogs': OscdSclDialogs,
+    'oscd-snackbar': OscdSnackbar,
   };
 
   @query('oscd-scl-dialogs')
@@ -70,6 +78,12 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   @query('sld-resize-substation-dialog')
   resizeDialog!: SldResizeSubstationDialog;
+
+  @query('sld-context-menu')
+  contextMenu!: SldContextMenu;
+
+  @query('oscd-snackbar')
+  snackbar!: OscdSnackbar;
 
   @property({ type: Object }) doc!: XMLDocument;
 
@@ -172,6 +186,32 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   private handleResizeSubstationRequest = (event: ResizeSubstationEvent) => {
     this.resizeDialog.show(event.detail.substation);
   };
+
+  private handleDeleteSubstationRequest = (event: DeleteSubstationEvent) => {
+    this.dispatchEvent(newEditEventV2({ node: event.detail.substation }));
+  };
+
+  private handleGroundTerminalRequest = (event: GroundTerminalEvent) => {
+    const { equipment, terminal } = event.detail;
+    const edits = createGroundTerminalEdits(equipment, terminal);
+    if (!edits) {
+      this.showGroundHint();
+      return;
+    }
+
+    this.dispatchEvent(newEditEventV2(edits));
+  };
+
+  private handleOpenContextMenuRequest = (event: OpenContextMenuEvent) => {
+    this.contextMenu.open(event.detail);
+  };
+
+  private showGroundHint() {
+    this.snackbar.show({
+      message: 'Only transformers within a bay may be grounded directly.',
+      variant: 'warning',
+    });
+  }
 
   private handleKeydown = ({ key }: KeyboardEvent) => {
     if (key === 'Escape') {
@@ -317,6 +357,13 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.reset();
   }
 
+  resizeTLElement(element: Element, x: number, y: number, w: number, h: number) {
+    this.dispatchEvent(
+      newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)),
+    );
+    this.reset();
+  }
+
   isNewBayOrVL(element: Element) : boolean {
     return ['Bay', 'VoltageLevel'].includes(element.tagName) &&
       (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'));
@@ -356,6 +403,13 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     }
 
     resolve?.({ element, parent, x, y });
+  }
+
+  placeLabelElement(element: Element, x: number, y: number) {
+    this.dispatchEvent(
+      newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)),
+    );
+    this.reset();
   }
 
   connectEquipment(detail: ConnectDetail) {
@@ -418,14 +472,25 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
               this.startConnecting(detail);
             }}
+            @oscd-sld-delete-substation=${(event: DeleteSubstationEvent) => {
+              this.handleDeleteSubstationRequest(event);
+            }}
+            @oscd-sld-ground-terminal=${(event: GroundTerminalEvent) => {
+              this.handleGroundTerminalRequest(event);
+            }}
+            @sld-ground-hint=${() => {
+              this.showGroundHint();
+            }}
+            @oscd-sld-open-context-menu=${(event: OpenContextMenuEvent) => {
+              this.handleOpenContextMenuRequest(event);
+            }}
             @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
               this.handleSubstationResize(element, w, h);
             }}
             @oscd-sld-resize-tl=${({
               detail: { element, x, y, w, h },
             }: ResizeTLEvent) => {
-              this.dispatchEvent(newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)));
-              this.reset();
+              this.resizeTLElement(element, x, y, w, h);
             }}
             @oscd-sld-place=${({
               detail: { element, parent, x, y },
@@ -433,8 +498,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             @oscd-sld-place-label=${({
               detail: { element, x, y },
             }: PlaceLabelEvent) => {
-              this.dispatchEvent(newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)));
-              this.reset();
+              this.placeLabelElement(element, x, y);
             }}
             @oscd-sld-connect=${({ detail }: ConnectEvent) =>
               this.connectEquipment(detail)}
@@ -450,6 +514,35 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
         this.handleSubstationResize(element, w, h);
       }}
     ></sld-resize-substation-dialog>
+    <sld-context-menu
+      .doc=${this.doc}
+      .nsp=${this.nsp}
+      @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
+        this.startResizingBottomRight(detail);
+      }}
+      @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
+        this.startResizingTopLeft(detail);
+      }}
+      @oscd-sld-start-place=${({
+        detail: { element, offset },
+      }: StartPlaceEvent) => {
+        this.startPlacing(element, offset);
+      }}
+      @oscd-sld-start-place-label=${({
+        detail: { element, offset },
+      }: StartPlaceEvent) => {
+        this.startPlacingLabel(element, offset);
+      }}
+      @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
+        this.startConnecting(detail);
+      }}
+      @oscd-sld-rotate=${({ detail }: StartEvent) =>
+        this.rotateElement(detail)}
+      @sld-ground-hint=${() => {
+        this.showGroundHint();
+      }}
+    ></sld-context-menu>
+    <oscd-snackbar></oscd-snackbar>
     <oscd-scl-dialogs></oscd-scl-dialogs>`;
   }
 }

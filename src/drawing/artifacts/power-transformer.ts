@@ -203,7 +203,7 @@ function renderTransformerWinding(
         if (!context.idle) {
           return;
         }
-        context.openContextMenu(winding, e);
+        context.requestContextMenu(winding, e);
       }}
   ><circle cx="${cx}" cy="${cy}" r="${size}" stroke="currentColor" stroke-width="0.06" />${arcPath}${zigZag}${ltcArrow}${ports}</g>`;
 }

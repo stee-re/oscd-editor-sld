@@ -93,6 +93,10 @@ import {
   eqTarget,
   sldFixture,
 } from './test-helpers.js';
+import {
+  newDeleteSubstationEvent,
+  newGroundTerminalEvent,
+} from './foundations/events.js';
 
 customElements.define('sld-editor', SldEditor);
 
@@ -359,12 +363,13 @@ describe('SLD Editor', () => {
   }
 
   function contextMenu(): OscdMenu | null {
-    return (
-      getSldSubstationViewer(element)!
+    const menu =
+      element
         .shadowRoot!.querySelector('sld-context-menu')
         ?.shadowRoot?.querySelector<OscdMenu>('oscd-menu') ??
-      null
-    );
+      null;
+
+    return menu?.querySelector('oscd-menu-item') ? menu : null;
   }
 
   function clickInteractive(element: HTMLElement): void {
@@ -585,6 +590,14 @@ describe('SLD Editor', () => {
       expect(sldAttribute(sldSubstationViewer.substation, 'w')).to.equal(
         '1337',
       );
+    });
+
+    it('routes substation deletion from the viewer through the editor', async () => {
+      sldSubstationViewer.dispatchEvent(
+        newDeleteSubstationEvent(sldSubstationViewer.substation),
+      );
+
+      expect(element.doc.querySelector('Substation')).to.be.null;
     });
 
     it('allows placing a new voltage level', async () => {
@@ -1617,6 +1630,19 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       sldSubstationViewer = getSldSubstationViewer(element)!;
       await sldSubstationViewer.updateComplete;
+    });
+
+    it('routes terminal grounding from the viewer through the editor', async () => {
+      const equipment = element.doc.querySelector('ConductingEquipment')!;
+
+      sldSubstationViewer.dispatchEvent(
+        newGroundTerminalEvent(equipment, 'T1'),
+      );
+
+      expect(equipment.querySelector('Terminal[name="T1"]')).to.exist;
+      expect(
+        element.doc.querySelector('ConnectivityNode[name="grounded"]'),
+      ).to.exist;
     });
 
     it('requests equipment scl edit on edit menu item select', async () => {
@@ -3007,4 +3033,3 @@ describe('SLD namespace prefix forwarding', () => {
     expect(written.prefix).to.equal('smth');
   });
 });
-

@@ -210,6 +210,58 @@ export function newResizeSubstationEvent(
   });
 }
 
+export type DeleteSubstationDetail = { substation: Element };
+
+export type DeleteSubstationEvent = CustomEvent<DeleteSubstationDetail>;
+
+export function newDeleteSubstationEvent(
+  substation: Element,
+): DeleteSubstationEvent {
+  return new CustomEvent('oscd-sld-delete-substation', {
+    bubbles: true,
+    composed: true,
+    detail: { substation },
+  });
+}
+
+export type GroundTerminalDetail = {
+  equipment: Element;
+  terminal: 'T1' | 'T2' | 'N1' | 'N2';
+};
+
+export type GroundTerminalEvent = CustomEvent<GroundTerminalDetail>;
+
+export function newGroundTerminalEvent(
+  equipment: Element,
+  terminal: 'T1' | 'T2' | 'N1' | 'N2',
+): GroundTerminalEvent {
+  return new CustomEvent('oscd-sld-ground-terminal', {
+    bubbles: true,
+    composed: true,
+    detail: { equipment, terminal },
+  });
+}
+
+export type OpenContextMenuDetail = {
+  element: Element;
+  x: number;
+  y: number;
+  gridX: number;
+  gridY: number;
+};
+
+export type OpenContextMenuEvent = CustomEvent<OpenContextMenuDetail>;
+
+export function newOpenContextMenuEvent(
+  detail: OpenContextMenuDetail,
+): OpenContextMenuEvent {
+  return new CustomEvent('oscd-sld-open-context-menu', {
+    bubbles: true,
+    composed: true,
+    detail,
+  });
+}
+
 export type EditIedDetail = { element: Element };
 
 export type EditIedEvent = CustomEvent<EditIedDetail>;
@@ -240,5 +292,8 @@ declare global {
     ['oscd-sld-edit-scl']: EditSclEvent;
     ['oscd-sld-edit-ied']: EditIedEvent;
     ['oscd-sld-resize-substation']: ResizeSubstationEvent;
+    ['oscd-sld-delete-substation']: DeleteSubstationEvent;
+    ['oscd-sld-ground-terminal']: GroundTerminalEvent;
+    ['oscd-sld-open-context-menu']: OpenContextMenuEvent;
   }
 }
