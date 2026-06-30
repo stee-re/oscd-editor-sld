@@ -17,9 +17,19 @@ import { sldNs, sldPrefix } from '../foundations.js';
 import {
   createRemoveIedReferenceEdit,
   iedReferences,
-  unresolvedIedReferences,
 } from '../foundations/ied.js';
 import { getSLDAttributes } from '../foundations/sld-attributes.js';
+
+type IedMenuModel = {
+  doc: XMLDocument;
+  docVersion: number;
+  ieds: Element[];
+  iedRefs: Element[];
+  refByIedIdentity: Map<string, Element>;
+  unusedIeds: Element[];
+  unusedIedRefs: Element[];
+  usedIeds: Element[];
+};
 
 /**
  * A FAB that opens a menu listing IEDs available for placement on the SLD.
@@ -52,51 +62,67 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
 
   @query('oscd-menu') private menu?: OscdMenu;
 
-  private get ieds(): Element[] {
-    return Array.from(this.doc.querySelectorAll(':root > IED'));
+  private cachedModel?: IedMenuModel;
+
+  private get model(): IedMenuModel {
+    if (
+      this.cachedModel?.doc === this.doc &&
+      this.cachedModel.docVersion === this.docVersion
+    ) {
+      return this.cachedModel;
+    }
+
+    this.cachedModel = this.createModel();
+    return this.cachedModel;
   }
 
-  private get substations(): Element[] {
-    return Array.from(this.doc.querySelectorAll(':root > Substation'));
-  }
+  private createModel(): IedMenuModel {
+    const ieds = Array.from(this.doc.querySelectorAll(':root > IED'));
+    const iedIdentities = new Set(ieds.map(ied => String(identity(ied))));
+    const iedRefs = Array.from(
+      this.doc.querySelectorAll(':root > Substation'),
+    ).flatMap(substation => iedReferences(substation));
+    const refByIedIdentity = new Map<string, Element>();
 
-  private get iedRefs(): Element[] {
-    return this.substations.flatMap(sub => iedReferences(sub));
-  }
+    for (const ref of iedRefs) {
+      const id = ref.getAttributeNS(sldNs, 'id');
+      if (id && !refByIedIdentity.has(id)) {
+        refByIedIdentity.set(id, ref);
+      }
+    }
 
-  private refForIed(ied: Element): Element | undefined {
-    return this.iedRefs.find(
-      ref => ref.getAttributeNS(sldNs, 'id') === identity(ied),
+    const unusedIedRefs = iedRefs.filter((ref) => {
+      const id = ref.getAttributeNS(sldNs, 'id');
+      return !id || !iedIdentities.has(id);
+    });
+    const unusedIeds = ieds.filter(
+      ied => !refByIedIdentity.has(String(identity(ied))),
     );
-  }
+    const usedIeds = ieds
+      .filter(ied =>
+        !!getSLDAttributes(
+          refByIedIdentity.get(String(identity(ied))) ?? ied,
+          'x',
+        )
+      )
+      .sort((a, b) =>
+        (a.getAttribute('name') ?? '').localeCompare(
+          b.getAttribute('name') ?? '',
+          undefined,
+          { sensitivity: 'base' },
+        ),
+      );
 
-  private get unusedIeds(): Element[] {
-    return this.ieds.filter(ied => !this.refForIed(ied));
-  }
-
-  private get unusedIedRefs(): Element[] {
-    return this.substations.flatMap(sub => unresolvedIedReferences(sub));
-  }
-
-  private get usedIedRefs(): Element[] {
-    return this.ieds
-      .sort((a, b) => {
-        const aName = a.getAttribute('name') ?? '';
-        const bName = b.getAttribute('name') ?? '';
-
-        const aRef = this.refForIed(a);
-        const aIsUsed = !!aRef && !!getSLDAttributes(aRef, 'x');
-
-        const bRef = this.refForIed(b);
-        const bIsUsed = !!bRef && !!getSLDAttributes(bRef, 'x');
-
-        if (aIsUsed !== bIsUsed) {
-          return aIsUsed ? -1 : 1;
-        }
-
-        return aName.localeCompare(bName, undefined, { sensitivity: 'base' });
-      })
-      .filter(ied => !!getSLDAttributes(this.refForIed(ied) ?? ied, 'x'));
+    return {
+      doc: this.doc,
+      docVersion: this.docVersion,
+      ieds,
+      iedRefs,
+      refByIedIdentity,
+      unusedIeds,
+      unusedIedRefs,
+      usedIeds,
+    };
   }
 
   private insertOrGetIedReference(ied: Element): Element {
@@ -121,7 +147,7 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
   }
 
   private handleDeleteUnmatched() {
-    const edits: EditV2[] = this.unusedIedRefs.map(ref =>
+    const edits: EditV2[] = this.model.unusedIedRefs.map(ref =>
       createRemoveIedReferenceEdit(ref),
     );
     this.dispatchEvent(newEditEventV2(edits));
@@ -146,8 +172,8 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
     }
   }
 
-  private renderUnmatchedSection() {
-    if (this.unusedIedRefs.length === 0) {
+  private renderUnmatchedSection({ unusedIedRefs }: IedMenuModel) {
+    if (unusedIedRefs.length === 0) {
       return nothing;
     }
 
@@ -158,21 +184,21 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
     >
       <oscd-icon slot="start">delete</oscd-icon>
       <div slot="headline">
-        Remove reference to ${this.unusedIedRefs.length} missing
-        IED${this.unusedIedRefs.length > 1 ? 's' : ''} from the SLD
+        Remove reference to ${unusedIedRefs.length} missing
+        IED${unusedIedRefs.length > 1 ? 's' : ''} from the SLD
       </div>
     </oscd-menu-item>`;
   }
 
-  private renderAvailableSection() {
-    if (this.unusedIeds.length === 0) {
+  private renderAvailableSection({ unusedIeds }: IedMenuModel) {
+    if (unusedIeds.length === 0) {
       return nothing;
     }
 
     return html`<oscd-list-item type="text">
         <div slot="headline"><strong>Available IEDs</strong></div>
       </oscd-list-item>
-      ${this.unusedIeds.map(
+      ${unusedIeds.map(
         ied => html`<oscd-menu-item
           data-name="${ied.getAttribute('name')!}"
           @click=${() => this.handleSelectIed(ied)}
@@ -191,27 +217,18 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
       )}`;
   }
 
-  private renderUsedSection() {
-    if (this.usedIedRefs.length === 0) {
+  private renderUsedSection({ usedIeds }: IedMenuModel) {
+    if (usedIeds.length === 0) {
       return nothing;
     }
 
     return html`<oscd-list-item type="text">
         <div slot="headline"><strong>Used IEDs</strong></div>
       </oscd-list-item>
-      ${this.usedIedRefs.map(
+      ${usedIeds.map(
         ied => html`<oscd-menu-item
           data-name="${ied.getAttribute('name')!}"
-          @click=${() => {
-            const foundIed = this.ieds.find(
-              item =>
-                item.getAttribute('name') === ied.getAttribute('name'),
-            );
-            if (!foundIed) {
-              return;
-            }
-            this.handleSelectIed(foundIed);
-          }}
+          @click=${() => this.handleSelectIed(ied)}
         >
           <div slot="headline">${ied.getAttribute('name')!}</div>
           <div slot="supporting-text">
@@ -228,6 +245,12 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
       )}`;
   }
 
+  private renderOpenMenuContent() {
+    const model = this.model;
+    return html`${this.renderUnmatchedSection(model)}
+    ${this.renderAvailableSection(model)} ${this.renderUsedSection(model)}`;
+  }
+
   render() {
     return html`<oscd-fab
         size="small"
@@ -242,8 +265,7 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
         ><oscd-icon slot="icon">developer_board</oscd-icon></oscd-fab
       >
       <oscd-menu positioning="fixed" id="iedMenu">
-        ${this.renderUnmatchedSection()} ${this.renderAvailableSection()}
-        ${this.renderUsedSection()}
+        ${this.menuOpen ? this.renderOpenMenuContent() : nothing}
       </oscd-menu>`;
   }
 }
