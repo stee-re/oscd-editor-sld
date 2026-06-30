@@ -12,12 +12,8 @@ import { property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
-import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
-
 import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
 import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
-// TODO: Replace with oscd-ui notification when available
-import { SldSnackbar } from './sld-snackbar.js';
 import { SldCoordinateTooltip } from './sld-coordinate-tooltip.js';
 
 import {
@@ -56,9 +52,6 @@ import {
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
 import { canPlaceAt } from './foundations/sld-placement.js';
-import {
-  createGroundTerminalEdits,
-} from './foundations/edits.js';
 import { connectionStartPoints, isBusBar } from './foundations/connectivity.js';
 import {
   attributes,
@@ -70,11 +63,13 @@ import { singleTerminal } from './foundations/equipment.js';
 import {
   iedReferences,
   isIedReferenceElement,
-  resolveIed,
 } from './foundations/ied.js';
 import {
   newConnectEvent,
+  newDeleteSubstationEvent,
   newExtendConnectPointEvent,
+  newGroundTerminalEvent,
+  newOpenContextMenuEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
   newResizeSubstationEvent,
@@ -82,14 +77,12 @@ import {
 } from './foundations/events.js';
 import { exportSVG } from './foundations/export.js';
 import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
-import {
-  SldContextMenu,
-  type MenuContext,
-} from './context-menu/sld-context-menu.js';
 
 import type { Point } from './foundations/geometry.js';
 import type { Interaction } from './foundations/interaction-mode.js';
-import type { StartConnectDetail } from './foundations/events.js';
+import type {
+  StartConnectDetail,
+} from './foundations/events.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 function isBay(element: Element) {
@@ -111,9 +104,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'oscd-icon': OscdIcon,
     'oscd-icon-button': OscdIconButton,
-    // TODO: Replace with oscd-ui notification when available
-    'sld-snackbar': SldSnackbar,
-    'sld-context-menu': SldContextMenu,
     'sld-coordinate-tooltip': SldCoordinateTooltip,
   };
 
@@ -216,12 +206,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   @query('svg#sld')
   sld!: SVGGraphicsElement;
 
-  @query('sld-snackbar')
-  groundHint!: SldSnackbar;
-
-  @query('sld-context-menu')
-  contextMenu?: SldContextMenu;
-
   @state()
   mouseX = 0;
 
@@ -250,14 +234,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     );
   }
 
-  private resolvedIed(referencedIed: Element): Element | null {
-    if (!this.iedResolutionCache.has(referencedIed)) {
-      this.iedResolutionCache.set(referencedIed, resolveIed(referencedIed));
-    }
-
-    return this.iedResolutionCache.get(referencedIed) ?? null;
-  }
-
   @state()
   mouseX2 = 0;
 
@@ -269,15 +245,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
 
   @state()
   mouseY2f = 0;
-
-  private contextMenuContext(element: Element, e: MouseEvent): MenuContext {
-    const [gridX, gridY] =
-      e.clientX || e.clientY
-        ? this.svgCoordinates(e.clientX, e.clientY).map(Math.floor)
-        : [this.mouseX, this.mouseY];
-
-    return { element, x: e.clientX, y: e.clientY, gridX, gridY };
-  }
 
   svgCoordinates(clientX: number, clientY: number) {
     const p = new DOMPoint(clientX, clientY);
@@ -406,13 +373,20 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   groundTerminal(equipment: Element, name: 'T1' | 'T2' | 'N1' | 'N2') {
-    const edits = createGroundTerminalEdits(equipment, name);
-    if (!edits) {
-      this.groundHint.show();
-      return;
-    }
+    this.dispatchEvent(newGroundTerminalEvent(equipment, name));
+  }
 
-    this.dispatchEvent(newEditEventV2(edits));
+  requestContextMenu(element: Element, event: MouseEvent): void {
+    const [gridX, gridY] = this.gridPosition(event);
+    this.dispatchEvent(
+      newOpenContextMenuEvent({
+        element,
+        x: event.clientX,
+        y: event.clientY,
+        gridX,
+        gridY,
+      }),
+    );
   }
 
   /**
@@ -504,18 +478,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
         ${this.renderPlacingTargetsLayer()}
         ${this.renderPlacingPreview()}
       </svg>
-      ${this.disabled
-        ? nothing
-        : html`<sld-context-menu
-            .doc=${this.doc}
-            .nsp=${this.nsp}
-            @sld-ground-hint=${() => this.groundHint.show()}
-          ></sld-context-menu>`}
       ${this.renderCoordinateTooltip()}
-      <sld-snackbar
-        labelText="Only transformers within a bay may be grounded directly."
-      >
-      </sld-snackbar>
     </section>`;
   }
 
@@ -555,7 +518,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
         label="Delete Substation"
         title="Delete Substation"
         @click=${() =>
-          this.dispatchEvent(newEditEventV2({ node: this.substation }))}
+          this.dispatchEvent(newDeleteSubstationEvent(this.substation))}
       >
         <oscd-icon>delete</oscd-icon>
       </oscd-icon-button>
@@ -875,10 +838,10 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       gridPosition: event => this.gridPosition(event),
       halfGridPosition: event => this.halfGridPosition(event),
       idle: this.idle,
-      openContextMenu: (element, event) =>
-        this.contextMenu?.open(this.contextMenuContext(element, event)),
       placing: this.placing,
       placingLabel: this.placingLabel,
+      requestContextMenu: (element, event) =>
+        this.requestContextMenu(element, event),
       renderLabel: (element, options) => this.renderLabel(element, options),
       renderedPosition: element => this.renderedPosition(element),
       selectable: this.selectable,

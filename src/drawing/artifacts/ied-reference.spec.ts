@@ -102,14 +102,19 @@ describe('iedReferenceArtifact', () => {
     it('opens the context menu when idle', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onContextMenu(new MouseEvent('contextmenu'));
-      expect(context.contextMenuOpened).to.have.lengthOf(1);
-      expect(context.contextMenuOpened[0].element).to.equal(reference);
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-open-context-menu',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.element).to.equal(reference);
     });
 
     it('does not open the context menu when not idle', () => {
       const context = makeArtifactContext({ idle: false, substation });
       actionsFor(context).onContextMenu(new MouseEvent('contextmenu'));
-      expect(context.contextMenuOpened).to.have.lengthOf(0);
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),
+      ).to.equal(false);
     });
   });
 

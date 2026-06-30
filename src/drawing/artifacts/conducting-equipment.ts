@@ -233,7 +233,7 @@ function equipmentRenderActions(
       if (!context.idle || context.disabled) {
         return;
       }
-      context.openContextMenu(equipment, e);
+      context.requestContextMenu(equipment, e);
     },
     onGroundBottom: (e: MouseEvent) => {
       e.preventDefault();

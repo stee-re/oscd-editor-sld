@@ -2,6 +2,7 @@ import { nothing, render as litRender, svg } from 'lit';
 
 import { attributes } from '../../foundations/sld-attributes.js';
 import { svgNs } from '../../foundations.js';
+import { newOpenContextMenuEvent } from '../../foundations/events.js';
 
 import type { EquipmentContext } from './conducting-equipment.js';
 import type { PowerTransformerContext } from './power-transformer.js';
@@ -21,7 +22,6 @@ export type SpyArtifactContext = EquipmentContext &
   EquipmentContainerContext & {
     dispatched: Event[];
     grounded: { element: Element; terminal: string }[];
-    contextMenuOpened: { element: Element; event: MouseEvent }[];
     renderedChildren: Element[];
   };
 
@@ -35,13 +35,11 @@ export function makeArtifactContext(
 ): SpyArtifactContext {
   const dispatched: Event[] = [];
   const grounded: { element: Element; terminal: string }[] = [];
-  const contextMenuOpened: { element: Element; event: MouseEvent }[] = [];
   const renderedChildren: Element[] = [];
 
   return {
     dispatched,
     grounded,
-    contextMenuOpened,
     renderedChildren,
     connecting: undefined,
     disabled: false,
@@ -61,11 +59,20 @@ export function makeArtifactContext(
     mouseY2: 0,
     nearestOpenTerminal: () => undefined,
     nsp: 'smth',
-    openContextMenu(element: Element, event: MouseEvent) {
-      contextMenuOpened.push({ element, event });
-    },
     placing: undefined,
     placingLabel: undefined,
+    requestContextMenu(element: Element, event: MouseEvent) {
+      const [gridX, gridY] = this.gridPosition(event);
+      this.dispatch(
+        newOpenContextMenuEvent({
+          element,
+          x: event.clientX,
+          y: event.clientY,
+          gridX,
+          gridY,
+        }),
+      );
+    },
     renderConnectivityNode: () => nothing,
     renderEquipment(element: Element) {
       renderedChildren.push(element);

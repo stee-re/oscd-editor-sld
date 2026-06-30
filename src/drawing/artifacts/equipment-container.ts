@@ -35,7 +35,9 @@ import {
   isToBeHighlighted,
   type Highlight,
 } from './highlight.js';
-import type { SldSharedContext } from './artifact.js';
+import {
+  type SldSharedContext,
+} from './artifact.js';
 
 export type EquipmentContainerContext = SldSharedContext & {
   highlight: Highlight[];
@@ -311,7 +313,7 @@ function render(
     if (!context.idle) {
       return;
     }
-    context.openContextMenu(element, e);
+    context.requestContextMenu(element, e);
   };
   if (context.disabled) {
     contextmenu = () => {};

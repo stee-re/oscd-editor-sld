@@ -15,10 +15,10 @@ import {
 
 import type { Point } from '../../foundations/geometry.js';
 import { isSelectable } from './highlight.js';
-import type {
-  ArtifactRenderOptions,
-  SldArtifactDescriptor,
-  SldSharedContext,
+import {
+  type ArtifactRenderOptions,
+  type SldArtifactDescriptor,
+  type SldSharedContext,
 } from './artifact.js';
 
 type IedReferenceRenderState = {
@@ -120,7 +120,7 @@ function iedReferenceActions(
       if (!context.idle || context.disabled) {
         return;
       }
-      context.openContextMenu(referencedIed, e);
+      context.requestContextMenu(referencedIed, e);
     },
     onMouseDown: preventDefault,
   };

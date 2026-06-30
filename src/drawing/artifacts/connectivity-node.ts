@@ -112,7 +112,7 @@ export function renderConnectivityNode(
           if (!context.idle) {
             return;
           }
-          context.openContextMenu(bay, e);
+          context.requestContextMenu(bay, e);
         };
       }
       if (busBar && context.resizingBR === bay && !context.disabled) {
