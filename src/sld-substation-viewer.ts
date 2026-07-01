@@ -9,15 +9,11 @@ import {
 } from 'lit';
 
 import { property, query, state } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
-import { OscdIcon } from '@omicronenergy/oscd-ui/icon/OscdIcon.js';
-import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton.js';
 import { SldCoordinateTooltip } from './sld-coordinate-tooltip.js';
 
 import {
-  resizePath,
   symbols,
 } from './drawing/diagram-symbols.js';
 import {
@@ -67,16 +63,13 @@ import {
 } from './foundations/ied.js';
 import {
   newConnectEvent,
-  newDeleteSubstationEvent,
   newExtendConnectPointEvent,
   newGroundTerminalEvent,
   newOpenContextMenuEvent,
   newPlaceEvent,
   newPlaceLabelEvent,
-  newResizeSubstationEvent,
-  newSclEditDialogEvent,
 } from './foundations/events.js';
-import { exportSVG } from './foundations/export.js';
+import { serializeForExport } from './foundations/export.js';
 import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
 
 import type { Point } from './foundations/geometry.js';
@@ -103,8 +96,6 @@ const mouseCoordinateProperties: PropertyKey[] = [
 
 export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
-    'oscd-icon': OscdIcon,
-    'oscd-icon-button': OscdIconButton,
     'sld-coordinate-tooltip': SldCoordinateTooltip,
   };
 
@@ -334,11 +325,14 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     return [x, y];
   }
 
-  handleExport() {
-    exportSVG({
-      svg: this.sld,
-      filename: `${this.substation.getAttribute('name')}.svg`,
-    });
+  /**
+   * Returns the substation's diagram as an export-ready SVG string.
+   * The viewer alone knows how it constructs the SVG and which nodes are
+   * editing chrome, so it owns normalization/serialization; the editor decides
+   * what to do with the result (e.g. trigger a file download).
+   */
+  exportableSvg(): string {
+    return serializeForExport(this.sld);
   }
 
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined {
@@ -427,7 +421,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     } = attributes(this.substation);
 
     return html`<section>
-      ${this.renderHeader()}
+      <slot name="header"></slot>
       <svg
         xmlns="${svgNs}"
         xmlns:xlink="${xlinkNs}"
@@ -498,51 +492,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     return renderArtifactLabel(element, this.labelContext(), { preview });
   }
 
-  private renderHeader() {
-    return html`<h2 class="${classMap({ disabled: this.disabled })}">
-      ${this.substation.getAttribute('name')}
-      <oscd-icon-button
-        label="Edit Substation"
-        title="Edit Substation"
-        @click=${() =>
-          this.dispatchEvent(newSclEditDialogEvent(this.substation))}
-      >
-        <oscd-icon>edit</oscd-icon>
-      </oscd-icon-button>
-      <oscd-icon-button
-        label="Resize Substation"
-        title="Resize Substation"
-        @click=${() =>
-          this.dispatchEvent(newResizeSubstationEvent(this.substation))}
-      >
-        <svg
-          xmlns="${svgNs}"
-          width="24"
-          height="24"
-          viewBox="0 96 960 960"
-          opacity="0.83"
-          fill="currentColor"
-        >
-          ${resizePath}
-        </svg>
-      </oscd-icon-button>
-      <oscd-icon-button
-        label="Delete Substation"
-        title="Delete Substation"
-        @click=${() =>
-          this.dispatchEvent(newDeleteSubstationEvent(this.substation))}
-      >
-        <oscd-icon>delete</oscd-icon>
-      </oscd-icon-button>
-      <oscd-icon-button
-        label="Export Single Line Diagram SVG"
-        title="Export Single Line Diagram SVG"
-        @click=${() => this.handleExport()}
-      >
-        <oscd-icon>file_download</oscd-icon>
-      </oscd-icon-button>
-    </h2>`;
-  }
 
   /**
    * The VoltageLevel drop-zone, painted near the BACK of the stack (behind
@@ -987,17 +936,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
     css`
     #sld {
       color: var(--md-sys-color-on-surface, var(--oscd-base03));
-    }
-
-    h2 {
-      font-family: Roboto;
-      font-weight: 300;
-      font-size: 24px;
-      margin-bottom: 4px;
-      color: var(--md-sys-color-on-surface, var(--oscd-base00));
-      --md-icon-button-state-layer-height: 28px;
-      --md-icon-button-state-layer-width: 28px;
-      --md-icon-button-icon-size: 24px;
     }
 
     .disabled:not(.selectable) {

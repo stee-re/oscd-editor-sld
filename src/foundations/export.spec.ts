@@ -1,10 +1,10 @@
 import { expect } from '@open-wc/testing';
 
-import { exportSVG } from './export.js';
+import { downloadSvg, serializeForExport } from './export.js';
 
 describe('export', () => {
-  describe('exportSVG', () => {
-    it('triggers a download without modifying the original SVG', () => {
+  describe('serializeForExport', () => {
+    it('serializes without modifying the original SVG', () => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', '0');
@@ -14,13 +14,11 @@ describe('export', () => {
       svg.appendChild(rect);
 
       const originalChildCount = svg.childElementCount;
-
-      // exportSVG creates a temporary <a> element, clicks it, and removes it
-      // We just verify it doesn't throw and doesn't mutate the source SVG
-      exportSVG({ svg, filename: 'test.svg' });
+      const serialized = serializeForExport(svg);
 
       expect(svg.childElementCount).to.equal(originalChildCount);
       expect(svg.querySelector('rect')).to.not.be.null;
+      expect(serialized).to.contain('rect');
     });
 
     it('removes handle elements from the export', () => {
@@ -31,9 +29,11 @@ describe('export', () => {
       const content = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       svg.appendChild(content);
 
-      // The original is not mutated
-      exportSVG({ svg, filename: 'test.svg' });
+      const serialized = serializeForExport(svg);
+
+      // The original is not mutated; the export clone drops the handle.
       expect(svg.querySelector('.handle')).to.not.be.null;
+      expect(serialized).to.not.contain('handle');
     });
 
     it('removes preview elements from the export', () => {
@@ -42,9 +42,10 @@ describe('export', () => {
       preview.classList.add('preview');
       svg.appendChild(preview);
 
-      exportSVG({ svg, filename: 'test.svg' });
-      // Original preserved
+      const serialized = serializeForExport(svg);
+
       expect(svg.querySelector('.preview')).to.not.be.null;
+      expect(serialized).to.not.contain('preview');
     });
 
     it('removes port elements from the export', () => {
@@ -53,8 +54,10 @@ describe('export', () => {
       port.classList.add('port');
       svg.appendChild(port);
 
-      exportSVG({ svg, filename: 'test.svg' });
+      const serialized = serializeForExport(svg);
+
       expect(svg.querySelector('.port')).to.not.be.null;
+      expect(serialized).to.not.contain('port');
     });
 
     it('removes label container elements from the export', () => {
@@ -64,11 +67,13 @@ describe('export', () => {
       labelContainer.classList.add('container');
       svg.appendChild(labelContainer);
 
-      exportSVG({ svg, filename: 'test.svg' });
+      const serialized = serializeForExport(svg);
+
       expect(svg.querySelector('.label.container')).to.not.be.null;
+      expect(serialized).to.not.contain('container');
     });
 
-    it('removes outline rect from voltagelevel/bay groups', async () => {
+    it('removes outline rect from voltagelevel/bay groups', () => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       const vlGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       vlGroup.classList.add('voltagelevel');
@@ -78,12 +83,15 @@ describe('export', () => {
       vlGroup.appendChild(content);
       svg.appendChild(vlGroup);
 
-      exportSVG({ svg, filename: 'test.svg' });
+      const serialized = serializeForExport(svg);
+
       // original not mutated; frame stripped only from the export clone
       expect(vlGroup.querySelector('rect')).to.not.be.null;
+      expect(serialized).to.contain('line');
+      expect(serialized).to.not.contain('rect');
     });
 
-    it('forces a monochrome black-on-white palette regardless of theme', async () => {
+    it('forces a monochrome black-on-white palette regardless of theme', () => {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.style.setProperty('--oscd-sld-terminal-color', 'rgb(187, 19, 38)');
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -91,20 +99,7 @@ describe('export', () => {
       svg.appendChild(rect);
       document.body.appendChild(svg);
 
-      let captured: Blob | undefined;
-      const originalCreate = URL.createObjectURL;
-      URL.createObjectURL = (blob: Blob) => {
-        captured = blob;
-        return 'blob:test';
-      };
-
-      try {
-        exportSVG({ svg, filename: 'test.svg' });
-      } finally {
-        URL.createObjectURL = originalCreate;
-      }
-
-      const exported = await captured!.text();
+      const exported = serializeForExport(svg);
       svg.remove();
 
       expect(exported).to.contain('<style');
@@ -113,6 +108,26 @@ describe('export', () => {
       expect(exported).to.contain('--oscd-sld-terminal-color: black');
       // markup keeps its var() reference; the pinned :root resolves it black
       expect(exported).to.contain('var(--oscd-sld-terminal-color)');
+    });
+  });
+
+  describe('downloadSvg', () => {
+    it('packages the content as an application/xml blob and triggers a download', () => {
+      let captured: Blob | undefined;
+      const originalCreate = URL.createObjectURL;
+      URL.createObjectURL = (blob: Blob) => {
+        captured = blob;
+        return 'blob:test';
+      };
+
+      try {
+        downloadSvg('<svg></svg>', 'test.svg');
+      } finally {
+        URL.createObjectURL = originalCreate;
+      }
+
+      expect(captured).to.not.be.undefined;
+      expect(captured!.type).to.equal('application/xml');
     });
   });
 });

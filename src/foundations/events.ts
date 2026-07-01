@@ -196,34 +196,6 @@ export function newSclEditDialogEvent(element: Element): EditSclEvent {
   });
 }
 
-export type ResizeSubstationDetail = { substation: Element };
-
-export type ResizeSubstationEvent = CustomEvent<ResizeSubstationDetail>;
-
-export function newResizeSubstationEvent(
-  substation: Element,
-): ResizeSubstationEvent {
-  return new CustomEvent('oscd-sld-resize-substation', {
-    bubbles: true,
-    composed: true,
-    detail: { substation },
-  });
-}
-
-export type DeleteSubstationDetail = { substation: Element };
-
-export type DeleteSubstationEvent = CustomEvent<DeleteSubstationDetail>;
-
-export function newDeleteSubstationEvent(
-  substation: Element,
-): DeleteSubstationEvent {
-  return new CustomEvent('oscd-sld-delete-substation', {
-    bubbles: true,
-    composed: true,
-    detail: { substation },
-  });
-}
-
 export type GroundTerminalDetail = {
   equipment: Element;
   terminal: 'T1' | 'T2' | 'N1' | 'N2';
@@ -291,8 +263,6 @@ declare global {
     ['oscd-sld-selected']: SelectEvent;
     ['oscd-sld-edit-scl']: EditSclEvent;
     ['oscd-sld-edit-ied']: EditIedEvent;
-    ['oscd-sld-resize-substation']: ResizeSubstationEvent;
-    ['oscd-sld-delete-substation']: DeleteSubstationEvent;
     ['oscd-sld-ground-terminal']: GroundTerminalEvent;
     ['oscd-sld-open-context-menu']: OpenContextMenuEvent;
   }
