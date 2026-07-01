@@ -62,7 +62,7 @@ describe('renderLabel', () => {
         new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 11 }),
       );
     const event = context.dispatched.find(
-      e => e.type === 'oscd-sld-start-place-label',
+      e => e.type === 'oscd-sld-start-interaction',
     ) as CustomEvent;
     expect(event).to.not.be.undefined;
     expect(event.detail.element).to.equal(equipment);

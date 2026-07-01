@@ -77,7 +77,7 @@ describe('conductingEquipmentArtifact', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onClick(new MouseEvent('click'));
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-place',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.element).to.equal(equipment);
@@ -87,7 +87,7 @@ describe('conductingEquipmentArtifact', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onClick(new MouseEvent('click', { shiftKey: true }));
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-place',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.element).to.not.equal(equipment);
@@ -129,7 +129,7 @@ describe('conductingEquipmentArtifact', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onStartTopConnect();
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-connect',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.from).to.equal(equipment);

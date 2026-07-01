@@ -9,7 +9,7 @@ import {
   newEditIedEvent,
   newSclEditDialogEvent,
   newSelectEvent,
-  newStartPlaceLabelEvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 import { sldNs } from '../../foundations.js';
 
@@ -99,7 +99,9 @@ export function renderLabel(
     handleClick = (event: MouseEvent) => {
       const [mouseX2, mouseY2] = context.halfGridPosition(event);
       const offset = [mouseX2 - x - 0.5, mouseY2 - y + 0.5] as Point;
-      context.dispatch(newStartPlaceLabelEvent(element, offset));
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'placingLabel', element, offset }),
+      );
     };
   } else if (context.disabled && isSelectable(element, context.selectable)) {
     events = 'all';

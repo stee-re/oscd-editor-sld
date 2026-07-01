@@ -10,8 +10,14 @@ export type Terminal = 'T1' | 'T2' | 'N1' | 'N2';
  * variant carries its subject `element`; mode-specific extras hang off the
  * variant. The `mode` tag of each variant is the single source of truth for
  * "which gesture is active".
+ *
+ * This is the controller-owned *state*, projected **down** (editor → viewer) so
+ * the view can render the in-progress gesture. Its reciprocal is
+ * {@link InteractionIntent} (in `events.ts`), the view → editor *intent* to
+ * begin a gesture. State vs. intent — same `Interaction` root, opposite
+ * directions.
  */
-export type Interaction =
+export type InteractionState =
   | { mode: 'idle' }
   | { mode: 'placing'; element: Element; offset: Point }
   | { mode: 'placingLabel'; element: Element; offset: Point }
@@ -25,7 +31,7 @@ export type Interaction =
   };
 
 /**
- * Pure constructors for each {@link Interaction} variant. They compute the next
+ * Pure constructors for each {@link InteractionState} variant. They compute the next
  * interaction *value* only — no DOM, no events, no promises. Side-effecting
  * orchestration (event dispatch, placement promises, `disabled` guards) stays
  * on the host component, which simply assigns the result.
@@ -36,26 +42,26 @@ export type Interaction =
  * these one-line constructors already give free exclusivity and call-site
  * narrowing without the extra machinery.
  */
-export const idle = (): Interaction => ({ mode: 'idle' });
+export const idle = (): InteractionState => ({ mode: 'idle' });
 
-export const placing = (element: Element, offset: Point): Interaction => ({
+export const placing = (element: Element, offset: Point): InteractionState => ({
   mode: 'placing',
   element,
   offset,
 });
 
-export const placingLabel = (element: Element, offset: Point): Interaction => ({
+export const placingLabel = (element: Element, offset: Point): InteractionState => ({
   mode: 'placingLabel',
   element,
   offset,
 });
 
-export const resizingBR = (element: Element): Interaction => ({
+export const resizingBR = (element: Element): InteractionState => ({
   mode: 'resizingBR',
   element,
 });
 
-export const resizingTL = (element: Element): Interaction => ({
+export const resizingTL = (element: Element): InteractionState => ({
   mode: 'resizingTL',
   element,
 });
@@ -64,4 +70,4 @@ export const connectingFrom = (
   element: Element,
   terminal: Terminal,
   path: Point[] = [],
-): Interaction => ({ mode: 'connectingFrom', element, terminal, path });
+): InteractionState => ({ mode: 'connectingFrom', element, terminal, path });

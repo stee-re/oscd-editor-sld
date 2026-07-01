@@ -16,8 +16,7 @@ import {
 import {
   newConnectEvent,
   newPlaceEvent,
-  newStartPlaceEvent,
-  newStartResizeBREvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 import { privType, sldNs } from '../../foundations.js';
 
@@ -100,11 +99,19 @@ export function renderConnectivityNode(
         } = attributes(bay);
         handleClick = (e: MouseEvent) => {
           const [mouseX, mouseY] = context.gridPosition(e);
-          context.dispatch(newStartPlaceEvent(bay, [mouseX - x, mouseY - y]));
+          context.dispatch(
+            newStartInteractionEvent({
+              mode: 'placing',
+              element: bay,
+              offset: [mouseX - x, mouseY - y],
+            }),
+          );
         };
         handleAuxClick = ({ button }: MouseEvent) => {
           if (button === 1) {
-            context.dispatch(newStartResizeBREvent(bay));
+            context.dispatch(
+              newStartInteractionEvent({ mode: 'resizingBR', element: bay }),
+            );
           }
         };
         handleContextMenu = (e: MouseEvent) => {

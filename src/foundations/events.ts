@@ -109,63 +109,35 @@ export function newRotateEvent(detail: Element): StartEvent {
   });
 }
 
-export function newStartResizeTLEvent(detail: Element): StartEvent {
-  return new CustomEvent('oscd-sld-start-resize-tl', {
-    bubbles: true,
-    composed: true,
-    detail,
-  });
-}
-
-export function newStartResizeBREvent(detail: Element): StartEvent {
-  return new CustomEvent('oscd-sld-start-resize-br', {
-    bubbles: true,
-    composed: true,
-    detail,
-  });
-}
-
-export type StartPlaceDetail = {
-  element: Element;
-  offset: Point;
-};
-
-export type StartPlaceEvent = CustomEvent<StartPlaceDetail>;
-
-export function newStartPlaceEvent(
-  element: Element,
-  offset: Point = [0, 0],
-): StartPlaceEvent {
-  return new CustomEvent('oscd-sld-start-place', {
-    bubbles: true,
-    composed: true,
-    detail: { element, offset },
-  });
-}
-
-export function newStartPlaceLabelEvent(
-  element: Element,
-  offset: Point = [0, 0],
-): StartPlaceEvent {
-  return new CustomEvent('oscd-sld-start-place-label', {
-    bubbles: true,
-    composed: true,
-    detail: { element, offset },
-  });
-}
-
 export type StartConnectDetail = {
   from: Element;
   fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
   path: Point[];
 };
 
-export type StartConnectEvent = CustomEvent<StartConnectDetail>;
+/**
+ * Upward (view → controller) *intent* to begin a new interaction — the
+ * reciprocal of the controller-owned {@link InteractionState} (in
+ * `interaction-mode.ts`). Deliberately a *distinct* type: `InteractionState`
+ * flows controller → view (current state, includes `idle`), while
+ * `InteractionIntent` flows view → controller (a request to enter a mode, so
+ * only the begin-transitions). Same `Interaction` root, opposite directions —
+ * state vs. intent. The five variants are discriminated by `mode`, mirroring
+ * the active `InteractionState` modes.
+ */
+export type InteractionIntent =
+  | { mode: 'placing'; element: Element; offset?: Point }
+  | { mode: 'placingLabel'; element: Element; offset?: Point }
+  | { mode: 'resizingBR'; element: Element }
+  | { mode: 'resizingTL'; element: Element }
+  | ({ mode: 'connecting' } & StartConnectDetail);
 
-export function newStartConnectEvent(
-  detail: StartConnectDetail,
-): StartConnectEvent {
-  return new CustomEvent('oscd-sld-start-connect', {
+export type StartInteractionEvent = CustomEvent<InteractionIntent>;
+
+export function newStartInteractionEvent(
+  detail: InteractionIntent,
+): StartInteractionEvent {
+  return new CustomEvent('oscd-sld-start-interaction', {
     bubbles: true,
     composed: true,
     detail,
@@ -255,11 +227,7 @@ declare global {
     ['oscd-sld-connect']: ConnectEvent;
     ['oscd-sld-extend-connect-point']: ExtendConnectPointEvent;
     ['oscd-sld-rotate']: StartEvent;
-    ['oscd-sld-start-resize-br']: StartEvent;
-    ['oscd-sld-start-resize-tl']: StartEvent;
-    ['oscd-sld-start-place']: StartPlaceEvent;
-    ['oscd-sld-start-place-label']: StartPlaceEvent;
-    ['oscd-sld-start-connect']: StartConnectEvent;
+    ['oscd-sld-start-interaction']: StartInteractionEvent;
     ['oscd-sld-selected']: SelectEvent;
     ['oscd-sld-edit-scl']: EditSclEvent;
     ['oscd-sld-edit-ied']: EditIedEvent;

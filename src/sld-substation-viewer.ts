@@ -73,7 +73,7 @@ import { serializeForExport } from './foundations/export.js';
 import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
 
 import type { Point } from './foundations/geometry.js';
-import type { Interaction } from './foundations/interaction-mode.js';
+import type { InteractionState } from './foundations/interaction-mode.js';
 import type {
   StartConnectDetail,
 } from './foundations/events.js';
@@ -116,7 +116,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   @property({ attribute: false })
-  interaction: Interaction = { mode: 'idle' };
+  interaction: InteractionState = { mode: 'idle' };
 
   /**
    * The following read-only getters project the single {@link interaction}

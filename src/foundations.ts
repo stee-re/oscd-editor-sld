@@ -81,15 +81,12 @@ export {
   newResizeTLEvent,
   newRotateEvent,
   newSelectEvent,
-  newStartConnectEvent,
-  newStartPlaceEvent,
-  newStartPlaceLabelEvent,
-  newStartResizeBREvent,
-  newStartResizeTLEvent,
+  newStartInteractionEvent,
 } from './foundations/events.js';
 export type {
   ConnectDetail,
   ConnectEvent,
+  InteractionIntent,
   PlaceDetail,
   PlaceEvent,
   PlaceLabelDetail,
@@ -101,10 +98,8 @@ export type {
   SelectDetail,
   SelectEvent,
   StartConnectDetail,
-  StartConnectEvent,
   StartEvent,
-  StartPlaceDetail,
-  StartPlaceEvent,
+  StartInteractionEvent,
 } from './foundations/events.js';
 
 export function uuid() {

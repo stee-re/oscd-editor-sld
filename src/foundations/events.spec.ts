@@ -7,11 +7,7 @@ import {
   newPlaceLabelEvent,
   newConnectEvent,
   newRotateEvent,
-  newStartResizeTLEvent,
-  newStartResizeBREvent,
-  newStartPlaceEvent,
-  newStartPlaceLabelEvent,
-  newStartConnectEvent,
+  newStartInteractionEvent,
   newSelectEvent,
   newSclEditDialogEvent,
   newEditIedEvent,
@@ -95,61 +91,50 @@ describe('events', () => {
     });
   });
 
-  describe('newStartResizeTLEvent', () => {
-    it('creates event with type oscd-sld-start-resize-tl', () => {
-      const event = newStartResizeTLEvent(element);
-      expect(event.type).to.equal('oscd-sld-start-resize-tl');
-      expect(event.detail).to.equal(element);
-    });
-  });
-
-  describe('newStartResizeBREvent', () => {
-    it('creates event with type oscd-sld-start-resize-br', () => {
-      const event = newStartResizeBREvent(element);
-      expect(event.type).to.equal('oscd-sld-start-resize-br');
-      expect(event.detail).to.equal(element);
-    });
-  });
-
-  describe('newStartPlaceEvent', () => {
-    it('creates event with type oscd-sld-start-place', () => {
-      const event = newStartPlaceEvent(element);
-      expect(event.type).to.equal('oscd-sld-start-place');
-      expect(event.detail.element).to.equal(element);
-      expect(event.detail.offset).to.deep.equal([0, 0]);
+  describe('newStartInteractionEvent', () => {
+    it('creates a placing intent carrying element and offset', () => {
+      const event = newStartInteractionEvent({
+        mode: 'placing',
+        element,
+        offset: [3, 4],
+      });
+      expect(event.type).to.equal('oscd-sld-start-interaction');
+      expect(event.detail).to.deep.equal({
+        mode: 'placing',
+        element,
+        offset: [3, 4],
+      });
     });
 
-    it('accepts custom offset', () => {
-      const event = newStartPlaceEvent(element, [3, 4]);
-      expect(event.detail.offset).to.deep.equal([3, 4]);
-    });
-  });
-
-  describe('newStartPlaceLabelEvent', () => {
-    it('creates event with type oscd-sld-start-place-label', () => {
-      const event = newStartPlaceLabelEvent(element);
-      expect(event.type).to.equal('oscd-sld-start-place-label');
-      expect(event.detail.element).to.equal(element);
-      expect(event.detail.offset).to.deep.equal([0, 0]);
+    it('creates a placingLabel intent', () => {
+      const event = newStartInteractionEvent({ mode: 'placingLabel', element });
+      expect(event.detail.mode).to.equal('placingLabel');
+      expect(event.detail).to.have.property('element', element);
     });
 
-    it('accepts custom offset', () => {
-      const event = newStartPlaceLabelEvent(element, [1, 2]);
-      expect(event.detail.offset).to.deep.equal([1, 2]);
+    it('creates resizingBR and resizingTL intents', () => {
+      expect(
+        newStartInteractionEvent({ mode: 'resizingBR', element }).detail,
+      ).to.deep.equal({ mode: 'resizingBR', element });
+      expect(
+        newStartInteractionEvent({ mode: 'resizingTL', element }).detail,
+      ).to.deep.equal({ mode: 'resizingTL', element });
     });
-  });
 
-  describe('newStartConnectEvent', () => {
-    it('creates event with type oscd-sld-start-connect', () => {
+    it('creates a connecting intent carrying from/fromTerminal/path', () => {
       const from = document.createElement('div');
-      const event = newStartConnectEvent({
+      const event = newStartInteractionEvent({
+        mode: 'connecting',
         from,
         fromTerminal: 'T2',
         path: [[0, 0]],
       });
-      expect(event.type).to.equal('oscd-sld-start-connect');
-      expect(event.detail.from).to.equal(from);
-      expect(event.detail.fromTerminal).to.equal('T2');
+      expect(event.detail).to.deep.equal({
+        mode: 'connecting',
+        from,
+        fromTerminal: 'T2',
+        path: [[0, 0]],
+      });
     });
   });
 
@@ -186,11 +171,17 @@ describe('events', () => {
         () => newPlaceLabelEvent({ x: 0, y: 0, element }),
         () => newConnectEvent({ from: element, path: [], fromTerminal: 'T1', to: element }),
         () => newRotateEvent(element),
-        () => newStartResizeTLEvent(element),
-        () => newStartResizeBREvent(element),
-        () => newStartPlaceEvent(element),
-        () => newStartPlaceLabelEvent(element),
-        () => newStartConnectEvent({ from: element, fromTerminal: 'T1', path: [] }),
+        () => newStartInteractionEvent({ mode: 'resizingTL', element }),
+        () => newStartInteractionEvent({ mode: 'resizingBR', element }),
+        () => newStartInteractionEvent({ mode: 'placing', element }),
+        () => newStartInteractionEvent({ mode: 'placingLabel', element }),
+        () =>
+          newStartInteractionEvent({
+            mode: 'connecting',
+            from: element,
+            fromTerminal: 'T1',
+            path: [],
+          }),
         () => newSelectEvent(element),
         () => newSclEditDialogEvent(element),
         () => newEditIedEvent(element),

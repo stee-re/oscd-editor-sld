@@ -10,8 +10,7 @@ import {
   newPlaceEvent,
   newRotateEvent,
   newSelectEvent,
-  newStartConnectEvent,
-  newStartPlaceEvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
@@ -151,7 +150,8 @@ function renderTransformerWinding(
                 return;
               }
               context.dispatch(
-                newStartConnectEvent({
+                newStartInteractionEvent({
+                  mode: 'connecting',
                   from: winding,
                   fromTerminal: name as 'T1' | 'T2' | 'N1' | 'N2',
                   path: [
@@ -272,7 +272,9 @@ function powerTransformerActions(
       }
       const [mouseX, mouseY] = context.gridPosition(e);
       const offset: Point = [mouseX - x, mouseY - y];
-      context.dispatch(newStartPlaceEvent(placing, offset));
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'placing', element: placing, offset }),
+      );
     };
   } else if (context.disabled && state.selectable) {
     handleClick = () => context.dispatch(newSelectEvent(transformer));
@@ -286,7 +288,9 @@ function powerTransformerActions(
       }
       const [mouseX, mouseY] = context.gridPosition(e);
       const offset: Point = [mouseX - x, mouseY - y];
-      context.dispatch(newStartPlaceEvent(placing, offset));
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'placing', element: placing, offset }),
+      );
     };
   }
 

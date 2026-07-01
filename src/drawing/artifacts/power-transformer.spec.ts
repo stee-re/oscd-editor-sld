@@ -102,10 +102,10 @@ describe('powerTransformerArtifact', () => {
         new MouseEvent('click', { clientX: 10, clientY: 11 }),
       );
       expect(context.dispatched.map(e => e.type)).to.include(
-        'oscd-sld-start-place',
+        'oscd-sld-start-interaction',
       );
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-place',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event.detail.element).to.equal(transformer);
       expect(event.detail.offset).to.deep.equal([6, 7]);
