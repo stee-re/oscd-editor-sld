@@ -23,9 +23,7 @@ import {
   newPlaceEvent,
   newResizeEvent,
   newResizeTLEvent,
-  newStartPlaceEvent,
-  newStartResizeBREvent,
-  newStartResizeTLEvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 import { svgNs } from '../../foundations.js';
 
@@ -213,14 +211,20 @@ function renderResizeHandlesLayer(
   return svg`
     <svg xmlns="${svgNs}" height="1" width="1" fill="black"
       opacity="0.83" class="handle"
-      @click=${() => context.dispatch(newStartResizeTLEvent(element))}
+      @click=${() =>
+        context.dispatch(
+          newStartInteractionEvent({ mode: 'resizingTL', element }),
+        )}
       viewBox="0 96 960 960" x="${x}" y="${y}">
       <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
       ${resizeTLPath}
     </svg>
     <svg xmlns="${svgNs}" height="1" width="1" fill="black"
       opacity="0.83" class="handle"
-      @click=${() => context.dispatch(newStartResizeBREvent(element))}
+      @click=${() =>
+        context.dispatch(
+          newStartInteractionEvent({ mode: 'resizingBR', element }),
+        )}
       viewBox="0 96 960 960" x="${w + x - 1}" y="${h + y - 1}">
       <rect fill="white" x="28.8" y="124.8" width="902.4" height="902.4" />
       ${resizeBRPath}
@@ -299,10 +303,13 @@ function render(
     if (context.idle) {
       const [mouseX, mouseY] = context.gridPosition(e);
       context.dispatch(
-        newStartPlaceEvent(
-          e.shiftKey ? copyElementForPlacement(element, context.nsp) : element,
-          [mouseX - x, mouseY - y],
-        ),
+        newStartInteractionEvent({
+          mode: 'placing',
+          element: e.shiftKey
+            ? copyElementForPlacement(element, context.nsp)
+            : element,
+          offset: [mouseX - x, mouseY - y],
+        }),
       );
     }
   };
@@ -325,9 +332,13 @@ function render(
     }
     const mouse = context.svgCoordinates(clientX, clientY);
     if (distance(mouse, [x, y]) < distance(mouse, [right, bottom])) {
-      context.dispatch(newStartResizeTLEvent(element));
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'resizingTL', element }),
+      );
     } else {
-      context.dispatch(newStartResizeBREvent(element));
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'resizingBR', element }),
+      );
     }
   };
   if (context.disabled) {

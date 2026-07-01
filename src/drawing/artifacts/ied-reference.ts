@@ -7,7 +7,7 @@ import { isIedReferenceElement } from '../../foundations/ied.js';
 import {
   newPlaceEvent,
   newSelectEvent,
-  newStartPlaceEvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
@@ -107,7 +107,10 @@ function iedReferenceActions(
   } else if (!context.idle || context.disabled) {
     handleClick = () => {};
   } else {
-    handleClick = () => context.dispatch(newStartPlaceEvent(referencedIed));
+    handleClick = () =>
+      context.dispatch(
+        newStartInteractionEvent({ mode: 'placing', element: referencedIed }),
+      );
   }
 
   return {

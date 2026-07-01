@@ -48,13 +48,13 @@ import type {
   ResizeEvent,
   ResizeTLEvent,
   StartConnectDetail,
-  StartConnectEvent,
   StartEvent,
-  StartPlaceEvent,
+  InteractionIntent,
+  StartInteractionEvent,
 } from './foundations/events.js';
 import type { Point } from './foundations/geometry.js';
 import * as interactions from './foundations/interaction-mode.js';
-import type {Interaction} from './foundations/interaction-mode.js';
+import type { InteractionState } from './foundations/interaction-mode.js';
 import type { Style } from './foundations/sld-attributes.js';
 
 export type PlacementResult = {
@@ -124,7 +124,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     return sldPrefix(this.doc);
   }
 
-  @state() interaction: Interaction = interactions.idle();
+  @state() interaction: InteractionState = interactions.idle();
 
   @state() showLabels: boolean = true;
 
@@ -341,6 +341,26 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
   }
 
+  private handleStartInteraction = (detail: InteractionIntent) => {
+    switch (detail.mode) {
+      case 'placing':
+        this.startPlacing(detail.element, detail.offset);
+        break;
+      case 'placingLabel':
+        this.startPlacingLabel(detail.element, detail.offset);
+        break;
+      case 'resizingBR':
+        this.startResizingBottomRight(detail.element);
+        break;
+      case 'resizingTL':
+        this.startResizingTopLeft(detail.element);
+        break;
+      case 'connecting':
+        this.startConnecting(detail);
+        break;
+    }
+  };
+
   handleSubstationResize(element: Element, w: number, h: number) {
     this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
     this.reset();
@@ -447,25 +467,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
                 (event.currentTarget as SldSubstationViewer).exportableSvg(),
                 `${substation.getAttribute('name')}.svg`,
               )}
-            @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
-              this.startResizingBottomRight(detail);
-            }}
-            @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
-              this.startResizingTopLeft(detail);
-            }}
-            @oscd-sld-start-place=${({
-              detail: { element, offset },
-            }: StartPlaceEvent) => {
-              this.startPlacing(element, offset);
-            }}
-            @oscd-sld-start-place-label=${({
-              detail: { element, offset },
-            }: StartPlaceEvent) => {
-              this.startPlacingLabel(element, offset);
-            }}
-            @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
-              this.startConnecting(detail);
-            }}
+            @oscd-sld-start-interaction=${({
+              detail,
+            }: StartInteractionEvent) => this.handleStartInteraction(detail)}
             @oscd-sld-ground-terminal=${(event: GroundTerminalEvent) => {
               this.handleGroundTerminalRequest(event);
             }}
@@ -518,25 +522,8 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     <sld-context-menu
       .doc=${this.doc}
       .nsp=${this.nsp}
-      @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
-        this.startResizingBottomRight(detail);
-      }}
-      @oscd-sld-start-resize-tl=${({ detail }: StartEvent) => {
-        this.startResizingTopLeft(detail);
-      }}
-      @oscd-sld-start-place=${({
-        detail: { element, offset },
-      }: StartPlaceEvent) => {
-        this.startPlacing(element, offset);
-      }}
-      @oscd-sld-start-place-label=${({
-        detail: { element, offset },
-      }: StartPlaceEvent) => {
-        this.startPlacingLabel(element, offset);
-      }}
-      @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
-        this.startConnecting(detail);
-      }}
+      @oscd-sld-start-interaction=${({ detail }: StartInteractionEvent) =>
+        this.handleStartInteraction(detail)}
       @oscd-sld-rotate=${({ detail }: StartEvent) =>
         this.rotateElement(detail)}
       @sld-ground-hint=${() => {

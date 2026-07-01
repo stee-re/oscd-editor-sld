@@ -84,7 +84,7 @@ describe('iedReferenceArtifact', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onClick(new MouseEvent('click'));
       expect(context.dispatched.map(e => e.type)).to.include(
-        'oscd-sld-start-place',
+        'oscd-sld-start-interaction',
       );
     });
 

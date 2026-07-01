@@ -69,7 +69,7 @@ describe('renderConnectivityNode', () => {
         new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 11 }),
       );
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-place',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
       expect(event.detail.element).to.equal(bay);
@@ -82,10 +82,11 @@ describe('renderConnectivityNode', () => {
         new MouseEvent('auxclick', { button: 1, bubbles: true }),
       );
       const event = context.dispatched.find(
-        e => e.type === 'oscd-sld-start-resize-br',
+        e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
-      expect(event.detail).to.equal(bay);
+      expect(event.detail.mode).to.equal('resizingBR');
+      expect(event.detail.element).to.equal(bay);
     });
 
     it('opens the context menu for the bay when idle', () => {

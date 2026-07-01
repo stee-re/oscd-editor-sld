@@ -19,8 +19,7 @@ import {
 import { newPlaceEvent,
   newRotateEvent,
   newSelectEvent,
-  newStartConnectEvent,
-  newStartPlaceEvent,
+  newStartInteractionEvent,
 } from '../../foundations/events.js';
 
 import type { Point } from '../../foundations/geometry.js';
@@ -183,7 +182,9 @@ function equipmentRenderActions(
     const placing = e.shiftKey
       ? copyElementForPlacement(equipment, context.nsp)
       : equipment;
-    context.dispatch(newStartPlaceEvent(placing));
+    context.dispatch(
+      newStartInteractionEvent({ mode: 'placing', element: placing }),
+    );
   };
 
   if (context.placing === equipment) {
@@ -246,7 +247,8 @@ function equipmentRenderActions(
     onMouseDown: preventDefault,
     onStartBottomConnect: () => {
       context.dispatch(
-        newStartConnectEvent({
+        newStartInteractionEvent({
+          mode: 'connecting',
           from: equipment,
           fromTerminal: 'T2',
           path: connectionStartPoints(equipment).T2,
@@ -255,7 +257,8 @@ function equipmentRenderActions(
     },
     onStartTopConnect: () => {
       context.dispatch(
-        newStartConnectEvent({
+        newStartInteractionEvent({
+          mode: 'connecting',
           from: equipment,
           fromTerminal: 'T1',
           path: connectionStartPoints(equipment).T1,

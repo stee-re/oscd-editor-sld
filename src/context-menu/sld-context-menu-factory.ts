@@ -33,10 +33,7 @@ import {
   newEditIedEvent,
   newRotateEvent,
   newSclEditDialogEvent,
-  newStartConnectEvent,
-  newStartPlaceEvent,
-  newStartPlaceLabelEvent,
-  newStartResizeBREvent,
+  newStartInteractionEvent,
 } from '../foundations/events.js';
 
 import type { Point } from '../foundations/geometry.js';
@@ -173,21 +170,22 @@ function transformerMenuItems(
       icon: 'copy_all',
       handler: () =>
         context.dispatch(
-          newStartPlaceEvent(
-            copyElementForPlacement(transformer, context.nsp),
+          newStartInteractionEvent({
+            mode: 'placing',
+            element: copyElementForPlacement(transformer, context.nsp),
             offset,
-          ),
+          }),
         ),
     },
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceEvent(transformer, offset)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placing', element: transformer, offset })),
     },
     {
       headline: 'Move Label',
       icon: 'text_rotation_none',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(transformer)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: transformer })),
     },
     text
       ? {
@@ -255,18 +253,21 @@ function equipmentMenuItems(
       icon: 'copy_all',
       handler: () =>
         context.dispatch(
-          newStartPlaceEvent(copyElementForPlacement(equipment, context.nsp)),
+          newStartInteractionEvent({
+            mode: 'placing',
+            element: copyElementForPlacement(equipment, context.nsp),
+          }),
         ),
     },
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceEvent(equipment)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placing', element: equipment })),
     },
     {
       headline: 'Move Label',
       icon: 'text_rotation_none',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(equipment)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: equipment })),
     },
     textElement
       ? {
@@ -342,7 +343,8 @@ function equipmentMenuItems(
     items.unshift(
       menuAction('connect', false, () =>
         context.dispatch(
-          newStartConnectEvent({
+          newStartInteractionEvent({
+            mode: 'connecting',
             from: equipment,
             fromTerminal: 'T2',
             path: connectionStartPoints(equipment).T2,
@@ -365,7 +367,8 @@ function equipmentMenuItems(
     items.unshift(
       menuAction('connect', true, () =>
         context.dispatch(
-          newStartConnectEvent({
+          newStartInteractionEvent({
+            mode: 'connecting',
             from: equipment,
             fromTerminal: 'T1',
             path: connectionStartPoints(equipment).T1,
@@ -390,12 +393,12 @@ function iedMenuItems(
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceEvent(referencedIed)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placing', element: referencedIed })),
     },
     {
       headline: 'Move Label',
       icon: 'text_rotation_none',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(referencedIed)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: referencedIed })),
     },
   ];
 
@@ -452,17 +455,17 @@ function busBarMenuItems(
     {
       headline: 'Resize',
       icon: 'sld_resize',
-      handler: () => context.dispatch(newStartResizeBREvent(busBar)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'resizingBR', element: busBar })),
     },
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceEvent(busBar, offset)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placing', element: busBar, offset })),
     },
     {
       headline: 'Move Label',
       icon: 'text_rotation_none',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(busBar)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: busBar })),
     },
     text
       ? {
@@ -503,28 +506,29 @@ function containerMenuItems(
     {
       headline: 'Resize',
       icon: 'sld_resize',
-      handler: () => context.dispatch(newStartResizeBREvent(bayOrVL)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'resizingBR', element: bayOrVL })),
     },
     {
       headline: 'Copy',
       icon: 'copy_all',
       handler: () =>
         context.dispatch(
-          newStartPlaceEvent(
-            copyElementForPlacement(bayOrVL, context.nsp),
+          newStartInteractionEvent({
+            mode: 'placing',
+            element: copyElementForPlacement(bayOrVL, context.nsp),
             offset,
-          ),
+          }),
         ),
     },
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceEvent(bayOrVL, offset)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placing', element: bayOrVL, offset })),
     },
     {
       headline: 'Move Label',
       icon: 'text_rotation_none',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(bayOrVL)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: bayOrVL })),
     },
     text
       ? {
@@ -565,7 +569,7 @@ function textMenuItems(
     {
       headline: 'Move',
       icon: 'sld_move',
-      handler: () => context.dispatch(newStartPlaceLabelEvent(text)),
+      handler: () => context.dispatch(newStartInteractionEvent({ mode: 'placingLabel', element: text })),
     },
     {
       headline: 'Edit',
