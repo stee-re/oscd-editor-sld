@@ -8,6 +8,7 @@ import { OscdSclDialogs } from '@omicronenergy/oscd-scl-dialogs/oscd-scl-dialogs
 import { OscdSnackbar } from '@omicronenergy/oscd-ui/snackbar/OscdSnackbar.js';
 
 import { SldSubstationViewer } from './sld-substation-viewer.js';
+import { SldSubstationHeader } from './sld-substation-header.js';
 import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
 import { SldContextMenu } from './context-menu/sld-context-menu.js';
 import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
@@ -32,11 +33,11 @@ import {
   resolveIed,
 } from './foundations/ied.js';
 import { reparentElement, sldNs, sldPrefix } from './foundations.js';
+import { downloadSvg } from './foundations/export.js';
 
 import type {
   ConnectDetail,
   ConnectEvent,
-  DeleteSubstationEvent,
   ExtendConnectPointEvent,
   EditIedDetail,
   EditSclDetail,
@@ -45,7 +46,6 @@ import type {
   PlaceEvent,
   PlaceLabelEvent,
   ResizeEvent,
-  ResizeSubstationEvent,
   ResizeTLEvent,
   StartConnectDetail,
   StartConnectEvent,
@@ -67,6 +67,7 @@ export type PlacementResult = {
 export class SldEditor extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-substation-viewer': SldSubstationViewer,
+    'sld-substation-header': SldSubstationHeader,
     'sld-resize-substation-dialog': SldResizeSubstationDialog,
     'sld-context-menu': SldContextMenu,
     'oscd-scl-dialogs': OscdSclDialogs,
@@ -166,10 +167,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     window.addEventListener('keydown', this.handleKeydown);
     this.addEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
     this.addEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
-    this.addEventListener(
-      'oscd-sld-resize-substation',
-      this.handleResizeSubstationRequest,
-    );
   }
 
   disconnectedCallback() {
@@ -177,19 +174,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     window.removeEventListener('keydown', this.handleKeydown);
     this.removeEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
     this.removeEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
-    this.removeEventListener(
-      'oscd-sld-resize-substation',
-      this.handleResizeSubstationRequest,
-    );
   }
-
-  private handleResizeSubstationRequest = (event: ResizeSubstationEvent) => {
-    this.resizeDialog.show(event.detail.substation);
-  };
-
-  private handleDeleteSubstationRequest = (event: DeleteSubstationEvent) => {
-    this.dispatchEvent(newEditEventV2({ node: event.detail.substation }));
-  };
 
   private handleGroundTerminalRequest = (event: GroundTerminalEvent) => {
     const { equipment, terminal } = event.detail;
@@ -219,11 +204,15 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     }
   };
 
-  private handleEditSclRequest = async (event: Event) => {
-    const detail = (event as CustomEvent<EditSclDetail>).detail;
-    const edits = await this.sclDialogs.edit(detail);
+  private async editScl(element: Element) {
+    const edits = await this.sclDialogs.edit({ element });
 
     this.dispatchEvent(newEditEventV2(edits));
+  }
+
+  private handleEditSclRequest = (event: Event) => {
+    const detail = (event as CustomEvent<EditSclDetail>).detail;
+    return this.editScl(detail.element);
   };
 
   private handleEditIedRequest = async (event: Event) => {
@@ -453,6 +442,11 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             .disabled=${this.disabled}
             .selectable=${this.selectable}
             .highlight=${this.highlight}
+            @sld-header-export=${(event: Event) =>
+              downloadSvg(
+                (event.currentTarget as SldSubstationViewer).exportableSvg(),
+                `${substation.getAttribute('name')}.svg`,
+              )}
             @oscd-sld-start-resize-br=${({ detail }: StartEvent) => {
               this.startResizingBottomRight(detail);
             }}
@@ -471,9 +465,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             }}
             @oscd-sld-start-connect=${({ detail }: StartConnectEvent) => {
               this.startConnecting(detail);
-            }}
-            @oscd-sld-delete-substation=${(event: DeleteSubstationEvent) => {
-              this.handleDeleteSubstationRequest(event);
             }}
             @oscd-sld-ground-terminal=${(event: GroundTerminalEvent) => {
               this.handleGroundTerminalRequest(event);
@@ -507,7 +498,17 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             }: ExtendConnectPointEvent) => this.extendConnectPoint(detail.path)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
               this.rotateElement(detail)}
-          ></sld-substation-viewer>`,
+          >
+            <sld-substation-header
+              slot="header"
+              .substation=${substation}
+              ?disabled=${this.disabled}
+              @sld-header-edit=${() => this.editScl(substation)}
+              @sld-header-resize=${() => this.resizeDialog.show(substation)}
+              @sld-header-delete=${() =>
+                this.dispatchEvent(newEditEventV2({ node: substation }))}
+            ></sld-substation-header>
+          </sld-substation-viewer>`,
     )}
     <sld-resize-substation-dialog
       @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {

@@ -63,6 +63,7 @@ import type { OscdMenu } from '@omicronenergy/oscd-ui/menu/OscdMenu.js';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import type { EditEventV2 } from '@openscd/oscd-api';
 import { SldSubstationViewer } from './sld-substation-viewer.js';
+import { SldSubstationHeader } from './sld-substation-header.js';
 import { busSections, makeBusBar } from './foundations/connectivity.js';
 import {
   getSLDAttributes,
@@ -94,7 +95,6 @@ import {
   sldFixture,
 } from './test-helpers.js';
 import {
-  newDeleteSubstationEvent,
   newGroundTerminalEvent,
 } from './foundations/events.js';
 
@@ -283,6 +283,12 @@ function getSldSubstationViewer(
   element: SldEditor,
 ): SldSubstationViewer | null | undefined {
   return element.shadowRoot?.querySelector('sld-substation-viewer');
+}
+
+function getSldSubstationHeader(
+  element: SldEditor,
+): SldSubstationHeader | null | undefined {
+  return element.shadowRoot?.querySelector('sld-substation-header');
 }
 
 describe('SLD Editor', () => {
@@ -556,8 +562,8 @@ describe('SLD Editor', () => {
     });
 
     it('allows resizing substations', async () => {
-      sldSubstationViewer.shadowRoot
-        ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
+      getSldSubstationHeader(element)
+        ?.shadowRoot?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       await element.updateComplete;
@@ -592,10 +598,12 @@ describe('SLD Editor', () => {
       );
     });
 
-    it('routes substation deletion from the viewer through the editor', async () => {
-      sldSubstationViewer.dispatchEvent(
-        newDeleteSubstationEvent(sldSubstationViewer.substation),
-      );
+    it('routes substation deletion from the header through the editor', async () => {
+      getSldSubstationHeader(element)
+        ?.shadowRoot?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[2]
+        ?.shadowRoot?.querySelector<HTMLElement>('#button')
+        ?.click();
+      await element.updateComplete;
 
       expect(element.doc.querySelector('Substation')).to.be.null;
     });
@@ -650,8 +658,8 @@ describe('SLD Editor', () => {
     });
 
     it('forbids undersizing the substation', async () => {
-      sldSubstationViewer.shadowRoot
-        ?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
+      getSldSubstationHeader(element)
+        ?.shadowRoot?.querySelectorAll<OscdIconButton>('h2 > oscd-icon-button')[1]
         ?.shadowRoot?.querySelector<HTMLElement>('#button')
         ?.click();
       await element.updateComplete;
@@ -2683,7 +2691,9 @@ describe('SLD Editor', () => {
       });
 
       it('disables substation buttons', async () => {
-        const h2 = sldSubstationViewer.shadowRoot?.querySelector('h2');
+        const header = getSldSubstationHeader(element);
+        await header?.updateComplete;
+        const h2 = header?.shadowRoot?.querySelector('h2');
         await expect(h2).dom.to.equalSnapshot();
       });
 
