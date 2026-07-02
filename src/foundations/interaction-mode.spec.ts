@@ -7,6 +7,9 @@ import {
   resizingBR,
   resizingTL,
   connectingFrom,
+  isMode,
+  targetInMode,
+  connectDetail,
 } from './interaction-mode.js';
 import { createSCLDoc } from '../test-helpers.js';
 
@@ -71,6 +74,75 @@ describe('interaction-mode constructors', () => {
       element,
       terminal: 'N2',
       path: [[1, 1]],
+    });
+  });
+});
+
+describe('interaction-mode selectors', () => {
+  const doc = createSCLDoc(`
+    <Substation name="S1">
+      <VoltageLevel name="V1">
+        <Bay name="B1">
+          <ConductingEquipment name="QA1" type="CBR"/>
+        </Bay>
+      </VoltageLevel>
+    </Substation>
+  `);
+  const element = doc.querySelector('ConductingEquipment')!;
+  const other = doc.querySelector('Bay')!;
+
+  describe('isMode', () => {
+    it('is true when the active mode is one of the given modes', () => {
+      expect(isMode(resizingBR(element), 'resizingBR', 'resizingTL')).to.be.true;
+      expect(isMode(idle(), 'idle')).to.be.true;
+    });
+
+    it('is false when the active mode is not among the given modes', () => {
+      expect(isMode(placing(element, [0, 0]), 'resizingBR', 'idle')).to.be.false;
+      expect(isMode(idle(), 'placing')).to.be.false;
+    });
+  });
+
+  describe('targetInMode', () => {
+    it('returns the subject element when the mode matches', () => {
+      expect(targetInMode(placing(element, [0, 0]), 'placing')).to.equal(
+        element,
+      );
+      expect(
+        targetInMode(connectingFrom(element, 'T1'), 'connectingFrom'),
+      ).to.equal(element);
+    });
+
+    it('returns undefined when the mode does not match', () => {
+      expect(targetInMode(placing(element, [0, 0]), 'resizingBR')).to.be
+        .undefined;
+    });
+
+    it('returns undefined for the element-less idle mode', () => {
+      expect(targetInMode(idle(), 'idle')).to.be.undefined;
+    });
+
+    it('distinguishes the subject from other elements (identity check)', () => {
+      const state = resizingBR(element);
+      expect(targetInMode(state, 'resizingBR') === element).to.be.true;
+      expect(targetInMode(state, 'resizingBR') === other).to.be.false;
+    });
+  });
+
+  describe('connectDetail', () => {
+    it('exposes from/path/fromTerminal while connecting', () => {
+      expect(connectDetail(connectingFrom(element, 'T2', [[1, 1]]))).to.deep.equal(
+        {
+          from: element,
+          path: [[1, 1]],
+          fromTerminal: 'T2',
+        },
+      );
+    });
+
+    it('returns undefined when not connecting', () => {
+      expect(connectDetail(resizingTL(element))).to.be.undefined;
+      expect(connectDetail(idle())).to.be.undefined;
     });
   });
 });

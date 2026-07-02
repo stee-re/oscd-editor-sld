@@ -21,15 +21,18 @@ import {
 import { privType, sldNs } from '../../foundations.js';
 
 import type { Point } from '../../foundations/geometry.js';
-import type { Connecting, SldSharedContext } from './artifact.js';
+import type { SldSharedContext } from './artifact.js';
+import {
+  connectDetail,
+  isMode,
+  targetInMode,
+} from '../../foundations/interaction-mode.js';
 
 export type ConnectivityNodeContext = SldSharedContext & {
-  connecting?: Connecting;
   mouseX: number;
   mouseY: number;
   mouseX2: number;
   mouseY2: number;
-  resizingBR?: Element;
 };
 
 function preventDefault(e: MouseEvent) {
@@ -77,8 +80,10 @@ export function renderConnectivityNode(
   const bay = cNode.closest('Bay');
   const targetSize = 0.5;
   const pointerEvents =
-    !context.placing &&
-    (!context.resizingBR || (context.resizingBR === bay && isBusBar(bay)))
+    !isMode(context.interaction, 'placing') &&
+    (!isMode(context.interaction, 'resizingBR') ||
+      (targetInMode(context.interaction, 'resizingBR') === bay &&
+        isBusBar(bay)))
       ? 'all'
       : 'none';
   sections.forEach((section) => {
@@ -116,13 +121,13 @@ export function renderConnectivityNode(
         };
         handleContextMenu = (e: MouseEvent) => {
           e.preventDefault();
-          if (!context.idle) {
+          if (!isMode(context.interaction, 'idle')) {
             return;
           }
           context.requestContextMenu(bay, e);
         };
       }
-      if (busBar && context.resizingBR === bay && !context.disabled) {
+      if (busBar && targetInMode(context.interaction, 'resizingBR') === bay && !context.disabled) {
         if (
           section !==
           sections.find(s => xmlBoolean(s.getAttributeNS(sldNs, 'bus')))
@@ -168,9 +173,9 @@ export function renderConnectivityNode(
             width="1" height="1" fill="none" pointer-events="${pointerEvents}"
             @click=${handleClick} />`);
       }
-      if (context.connecting && !context.disabled) {
+      if (isMode(context.interaction, 'connectingFrom') && !context.disabled) {
         handleClick = () => {
-          const { from, path, fromTerminal } = context.connecting!;
+          const { from, path, fromTerminal } = connectDetail(context.interaction)!;
           if (
             from
               .closest('ConductingEquipment, PowerTransformer')!
@@ -225,7 +230,7 @@ export function renderConnectivityNode(
       );
       if (
         busBar ||
-        (context.connecting && !vertices[i].hasAttributeNS(sldNs, 'uuid'))
+        (isMode(context.interaction, 'connectingFrom') && !vertices[i].hasAttributeNS(sldNs, 'uuid'))
       ) {
         lines.push(
           svg`<rect x="${x1 - targetSize / 2}" y="${y1 - targetSize / 2}"
@@ -237,7 +242,7 @@ export function renderConnectivityNode(
       }
       if (
         busBar ||
-        (context.connecting && !vertices[i + 1].hasAttributeNS(sldNs, 'uuid'))
+        (isMode(context.interaction, 'connectingFrom') && !vertices[i + 1].hasAttributeNS(sldNs, 'uuid'))
       ) {
         lines.push(
           svg`<rect x="${x2 - targetSize / 2}" y="${y2 - targetSize / 2}"

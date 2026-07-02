@@ -6,6 +6,7 @@ import {
   makeArtifactContext,
   renderToSvg,
 } from './test-context.js';
+import { placing } from '../../foundations/interaction-mode.js';
 import { sldFixture } from '../../test-helpers.js';
 
 function transformerDoc() {
@@ -44,7 +45,7 @@ describe('powerTransformerArtifact', () => {
 
   describe('state', () => {
     it('is undefined while placing itself without preview', () => {
-      const context = makeArtifactContext({ placing: transformer, substation });
+      const context = makeArtifactContext({ interaction: placing(transformer, [0, 0]), substation });
       expect(powerTransformerArtifact.state(transformer, context)).to.be
         .undefined;
     });
@@ -60,7 +61,7 @@ describe('powerTransformerArtifact', () => {
     });
 
     it('marks placingSelf when previewing the placed transformer', () => {
-      const context = makeArtifactContext({ placing: transformer, substation });
+      const context = makeArtifactContext({ interaction: placing(transformer, [0, 0]), substation });
       const state = powerTransformerArtifact.state(transformer, context, {
         preview: true,
       })!;
@@ -113,8 +114,7 @@ describe('powerTransformerArtifact', () => {
 
     it('places into the containing bay when placing itself', () => {
       const context = makeArtifactContext({
-        placing: transformer,
-        idle: false,
+        interaction: placing(transformer, [0, 0]),
         substation,
       });
       (actionsFor(context).onClick as (e: MouseEvent) => void)(

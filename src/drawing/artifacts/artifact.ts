@@ -1,16 +1,11 @@
 import type { nothing, SVGTemplateResult } from 'lit';
 
 import type { Point } from '../../foundations/geometry.js';
+import type { InteractionState } from '../../foundations/interaction-mode.js';
 
 export type ArtifactRenderOptions = {
   connect?: boolean;
   preview?: boolean;
-};
-
-export type Connecting = {
-  from: Element;
-  path: Point[];
-  fromTerminal: 'T1' | 'T2' | 'N1' | 'N2';
 };
 
 /**
@@ -23,9 +18,7 @@ export type SldSharedContext = {
   dispatch(event: Event): void;
   gridPosition(event: MouseEvent): Point;
   halfGridPosition(event: MouseEvent): Point;
-  idle: boolean;
-  placing?: Element;
-  placingLabel?: Element;
+  interaction: InteractionState;
   requestContextMenu(element: Element, event: MouseEvent): void;
   resolveIed(referencedIed: Element): Element | null;
   renderLabel(

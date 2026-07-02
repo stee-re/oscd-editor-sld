@@ -3,6 +3,7 @@ import { identity } from '@openscd/scl-lib';
 
 import { conductingEquipmentArtifact } from './conducting-equipment.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
+import { placing } from '../../foundations/interaction-mode.js';
 import { sldFixture } from '../../test-helpers.js';
 
 function equipmentDoc() {
@@ -41,7 +42,7 @@ describe('conductingEquipmentArtifact', () => {
 
   describe('state', () => {
     it('is undefined while placing itself without preview', () => {
-      const context = makeArtifactContext({ placing: equipment, substation });
+      const context = makeArtifactContext({ interaction: placing(equipment, [0, 0]), substation });
       expect(conductingEquipmentArtifact.state(equipment, context)).to.be
         .undefined;
     });
@@ -57,7 +58,7 @@ describe('conductingEquipmentArtifact', () => {
     });
 
     it('marks placingSelf when previewing the placed device', () => {
-      const context = makeArtifactContext({ placing: equipment, substation });
+      const context = makeArtifactContext({ interaction: placing(equipment, [0, 0]), substation });
       const state = conductingEquipmentArtifact.state(equipment, context, {
         preview: true,
       })!;
@@ -95,7 +96,7 @@ describe('conductingEquipmentArtifact', () => {
     });
 
     it('places into the containing bay while placing itself', () => {
-      const context = makeArtifactContext({ placing: equipment, substation });
+      const context = makeArtifactContext({ interaction: placing(equipment, [0, 0]), substation });
       actionsFor(context).onClick(new MouseEvent('click'));
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-place',
