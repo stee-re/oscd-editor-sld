@@ -8,6 +8,7 @@ import type { EditEventV2 } from '@openscd/oscd-api';
 import { insertIed } from '@openscd/scl-lib';
 
 import { SldEditor } from './sld-editor.js';
+import { idle } from './foundations/interaction-mode.js';
 
 import { makeBusBar } from './foundations/connectivity.js';
 import { withSldNamespace } from './foundations/edits.js';
@@ -87,7 +88,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   }
   reset() {
     this.inAction = false;
-    this.sldEditor?.reset();
+    if (this.sldEditor) {
+      this.sldEditor.interaction = idle();
+    }
   }
 
   handleKeydown = ({ key }: KeyboardEvent) => {

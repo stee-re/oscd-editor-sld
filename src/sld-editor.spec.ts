@@ -494,49 +494,41 @@ describe('SLD Editor', () => {
       element.startPlacing(voltageLevel);
       expectActiveMode('placing');
 
-      element.startResizingBottomRight(voltageLevel);
+      element.interaction = resizingBR(voltageLevel);
       expectActiveMode('resizingBR');
 
-      element.startResizingTopLeft(bay);
+      element.interaction = resizingTL(bay);
       expectActiveMode('resizingTL');
 
-      element.startPlacingLabel(bay);
+      element.interaction = placingLabel(bay, [0, 0]);
       expectActiveMode('placingLabel');
 
-      element.startConnecting({
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      });
+      element.interaction = connectingFrom(equipment, 'T1', [[1, 1]]);
       expectActiveMode('connectingFrom');
 
-      element.reset();
+      element.interaction = idle();
       expectActiveMode(undefined);
     });
 
-    it('clears any prior mode before starting each specific mode', () => {
+    it('clears any prior mode when entering each specific mode', () => {
       element.interaction = connectingFrom(equipment, 'T1', [[1, 1]]);
       element.startPlacing(voltageLevel);
       expectActiveMode('placing');
 
       element.interaction = placingLabel(bay, [0, 0]);
-      element.startResizingBottomRight(voltageLevel);
+      element.interaction = resizingBR(voltageLevel);
       expectActiveMode('resizingBR');
 
       element.interaction = placing(voltageLevel, [0, 0]);
-      element.startResizingTopLeft(bay);
+      element.interaction = resizingTL(bay);
       expectActiveMode('resizingTL');
 
       element.interaction = resizingBR(voltageLevel);
-      element.startPlacingLabel(bay);
+      element.interaction = placingLabel(bay, [0, 0]);
       expectActiveMode('placingLabel');
 
       element.interaction = resizingTL(bay);
-      element.startConnecting({
-        from: equipment,
-        fromTerminal: 'T1',
-        path: [[1, 1]],
-      });
+      element.interaction = connectingFrom(equipment, 'T1', [[1, 1]]);
       expectActiveMode('connectingFrom');
     });
   });
