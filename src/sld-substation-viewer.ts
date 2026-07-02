@@ -74,6 +74,7 @@ import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
 
 import type { Point } from './foundations/geometry.js';
 import type { InteractionState } from './foundations/interaction-mode.js';
+import { connectDetail } from './foundations/interaction-mode.js';
 import type {
   StartConnectDetail,
 } from './foundations/events.js';
@@ -156,13 +157,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   get connecting(): StartConnectDetail | undefined {
-    return this.interaction.mode === 'connectingFrom'
-      ? {
-        from: this.interaction.element,
-        path: this.interaction.path,
-        fromTerminal: this.interaction.terminal,
-      }
-      : undefined;
+    return connectDetail(this.interaction);
   }
 
   @property()
@@ -767,8 +762,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       mouseX: this.mouseX,
       mouseY: this.mouseY,
       nsp: this.nsp,
-      resizingBR: this.resizingBR,
-      resizingTL: this.resizingTL,
       svgCoordinates: (clientX, clientY) =>
         this.svgCoordinates(clientX, clientY),
       renderEquipment: equipment => this.renderEquipment(equipment),
@@ -798,9 +791,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       dispatch: event => this.dispatchEvent(event),
       gridPosition: event => this.gridPosition(event),
       halfGridPosition: event => this.halfGridPosition(event),
-      idle: this.idle,
-      placing: this.placing,
-      placingLabel: this.placingLabel,
+      interaction: this.interaction,
       requestContextMenu: (element, event) =>
         this.requestContextMenu(element, event),
       resolveIed: referencedIed => this.resolveIed(referencedIed),
@@ -818,7 +809,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   private equipmentContext(): EquipmentContext {
     return {
       ...this.sharedContext(),
-      connecting: this.connecting,
       groundTerminal: (element, terminal) =>
         this.groundTerminal(element, terminal),
       highlight: this.highlight,
@@ -826,8 +816,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       mouseY: this.mouseY,
       nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
       nsp: this.nsp,
-      resizingBR: this.resizingBR,
-      resizingTL: this.resizingTL,
     };
   }
 
@@ -848,15 +836,12 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   private powerTransformerContext(): PowerTransformerContext {
     return {
       ...this.sharedContext(),
-      connecting: this.connecting,
       groundTerminal: (element, terminal) =>
         this.groundTerminal(element, terminal),
       highlight: this.highlight,
       mouseX: this.mouseX,
       mouseY: this.mouseY,
       nsp: this.nsp,
-      resizingBR: this.resizingBR,
-      resizingTL: this.resizingTL,
     };
   }
 
@@ -915,12 +900,10 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   private connectivityNodeContext(): ConnectivityNodeContext {
     return {
       ...this.sharedContext(),
-      connecting: this.connecting,
       mouseX: this.mouseX,
       mouseY: this.mouseY,
       mouseX2: this.mouseX2,
       mouseY2: this.mouseY2,
-      resizingBR: this.resizingBR,
     };
   }
 

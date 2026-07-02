@@ -71,3 +71,41 @@ export const connectingFrom = (
   terminal: Terminal,
   path: Point[] = [],
 ): InteractionState => ({ mode: 'connectingFrom', element, terminal, path });
+
+/** The set of gesture-mode tags of {@link InteractionState}. */
+export type InteractionMode = InteractionState['mode'];
+
+/**
+ * Pure selectors that read an {@link InteractionState} without re-fanning it out
+ * into independent fields. They keep the union the single source of truth: the
+ * viewer and the drawing artifacts ask these questions of the one `interaction`
+ * value, so illegal combinations stay unrepresentable all the way down.
+ *
+ * - {@link isMode} answers "which gesture is active?" (mode-only).
+ * - {@link targetInMode} answers "is *this* element the subject of gesture X?"
+ *   (identity checks are mode-specific, hence the mode argument).
+ * - {@link connectDetail} exposes the connect-from payload while connecting.
+ */
+export function isMode(
+  state: InteractionState,
+  ...modes: InteractionMode[]
+): boolean {
+  return modes.includes(state.mode);
+}
+
+export function targetInMode(
+  state: InteractionState,
+  ...modes: InteractionMode[]
+): Element | undefined {
+  return 'element' in state && modes.includes(state.mode)
+    ? state.element
+    : undefined;
+}
+
+export function connectDetail(
+  state: InteractionState,
+): { from: Element; path: Point[]; fromTerminal: Terminal } | undefined {
+  return state.mode === 'connectingFrom'
+    ? { from: state.element, path: state.path, fromTerminal: state.terminal }
+    : undefined;
+}

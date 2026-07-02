@@ -3,6 +3,7 @@ import { expect } from '@open-wc/testing';
 import { sldNs } from '../../foundations.js';
 import { iedReferenceArtifact } from './ied-reference.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
+import { placing } from '../../foundations/interaction-mode.js';
 import { createSCLDoc } from '../../test-helpers.js';
 
 function iedReferenceDoc() {
@@ -50,7 +51,7 @@ describe('iedReferenceArtifact', () => {
     });
 
     it('is undefined while placing itself without preview', () => {
-      const context = makeArtifactContext({ placing: reference, substation });
+      const context = makeArtifactContext({ interaction: placing(reference, [0, 0]), substation });
       expect(iedReferenceArtifact.state(reference, context)).to.be.undefined;
     });
 
@@ -64,7 +65,7 @@ describe('iedReferenceArtifact', () => {
     });
 
     it('marks placingSelf while previewing the placed reference', () => {
-      const context = makeArtifactContext({ placing: reference, substation });
+      const context = makeArtifactContext({ interaction: placing(reference, [0, 0]), substation });
       const state = iedReferenceArtifact.state(reference, context, {
         preview: true,
       })!;
@@ -89,7 +90,7 @@ describe('iedReferenceArtifact', () => {
     });
 
     it('places into the substation while placing itself', () => {
-      const context = makeArtifactContext({ placing: reference, substation });
+      const context = makeArtifactContext({ interaction: placing(reference, [0, 0]), substation });
       actionsFor(context).onClick(new MouseEvent('click'));
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-place',
@@ -110,7 +111,7 @@ describe('iedReferenceArtifact', () => {
     });
 
     it('does not open the context menu when not idle', () => {
-      const context = makeArtifactContext({ idle: false, substation });
+      const context = makeArtifactContext({ interaction: placing(reference, [0, 0]), substation });
       actionsFor(context).onContextMenu(new MouseEvent('contextmenu'));
       expect(
         context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),

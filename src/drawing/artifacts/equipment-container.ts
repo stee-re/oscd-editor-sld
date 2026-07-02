@@ -36,14 +36,13 @@ import {
 import {
   type SldSharedContext,
 } from './artifact.js';
+import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 export type EquipmentContainerContext = SldSharedContext & {
   highlight: Highlight[];
   mouseX: number;
   mouseY: number;
   nsp: string;
-  resizingBR?: Element;
-  resizingTL?: Element;
   svgCoordinates(clientX: number, clientY: number): Point;
   renderEquipment(equipment: Element): SVGTemplateResult;
   renderPowerTransformer(equipment: Element): SVGTemplateResult;
@@ -204,7 +203,7 @@ function renderResizeHandlesLayer(
   w: number,
   h: number,
 ) {
-  if (!context.idle || context.disabled) {
+  if (!isMode(context.interaction, 'idle') || context.disabled) {
     return nothing;
   }
 
@@ -241,7 +240,7 @@ function renderPlacingTargetLayer(
   w: number,
   h: number,
 ) {
-  if (context.placing?.tagName !== kind.placingChildTag) {
+  if (targetInMode(context.interaction, 'placing')?.tagName !== kind.placingChildTag) {
     return nothing;
   }
 
@@ -258,13 +257,11 @@ function renderResizingTargetLayer(
   w: number,
   h: number,
 ) {
+  const resizingBRTarget = targetInMode(context.interaction, 'resizingBR');
   if (
-    context.resizingBR !== element &&
-    context.resizingTL !== element &&
-    !(
-      context.resizingBR?.parentElement === element &&
-      isBusBar(context.resizingBR)
-    )
+    resizingBRTarget !== element &&
+    targetInMode(context.interaction, 'resizingTL') !== element &&
+    !(resizingBRTarget?.parentElement === element && isBusBar(resizingBRTarget))
   ) {
     return nothing;
   }
@@ -287,7 +284,7 @@ function render(
   kind: ContainerKind,
   childContainers: TemplateResult<2>[] | typeof nothing,
 ): TemplateResult<2> {
-  if (context.placing === element && !preview) {
+  if (targetInMode(context.interaction, 'placing') === element && !preview) {
     return svg``;
   }
 
@@ -300,7 +297,7 @@ function render(
   const bottom = y + h - 1;
 
   let handleClick = (e: MouseEvent) => {
-    if (context.idle) {
+    if (isMode(context.interaction, 'idle')) {
       const [mouseX, mouseY] = context.gridPosition(e);
       context.dispatch(
         newStartInteractionEvent({
@@ -317,7 +314,7 @@ function render(
 
   let contextmenu = (e: MouseEvent) => {
     e.preventDefault();
-    if (!context.idle) {
+    if (!isMode(context.interaction, 'idle')) {
       return;
     }
     context.requestContextMenu(element, e);
@@ -345,7 +342,7 @@ function render(
     auxclick = () => {};
   }
 
-  if (context.resizingBR === element) {
+  if (targetInMode(context.interaction, 'resizingBR') === element) {
     w = Math.max(1, context.mouseX - x + 1);
     h = Math.max(1, context.mouseY - y + 1);
     if (canResizeTo(context.substation, element, w, h)) {
@@ -362,7 +359,7 @@ function render(
     }
   }
 
-  if (context.resizingTL === element) {
+  if (targetInMode(context.interaction, 'resizingTL') === element) {
     w = Math.max(1, x + w - context.mouseX);
     h = Math.max(1, y + h - context.mouseY);
     x = Math.min(context.mouseX, right);
@@ -383,7 +380,7 @@ function render(
     }
   }
 
-  if (context.placing === element) {
+  if (targetInMode(context.interaction, 'placing') === element) {
     const parent = kind.resolvePlacementParent(element, context, x, y, w, h);
     if (parent && canPlaceAt(context.substation, element, x, y, w, h)) {
       handleClick = () =>
@@ -402,10 +399,10 @@ function render(
 
   const clickthrough =
     context.disabled ||
-    (!context.idle &&
-      context.placing !== element &&
-      context.resizingBR !== element &&
-      context.resizingTL !== element);
+    (!isMode(context.interaction, 'idle') &&
+      targetInMode(context.interaction, 'placing') !== element &&
+      targetInMode(context.interaction, 'resizingBR') !== element &&
+      targetInMode(context.interaction, 'resizingTL') !== element);
 
   const strokeColor = invalid
     ? 'var(--oscd-sld-invalid-placement-color)'

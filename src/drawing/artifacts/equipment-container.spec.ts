@@ -3,6 +3,7 @@ import { identity } from '@openscd/scl-lib';
 
 import { renderVoltageLevel, renderBay } from './equipment-container.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
+import { placing } from '../../foundations/interaction-mode.js';
 import { sldFixture } from '../../test-helpers.js';
 
 function containerDoc() {
@@ -56,7 +57,7 @@ describe('renderVoltageLevel / renderBay', () => {
 
     it('renders nothing while placing itself without preview', () => {
       const context = makeArtifactContext({
-        placing: voltageLevel,
+        interaction: placing(voltageLevel, [0, 0]),
         substation,
       });
       const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
@@ -128,7 +129,7 @@ describe('renderVoltageLevel / renderBay', () => {
     });
 
     it('places into the containing voltage level while placing a bay', () => {
-      const context = makeArtifactContext({ placing: bay, substation });
+      const context = makeArtifactContext({ interaction: placing(bay, [0, 0]), substation });
       const host = renderToSvg(renderBay(bay, context, true));
       host
         .querySelector('g.bay > rect')!

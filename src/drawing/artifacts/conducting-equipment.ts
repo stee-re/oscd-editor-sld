@@ -30,24 +30,23 @@ import {
   type Highlight,
 } from './highlight.js';
 import {
-  type Connecting,
   type ArtifactRenderOptions,
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
-
-export type { Connecting };
+import {
+  connectDetail,
+  isMode,
+  targetInMode,
+} from '../../foundations/interaction-mode.js';
 
 export type EquipmentContext = SldSharedContext & {
-  connecting?: Connecting;
   groundTerminal(element: Element, terminal: 'T1' | 'T2'): void;
   highlight: Highlight[];
   mouseX: number;
   mouseY: number;
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
   nsp: string;
-  resizingBR?: Element;
-  resizingTL?: Element;
 };
 
 export type EquipmentRenderState = {
@@ -89,11 +88,12 @@ function equipmentRenderState(
   context: EquipmentContext,
   { preview = false, connect = false }: ArtifactRenderOptions = {},
 ): EquipmentRenderState | undefined {
-  if (context.placing === equipment && !preview) {
+  if (targetInMode(context.interaction, 'placing') === equipment && !preview) {
     return undefined;
   }
   if (
-    context.connecting?.from.closest('Substation') === context.substation &&
+    connectDetail(context.interaction)?.from.closest('Substation') ===
+      context.substation &&
     !connect
   ) {
     return undefined;
@@ -106,8 +106,10 @@ function equipmentRenderState(
   );
   const topTerminal = terminals.find(t => t.getAttribute('name') === 'T1');
   const bottomTerminal = terminals.find(t => t.getAttribute('name') !== 'T1');
-  const placingOtherElement = !!context.placing && context.placing !== equipment;
-  const connectingFromSelf = context.connecting?.from === equipment;
+  const placingTarget = targetInMode(context.interaction, 'placing');
+  const placingOtherElement = !!placingTarget && placingTarget !== equipment;
+  const connectingFromSelf =
+    targetInMode(context.interaction, 'connectingFrom') === equipment;
   const selectable = isSelectable(equipment, context.selectable);
   const highlightedStyle = isToBeHighlighted(equipment, context.highlight)
     ? getHighlightStyle(equipment, context.highlight)
@@ -117,26 +119,32 @@ function equipmentRenderState(
     bottomGrounded: bottomTerminal?.getAttribute('cNodeName') === 'grounded',
     canShowBottomPort: !(
       bottomTerminal ||
-      context.resizingBR ||
-      context.resizingTL ||
-      context.connecting ||
-      context.placingLabel ||
+      isMode(
+        context.interaction,
+        'resizingBR',
+        'resizingTL',
+        'connectingFrom',
+        'placingLabel',
+      ) ||
       placingOtherElement ||
       singleTerminal.has(eqType) ||
       context.disabled
     ),
     canShowTopPort: !(
       topTerminal ||
-      context.resizingBR ||
-      context.resizingTL ||
-      context.connecting ||
-      context.placingLabel ||
+      isMode(
+        context.interaction,
+        'resizingBR',
+        'resizingTL',
+        'connectingFrom',
+        'placingLabel',
+      ) ||
       placingOtherElement ||
       context.disabled
     ),
     clickthrough:
       connect ||
-      (!context.idle && context.placing !== equipment) ||
+      (!isMode(context.interaction, 'idle') && placingTarget !== equipment) ||
       (context.disabled && !selectable),
     diagramElementId:
       equipment.closest('Substation') === context.substation
@@ -144,12 +152,12 @@ function equipmentRenderState(
         : undefined,
     disabled: context.disabled,
     highlightedStyle,
-    placingSelf: context.placing === equipment,
-    portPointerEventsDisabled: !!context.placing,
+    placingSelf: placingTarget === equipment,
+    portPointerEventsDisabled: isMode(context.interaction, 'placing'),
     position: [x, y],
     selectable,
     showBottomConnectIndicator:
-      !!context.connecting &&
+      isMode(context.interaction, 'connectingFrom') &&
       !connectingFromSelf &&
       !(
         context.mouseX === x &&
@@ -160,7 +168,7 @@ function equipmentRenderState(
       !singleTerminal.has(eqType) &&
       !context.disabled,
     showTopConnectIndicator:
-      !!context.connecting &&
+      isMode(context.interaction, 'connectingFrom') &&
       !connectingFromSelf &&
       !(
         context.mouseX === x &&
@@ -187,7 +195,7 @@ function equipmentRenderActions(
     );
   };
 
-  if (context.placing === equipment) {
+  if (targetInMode(context.interaction, 'placing') === equipment) {
     const [x, y] = state.position;
     const parent = Array.from(
       context.substation.querySelectorAll(
@@ -231,7 +239,7 @@ function equipmentRenderActions(
     onClick: handleClick,
     onContextMenu: (e: MouseEvent) => {
       e.preventDefault();
-      if (!context.idle || context.disabled) {
+      if (!isMode(context.interaction, 'idle') || context.disabled) {
         return;
       }
       context.requestContextMenu(equipment, e);

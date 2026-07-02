@@ -22,13 +22,12 @@ import {
 } from './highlight.js';
 import {
   type ArtifactRenderOptions,
-  type Connecting,
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
+import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 export type PowerTransformerContext = SldSharedContext & {
-  connecting?: Connecting;
   groundTerminal(
     element: Element,
     terminal: 'T1' | 'T2' | 'N1' | 'N2',
@@ -37,8 +36,6 @@ export type PowerTransformerContext = SldSharedContext & {
   mouseX: number;
   mouseY: number;
   nsp: string;
-  resizingBR?: Element;
-  resizingTL?: Element;
 };
 
 type PowerTransformerRenderState = {
@@ -110,14 +107,18 @@ function renderTransformerWinding(
     );
   });
   const groundable = winding.closest('Bay');
+  const placingTarget = targetInMode(context.interaction, 'placing');
   if (
     !(
-      context.connecting ||
-      context.resizingBR ||
-      context.resizingTL ||
-      context.placingLabel ||
-      (context.placing &&
-        context.placing !== winding.closest('PowerTransformer')) ||
+      isMode(
+        context.interaction,
+        'connectingFrom',
+        'resizingBR',
+        'resizingTL',
+        'placingLabel',
+      ) ||
+      (placingTarget &&
+        placingTarget !== winding.closest('PowerTransformer')) ||
       context.disabled
     )
   ) {
@@ -139,14 +140,14 @@ function renderTransformerWinding(
               }
               e.preventDefault();
               e.stopImmediatePropagation();
-              if (!context.idle) {
+              if (!isMode(context.interaction, 'idle')) {
                 return;
               }
               context.groundTerminal(winding, name as 'T1' | 'T2' | 'N1' | 'N2');
             }}
             @click=${(e: MouseEvent) => {
               e.stopImmediatePropagation();
-              if (!context.idle) {
+              if (!isMode(context.interaction, 'idle')) {
                 return;
               }
               context.dispatch(
@@ -200,7 +201,7 @@ function renderTransformerWinding(
   return svg`<g class="winding"
       @contextmenu=${(e: MouseEvent) => {
         e.preventDefault();
-        if (!context.idle) {
+        if (!isMode(context.interaction, 'idle')) {
           return;
         }
         context.requestContextMenu(winding, e);
@@ -213,7 +214,7 @@ function powerTransformerState(
   context: PowerTransformerContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): PowerTransformerRenderState | undefined {
-  if (context.placing === transformer && !preview) {
+  if (targetInMode(context.interaction, 'placing') === transformer && !preview) {
     return undefined;
   }
 
@@ -222,7 +223,7 @@ function powerTransformerState(
     highlight: isToBeHighlighted(transformer, context.highlight)
       ? transformerHighlight(transformer, context.highlight)
       : '',
-    placingSelf: context.placing === transformer,
+    placingSelf: targetInMode(context.interaction, 'placing') === transformer,
     position: context.renderedPosition(transformer),
     selectable: isSelectable(transformer, context.selectable),
     windings: Array.from(transformer.children).filter(
@@ -239,9 +240,9 @@ function powerTransformerActions(
   const [x, y] = state.position;
 
   let handleClick: ((e: MouseEvent) => void) | symbol = nothing;
-  if (context.placing === transformer) {
+  if (targetInMode(context.interaction, 'placing') === transformer) {
     handleClick = (e: MouseEvent) => {
-      if (context.placing === transformer) {
+      if (targetInMode(context.interaction, 'placing') === transformer) {
         const parent =
           Array.from(
             context.substation.querySelectorAll(':scope > VoltageLevel > Bay'),
@@ -262,7 +263,7 @@ function powerTransformerActions(
         );
       }
 
-      if (!context.idle) {
+      if (!isMode(context.interaction, 'idle')) {
         return;
       }
 
@@ -278,7 +279,7 @@ function powerTransformerActions(
     };
   } else if (context.disabled && state.selectable) {
     handleClick = () => context.dispatch(newSelectEvent(transformer));
-  } else if (context.disabled || !context.idle) {
+  } else if (context.disabled || !isMode(context.interaction, 'idle')) {
     handleClick = () => {};
   } else {
     handleClick = (e: MouseEvent) => {

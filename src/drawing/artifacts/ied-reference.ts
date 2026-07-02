@@ -17,6 +17,7 @@ import {
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
+import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 type IedReferenceRenderState = {
   clickthrough: boolean;
@@ -47,7 +48,7 @@ function iedReferenceState(
 ): IedReferenceRenderState | undefined {
   if (
     context.view.showIeds === false ||
-    (context.placing === referencedIed && !preview)
+    (targetInMode(context.interaction, 'placing') === referencedIed && !preview)
   ) {
     return undefined;
   }
@@ -56,14 +57,14 @@ function iedReferenceState(
   const iedName = context.resolveIed(referencedIed)?.getAttribute('name') ?? null;
 
   return {
-    clickthrough: !context.idle && context.placing !== referencedIed,
+    clickthrough: !isMode(context.interaction, 'idle') && targetInMode(context.interaction, 'placing') !== referencedIed,
     diagramElementId:
       referencedIed.closest('Substation') === context.substation && iedName
         ? `IEDRef-${iedName}`
         : undefined,
     disabled: context.disabled,
     iedName,
-    placingSelf: context.placing === referencedIed,
+    placingSelf: targetInMode(context.interaction, 'placing') === referencedIed,
     position: [x, y],
     selectable: isSelectable(referencedIed, context.selectable),
   };
@@ -78,7 +79,7 @@ function iedReferenceActions(
   const [x, y] = state.position;
 
   if (
-    context.placing === referencedIed &&
+    targetInMode(context.interaction, 'placing') === referencedIed &&
     canPlaceAt(context.substation, referencedIed, x, y, 1, 1)
   ) {
     handleClick = () => {
@@ -104,7 +105,7 @@ function iedReferenceActions(
     };
   } else if (context.disabled && state.selectable) {
     handleClick = () => context.dispatch(newSelectEvent(referencedIed));
-  } else if (!context.idle || context.disabled) {
+  } else if (!isMode(context.interaction, 'idle') || context.disabled) {
     handleClick = () => {};
   } else {
     handleClick = () =>
@@ -117,7 +118,7 @@ function iedReferenceActions(
     onClick: handleClick,
     onContextMenu: (e: MouseEvent) => {
       e.preventDefault();
-      if (!context.idle || context.disabled) {
+      if (!isMode(context.interaction, 'idle') || context.disabled) {
         return;
       }
       context.requestContextMenu(referencedIed, e);

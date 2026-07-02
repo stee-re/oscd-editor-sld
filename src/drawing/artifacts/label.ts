@@ -16,6 +16,7 @@ import { sldNs } from '../../foundations.js';
 import type { Point } from '../../foundations/geometry.js';
 import { isSelectable } from './highlight.js';
 import type { ArtifactRenderOptions, SldSharedContext } from './artifact.js';
+import { isMode } from '../../foundations/interaction-mode.js';
 
 export type LabelContext = SldSharedContext & {
   mouseX2: number;
@@ -86,7 +87,10 @@ export function renderLabel(
     }
   }
 
-  if (isIedReferenceElement(element) && !context.placing && !context.placingLabel) {
+  if (
+    isIedReferenceElement(element) &&
+    !isMode(context.interaction, 'placing', 'placingLabel')
+  ) {
     color = ied ? color : 'var(--oscd-sld-unresolved-reference-color)';
   }
 
@@ -94,7 +98,7 @@ export function renderLabel(
   let events = 'none';
 
   let handleClick: ((event: MouseEvent) => void) | symbol = nothing;
-  if (context.idle && !context.disabled) {
+  if (isMode(context.interaction, 'idle') && !context.disabled) {
     events = 'all';
     handleClick = (event: MouseEvent) => {
       const [mouseX2, mouseY2] = context.halfGridPosition(event);
@@ -126,7 +130,7 @@ export function renderLabel(
   if (!context.disabled) {
     contextmenu = (e: MouseEvent) => {
       e.preventDefault();
-      if (!context.idle) {
+      if (!isMode(context.interaction, 'idle')) {
         return;
       }
       context.requestContextMenu(element, e);

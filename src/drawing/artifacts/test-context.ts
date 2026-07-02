@@ -4,6 +4,7 @@ import { attributes } from '../../foundations/sld-attributes.js';
 import { svgNs } from '../../foundations.js';
 import { newOpenContextMenuEvent } from '../../foundations/events.js';
 import { resolveIed } from '../../foundations/ied.js';
+import { idle } from '../../foundations/interaction-mode.js';
 
 import type { EquipmentContext } from './conducting-equipment.js';
 import type { PowerTransformerContext } from './power-transformer.js';
@@ -42,7 +43,7 @@ export function makeArtifactContext(
     dispatched,
     grounded,
     renderedChildren,
-    connecting: undefined,
+    interaction: idle(),
     disabled: false,
     dispatch(event: Event) {
       dispatched.push(event);
@@ -53,15 +54,12 @@ export function makeArtifactContext(
     },
     halfGridPosition: ({ clientX, clientY }: MouseEvent) => [clientX, clientY],
     highlight: [],
-    idle: true,
     mouseX: 0,
     mouseY: 0,
     mouseX2: 0,
     mouseY2: 0,
     nearestOpenTerminal: () => undefined,
     nsp: 'smth',
-    placing: undefined,
-    placingLabel: undefined,
     requestContextMenu(element: Element, event: MouseEvent) {
       const [gridX, gridY] = this.gridPosition(event);
       this.dispatch(
@@ -91,8 +89,6 @@ export function makeArtifactContext(
     },
     renderedLabelPosition: (element: Element) => attributes(element).label,
     renderedPosition: (element: Element) => attributes(element).pos,
-    resizingBR: undefined,
-    resizingTL: undefined,
     selectable: [],
     substation: undefined as unknown as Element,
     svgCoordinates: (clientX: number, clientY: number) =>
