@@ -200,7 +200,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   private handleKeydown = ({ key }: KeyboardEvent) => {
     if (key === 'Escape') {
-      this.reset();
+      this.interaction = interactions.idle();
     }
   };
 
@@ -263,37 +263,15 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     );
   };
 
-  reset() {
-    this.interaction = interactions.idle();
-    this._resolvePlacement?.(undefined);
-    this._resolvePlacement = undefined;
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: false }),
-    );
-  }
-
-  startResizingBottomRight(element: Element | undefined) {
-    this.reset();
-    if (element) {
-      this.interaction = interactions.resizingBR(element);
-    }
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: true }),
-    );
-  }
-
-  startResizingTopLeft(element: Element | undefined) {
-    this.reset();
-    if (element) {
-      this.interaction = interactions.resizingTL(element);
-    }
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: true }),
-    );
-  }
-
   private _resolvePlacement?: (result: PlacementResult | undefined) => void;
 
+  /**
+   * Begin placing `element`, returning a promise that resolves with the
+   * placement result (or `undefined` if the placement is cancelled or
+   * superseded). This is the one interaction wrapper that survives — it exists
+   * solely to own the placement promise; every other mode is entered by
+   * assigning `this.interaction` directly.
+   */
   startPlacing(
     element: Element | undefined,
     offset: Point = [0, 0],
@@ -302,39 +280,46 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       return Promise.resolve(undefined);
     }
 
-    this.reset();
-    if (element) {
-      this.interaction = interactions.placing(element, offset);
-    }
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: true }),
-    );
+    // A new placement supersedes any pending one (mode stays `placing`, so the
+    // leave-`placing` handler in `updated()` would not catch it).
+    this._resolvePlacement?.(undefined);
+    this._resolvePlacement = undefined;
+
+    this.interaction = element
+      ? interactions.placing(element, offset)
+      : interactions.idle();
 
     return new Promise((resolve) => {
       this._resolvePlacement = resolve;
     });
   }
 
-  startPlacingLabel(element: Element | undefined, offset: Point = [0, 0]) {
-    this.reset();
-    if (element) {
-      this.interaction = interactions.placingLabel(element, offset);
+  /**
+   * The two genuine consequences of an interaction transition, driven reactively
+   * off the `interaction` `@state` rather than hand-orchestrated at every
+   * assignment site: (1) resolve a still-pending placement promise when leaving
+   * `placing` (a successful place opts out by clearing `_resolvePlacement`
+   * first); (2) emit the derived `sld-editor-in-action` boolean, but only when
+   * the active/idle state actually flips — no more start-then-reset flap.
+   */
+  updated(changed: Map<PropertyKey, unknown>) {
+    if (!changed.has('interaction')) {
+      return;
     }
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: true }),
-    );
-  }
+    const previous = changed.get('interaction') as InteractionState | undefined;
 
-  startConnecting(detail: StartConnectDetail) {
-    this.reset();
-    this.interaction = interactions.connectingFrom(
-      detail.from,
-      detail.fromTerminal,
-      detail.path,
-    );
-    this.dispatchEvent(
-      new CustomEvent('sld-editor-in-action', { detail: true }),
-    );
+    if (previous?.mode === 'placing' && this.interaction.mode !== 'placing') {
+      this._resolvePlacement?.(undefined);
+      this._resolvePlacement = undefined;
+    }
+
+    const wasActive = !!previous && previous.mode !== 'idle';
+    const isActive = this.interaction.mode !== 'idle';
+    if (wasActive !== isActive) {
+      this.dispatchEvent(
+        new CustomEvent('sld-editor-in-action', { detail: isActive }),
+      );
+    }
   }
 
   rotateElement(element: Element) {
@@ -347,30 +332,37 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
         this.startPlacing(detail.element, detail.offset);
         break;
       case 'placingLabel':
-        this.startPlacingLabel(detail.element, detail.offset);
+        this.interaction = interactions.placingLabel(
+          detail.element,
+          detail.offset ?? [0, 0],
+        );
         break;
       case 'resizingBR':
-        this.startResizingBottomRight(detail.element);
+        this.interaction = interactions.resizingBR(detail.element);
         break;
       case 'resizingTL':
-        this.startResizingTopLeft(detail.element);
+        this.interaction = interactions.resizingTL(detail.element);
         break;
       case 'connecting':
-        this.startConnecting(detail);
+        this.interaction = interactions.connectingFrom(
+          detail.from,
+          detail.fromTerminal,
+          detail.path,
+        );
         break;
     }
   };
 
   handleSubstationResize(element: Element, w: number, h: number) {
     this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
-    this.reset();
+    this.interaction = interactions.idle();
   }
 
   resizeTLElement(element: Element, x: number, y: number, w: number, h: number) {
     this.dispatchEvent(
       newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)),
     );
-    this.reset();
+    this.interaction = interactions.idle();
   }
 
   isNewBayOrVL(element: Element) : boolean {
@@ -406,9 +398,9 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this._resolvePlacement = undefined;
 
     if (this.isNewBayOrVL(element)) {
-      this.startResizingBottomRight(element);
+      this.interaction = interactions.resizingBR(element);
     } else {
-      this.reset();
+      this.interaction = interactions.idle();
     }
 
     resolve?.({ element, parent, x, y });
@@ -418,7 +410,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(
       newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)),
     );
-    this.reset();
+    this.interaction = interactions.idle();
   }
 
   connectEquipment(detail: ConnectDetail) {
@@ -426,7 +418,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     if (edits.length) {
       this.dispatchEvent(newEditEventV2(edits));
     }
-    this.reset();
+    this.interaction = interactions.idle();
   }
 
   /**
