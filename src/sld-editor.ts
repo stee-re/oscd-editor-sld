@@ -11,6 +11,7 @@ import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldSubstationHeader } from './sld-substation-header.js';
 import { SldResizeSubstationDialog } from './sld-resize-substation-dialog.js';
 import { SldContextMenu } from './context-menu/sld-context-menu.js';
+import { SldCoordinateTooltip } from './sld-coordinate-tooltip.js';
 import { attributes, getSLDAttributes } from './foundations/sld-attributes.js';
 import {
   busBarVertexEdits,
@@ -70,6 +71,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     'sld-substation-header': SldSubstationHeader,
     'sld-resize-substation-dialog': SldResizeSubstationDialog,
     'sld-context-menu': SldContextMenu,
+    'sld-coordinate-tooltip': SldCoordinateTooltip,
     'oscd-scl-dialogs': OscdSclDialogs,
     'oscd-snackbar': OscdSnackbar,
   };
@@ -151,6 +153,22 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       ? this.interaction.element
       : undefined;
   }
+
+  /**
+   * Resolves a coordinate surface to its SCL `Substation`. A surface is the root
+   * `svg#sld` of a substation viewer; its shadow host is the viewer, which
+   * carries the substation. Passed to the single coordinate tooltip so it can
+   * identify which substation the cursor is over without the editor tracking
+   * pointer movement itself.
+   */
+  private substationOf = (surface: Element): Element | undefined => {
+    if (!(surface instanceof SVGSVGElement) || surface.id !== 'sld') {
+      return undefined;
+    }
+    const root = surface.getRootNode();
+    const host = root instanceof ShadowRoot ? root.host : undefined;
+    return host instanceof SldSubstationViewer ? host.substation : undefined;
+  };
 
   get connecting(): StartConnectDetail | undefined {
     return this.interaction.mode === 'connectingFrom'
@@ -506,6 +524,10 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             ></sld-substation-header>
           </sld-substation-viewer>`,
     )}
+    <sld-coordinate-tooltip
+      .interaction=${this.interaction}
+      .substationOf=${this.substationOf}
+    ></sld-coordinate-tooltip>
     <sld-resize-substation-dialog
       @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
         this.handleSubstationResize(element, w, h);

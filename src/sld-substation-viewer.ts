@@ -11,8 +11,6 @@ import {
 import { property, query, state } from 'lit/decorators.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
-import { SldCoordinateTooltip } from './sld-coordinate-tooltip.js';
-
 import {
   symbols,
 } from './drawing/diagram-symbols.js';
@@ -54,7 +52,6 @@ import {
   attributes,
   getSLDAttributes,
 } from './foundations/sld-attributes.js';
-import { coordinateTooltipState } from './sld-coordinate-tooltip-state.js';
 import { sldThemeStyles } from './theme.js';
 import { singleTerminal } from './foundations/equipment.js';
 import {
@@ -97,9 +94,7 @@ const mouseCoordinateProperties: PropertyKey[] = [
 /** An editor [[`plugin`]] for editing the `Substation` section. */
 
 export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
-  static scopedElements = {
-    'sld-coordinate-tooltip': SldCoordinateTooltip,
-  };
+  static scopedElements = {};
 
   @property()
   doc!: XMLDocument;
@@ -141,12 +136,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
 
   get placingLabel(): Element | undefined {
     return this.interaction.mode === 'placingLabel'
-      ? this.interaction.element
-      : undefined;
-  }
-
-  get resizingBR(): Element | undefined {
-    return this.interaction.mode === 'resizingBR'
       ? this.interaction.element
       : undefined;
   }
@@ -402,8 +391,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
    *   the relevant field/payload: `renderVoltageLevelPlacingTarget` (placing a
    *   VoltageLevel), `renderConnectionPreviewLayer` +
    *   `renderConnectModeEquipmentLayer` (connecting), `renderPlacingTargetsLayer`
-   *   + `renderPlacingPreview` (placing), and the DOM `renderCoordinateTooltip`
-   *   (placing/resizing).
+   *   + `renderPlacingPreview` (placing).
    *
    * Mode layers are NOT a top tier — they are interleaved at fixed z-positions
    * (the VL placing target paints at the back; the connection preview in the
@@ -480,7 +468,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
         ${this.renderPlacingTargetsLayer()}
         ${this.renderPlacingPreview()}
       </svg>
-      ${this.renderCoordinateTooltip()}
     </section>`;
   }
 
@@ -720,31 +707,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       )
       .filter(e => !this.isPartOfPlacingElement(e))
       .map(element => this.renderLabel(element));
-  }
-
-  /**
-   * The placement/resize coordinate read-out, painted as a DOM overlay OUTSIDE
-   * the `<svg>` (not a z-band). The placing / resizingBR / resizingTL modes are
-   * mutually exclusive, so at most one branch sets `coordinates`/`invalid`;
-   * `hidden` stays true (the tooltip is collapsed) while idle.
-   */
-  private renderCoordinateTooltip() {
-    const { text, invalid, hidden } = coordinateTooltipState({
-      substation: this.substation,
-      placing: this.placing,
-      placingOffset: this.placingOffset,
-      resizingBR: this.resizingBR,
-      resizingTL: this.resizingTL,
-      mouseX: this.mouseX,
-      mouseY: this.mouseY,
-    });
-
-    return html`<sld-coordinate-tooltip
-      .text=${text}
-      .invalid=${invalid}
-      .tooltipHidden=${hidden}
-      .anchor=${this.sld}
-    ></sld-coordinate-tooltip>`;
   }
 
   private containerContext(): EquipmentContainerContext {

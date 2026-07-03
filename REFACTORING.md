@@ -50,13 +50,16 @@ The single source of truth for open work, listed in priority order (highest
 first). There is no separate "next steps" list.
 
 - [ ] **(UX) Make the legacy-coordinate migration screen clear and reassuring.** User-facing polish, not a refactor. Explain — e.g. in a _"read more"_ disclosure — that coordinates were previously stored in a way other tools might not preserve, so for data safety they were moved into a `<Private>` section, which IEC 61850 requires conformant tools to preserve. Frame it as protecting the user's layout, not as a risky conversion.
-- [ ] **Resolve `SldEditor`'s test-only derived getters.** `placing` / `placingLabel` / `resizingBR` / `resizingTL` / `connecting` have no production readers — they exist only for spec assertions (`sldEditor.placing?.tagName` etc.). Either keep them as a documented public read API (current choice; also keeps editor/viewer symmetric) or drop them and have specs read `interaction` directly. Decide when next touching `sld-editor.spec.ts`.
-- [ ] **Hoist the coordinate tooltip to a single editor-owned instance.** Today there is one `<sld-coordinate-tooltip>` per substation, each registering two `window` listeners (`pointermove` + `click`) — 2N global listeners for N substations. Hoist it to `SldEditor` (mirrors the context-menu hoist) to collapse to a single instance, provided the child→parent tooltip-state event stays simple and does not duplicate grid interaction state.
+- [ ] **Resolve `SldEditor`'s test-only derived getters.** `placing` / `placingLabel` / `resizingBR` / `resizingTL` / `connecting` have no production readers — they exist only for spec assertions (`sldEditor.placing?.tagName` etc.). Either keep them as a documented public read API (current choice; also keeps editor/viewer symmetric) or drop them and have specs read `interaction` directly. Decide when next touching `sld-editor.spec.ts`. (Note: `placing` / `resizingBR` / `resizingTL` remain **test-only** after the tooltip switched to the single `interaction` prop; the previously-added `placingOffset` getter was removed as dead once the tooltip stopped receiving fanned-out slices.)
 - [ ] **Continue large-file interaction performance work.** The cached IED resolver and the lazy closed-IED menu removed the worst full-document scans, but Bay move/undo still spends ~420–510 ms in the affected substation viewer's render. Likely next cut: avoid rebuilding unchanged base SVG layers during mouse-driven or doc-version refresh — isolate the moving/changed content from the heavy static diagram layers. Measure with the Playwright large-file metric before and after each change.
 - [ ] **Give `getSldSubstationViewer` a name/element selector before the first multi-viewer assertion.** The spec helper currently `querySelector('sld-substation-viewer')` (first match); the editor renders one viewer per `:root > Substation`. Safe for all current single-viewer call sites, but a latent footgun once a genuine multi-viewer assertion arrives — switch to `getSldSubstationViewer(editor, substation?)` rather than relying on document order. Test-only.
 - [ ] **Fixture cleanup (opportunistic).** When touching the specs, convert remaining hand-built SCL fixtures in `context-menu/sld-context-menu.spec.ts`, `foundations/edits.spec.ts`, `sld-editor.spec.ts`, and `oscd-editor-sld.spec.ts` to `sldFixture()` — but only where it reduces noise without hiding document shape the test depends on.
 
 ## Completed Workstreams
+
+- [x] **Hoist the coordinate tooltip to a single editor-owned instance. DONE.** There was one `<sld-coordinate-tooltip>` per substation, each registering two `window` listeners (`pointermove` + `click`) — 2N global listeners for N substations, and N tooltips computing state the parent fed down. The tooltip is an **editing** affordance (it only shows text during `placing`/`resizingBR`/`resizingTL`; a read-only viewer would render it permanently collapsed), so it belongs on the controller, not in a future pure `sld-viewer`. Hoisted to a single instance in `SldEditor`. **Key design move: split the tooltip's state by update frequency instead of streaming coords upward.** The *low-frequency* interaction context (`placing`, `placingOffset`, `resizingBR`, `resizingTL`) is passed as props — it only changes on an interaction transition. The *high-frequency* grid coordinates are owned by the tooltip itself: it already listens to `window` `pointermove` (for positioning), so in that same handler it finds the substation coordinate surface under the cursor via a `substationOf(surface) => Substation | undefined` resolver prop, converts client→grid through **that** surface's CTM, and calls the existing pure `coordinateTooltipState(...)`, storing the result in its own `@state`. **Result: a moving cursor re-renders only the tooltip's one-`div` template — never the editor's N-substation map** (which the naïve "push mouseX/mouseY up to editor `@state`" design would have done on every move). No child→parent per-move event exists; the viewer no longer references the tooltip at all. The editor owns the `substationOf` resolver (it knows the viewer DOM: a surface is a viewer's `svg#sld`, whose shadow host is the `SldSubstationViewer` carrying the `substation`), keeping the tooltip agnostic of SLD structure. The viewer's now-orphaned `resizingBR` getter and `renderCoordinateTooltip()` method were deleted. Tooltip spec rewritten for the self-contained component (positioning, hide-when-no-surface, computed coords/invalid via a non-identity-CTM surface). Behaviour-preserving. Verified `tsc --noEmit` clean, `npm run test` (`533 passed, 0 failed`), `npm run format`.
+- [x] **Feed the tooltip the `interaction` union instead of fanned-out slices. DONE.** Follow-up to the hoist above. The tooltip originally took four props (`placing` / `placingOffset` / `resizingBR` / `resizingTL`), each a getter-projected slice of `SldEditor`'s single `interaction: InteractionState` — the editor fanned the union *out*, and the tooltip's `deriveState` immediately fanned it back *in* to call `coordinateTooltipState(...)`. That round-trip diverged from the sibling `SldSubstationViewer` (which takes one `.interaction` prop and derives locally) and reintroduced the illegal-combo risk the discriminated union exists to prevent (`placing` *and* `resizingBR` both set). Collapsed **both** fan-out layers: the tooltip now takes a single `.interaction` prop, and `coordinateTooltipState` was refactored to accept the union and `switch (interaction.mode)` — `placingOffset` is read off the narrowed `placing` variant rather than as a free-floating param, so inconsistent inputs are unrepresentable. `SldEditor` renders `.interaction=${this.interaction}` and its now-dead `placingOffset` getter was removed (`placing`/`resizingBR`/`resizingTL` stay, still read by specs). `placingLabel` and `connectingFrom` are explicitly hidden in the switch (a new state-helper test pins the `placingLabel`-hidden invariant). Both specs rewritten to build inputs via the `interactions.*` constructors. Behaviour-preserving. Verified `tsc --noEmit` clean, `npm run test` (`534 passed, 0 failed`), `npm run format`.
+- [x] **Move the tooltip's pure core into `foundations/` and rename it for accuracy. DONE.** Follow-up to the two above. The pure state function lived at top level as `sld-coordinate-tooltip-state.ts` / `coordinateTooltipState`, but it is a DOM-free projection of `InteractionState` + substation + cursor grid-coords onto a `{ text, invalid, hidden }` verdict — the same species as its `foundations/` peers (`sld-placement.ts`, whose validity checks it calls; `interaction-mode.ts`, whose union it reads). Its old name was inaccurate: named for the *consumer* (tooltip), while "coordinate" undersold the resize case (it emits **dimensions** when resizing, not coordinates) and "state" overstated it (it owns nothing). Moved to `foundations/interaction-readout.ts`, renamed `interactionReadout(...)` returning `InteractionReadout` — pairs with `interaction-mode.ts` (mode = the gesture; readout = what it displays) and keeps the functional-core / imperative-shell split across the folder boundary (the Lit shell `sld-coordinate-tooltip.ts` stays at top level; its `track()` handler does the actual pointer tracking, its `deriveReadout()`/`readout` @state consume the core). `git mv` preserved history; ~4 files touched, mechanical. Verified `tsc --noEmit` clean, `npm run test` (`534 passed, 0 failed`), `npm run format`.
 
 - [x] **Unify the duplicated connect-elbow geometry. DONE.** The busbar-connect click handler in `drawing/artifacts/connectivity-node.ts` hand-rolled the same "bend the orthogonal path toward a target" math that `connectPreviewElbow` owns (`vertical = oldX1 === oldX2`, `newX2 = vertical ? oldX2 : x3`, …) — computed *twice* (once toward the raw cursor to pick the `findIntersection` approach start, once toward the busbar-clamped endpoint). Extracted the shared primitive `elbowCorner(path, target): Point` in `foundations/geometry.ts` — the single 90° bend continuing the last committed segment's orientation toward `target`. `connectPreviewElbow` now delegates to it (keeping only the `far`/`near` snap handling), and the busbar handler uses it for both the approach and the re-bend, so the opaque `newX2/newY2` locals are gone; the busbar-specific `findIntersection` clamp stays explicit and local. **De-risked first:** the connect-to-busbar click geometry had *no* coverage, so 3 characterization specs were added (`connectivity-node.spec.ts`) capturing the exact dispatched `oscd-sld-connect` path for a horizontal last segment, a vertical last segment clamped to a vertex, and the already-connected no-op; they passed against the pre-refactor code and still pass. Added 3 `elbowCorner` unit specs. Behaviour-preserving. Verified `tsc --noEmit` clean, `npm run test` (`532 passed, 0 failed`; +6 specs), `npm run format`.
 
@@ -409,6 +412,10 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 ## Last Verified State
 
 - `npm run format` passed; `tsc --noEmit` clean.
+- `npm run test` passed with `534 passed, 0 failed` (after feeding the coordinate tooltip the `interaction` union instead of fanned-out slices; both tooltip specs rewritten around the `interactions.*` constructors).
+- Coordinate tooltip hoisted: one editor-owned `<sld-coordinate-tooltip>` replaces the per-substation instances. State is split by update frequency — the low-frequency interaction gesture is passed as a single `interaction: InteractionState` prop from `SldEditor` (matching `SldSubstationViewer`); the high-frequency grid coordinates are derived inside the tooltip's own `pointermove` handler, which resolves the surface under the cursor via a `substationOf` resolver prop and CTM-converts client→grid, so a moving cursor re-renders only the tooltip. `coordinateTooltipState` consumes the union directly (`switch (interaction.mode)`), so illegal gesture mixes are unrepresentable. The pure core has since moved to `foundations/interaction-readout.ts` (`interactionReadout` / `InteractionReadout`) — a DOM-free peer of `sld-placement.ts` / `interaction-mode.ts` — leaving `sld-coordinate-tooltip.ts` as the imperative Lit shell. The viewer no longer references the tooltip; its orphaned `resizingBR` getter and `renderCoordinateTooltip()` were removed. `SldEditor`'s `placing`/`resizingBR`/`resizingTL` getters are now test-only again (the interim `placingOffset` getter was removed as dead).
+
+- `npm run format` passed; `tsc --noEmit` clean.
 - `npm run test` passed with `532 passed, 0 failed` (after unifying the connect-elbow geometry; +3 busbar-connect characterization specs, +3 `elbowCorner` unit specs).
 - Connect-elbow geometry unified: the shared 90° bend is `foundations/geometry.ts` `elbowCorner(path, target)`; both `connectPreviewElbow` (viewer preview) and `connectivity-node.ts` (busbar-connect click) delegate to it. The busbar-specific `findIntersection` clamp stays local. The connect-to-busbar click path is now covered by characterization specs in `connectivity-node.spec.ts`.
 
@@ -555,66 +562,80 @@ The root component's ~500-line `render()` was decomposed into three components:
 `connectivity.ts` is now a clean read-only module suitable for the future viewer package — it
 has no dependency on `EditV2`, `@openscd/scl-lib`, or `./ied.js`.
 
-## `sld-substation-viewer.ts` Analysis — The Elephant (2,173 lines)
+## `sld-substation-viewer.ts` Analysis — The (Shrinking) Elephant (~930 lines)
 
-This is the single largest file and the future viewer extraction target. It mixes three
-concerns: SVG rendering, interaction state, and edit dispatch.
+Still the largest single file and the future viewer extraction target, but no
+longer the 2,173-line monolith this section originally described: Phase A
+(artifact descriptors) and Phase B (diagram symbols) below are **done**, which
+moved ~1,200 lines of per-artifact SVG rendering out into `drawing/`. What
+remains is a thinner viewer that still mixes three concerns — SVG composition,
+interaction-overlay rendering, and edit dispatch — with the interaction/render
+split (Phase C) the main outstanding decomposition.
 
-### Structural breakdown
+### Structural breakdown (current)
 
-| Method/Section               | Lines | %   | Responsibility                                                                                                 |
-| ---------------------------- | ----- | --- | -------------------------------------------------------------------------------------------------------------- |
-| `render()`                   | 483   | 22% | Main diagram composition — placing targets, connection preview, grid, mouse tracking, substation resize dialog |
-| `renderEquipment()`          | 251   | 12% | Single ConductingEquipment SVG symbol + click/context handlers                                                 |
-| `renderContainer()`          | 251   | 12% | Bay or VoltageLevel rect + children + resize handles                                                           |
-| `renderConnectivityNode()`   | 215   | 10% | Connection polylines between terminals                                                                         |
-| `renderTransformerWinding()` | 116   | 5%  | Winding circles + ports                                                                                        |
-| `renderLabel()`              | 115   | 5%  | Text labels with positioning logic                                                                             |
-| `renderPowerTransformer()`   | 101   | 5%  | Transformer windings composition                                                                               |
-| `renderIed()`                | 84    | 4%  | IED reference badges                                                                                           |
-| `renderBusBar()`             | 45    | 2%  | Busbar lines                                                                                                   |
-| Properties/state/lifecycle   | ~170  | 8%  | 30+ properties, mouse state, coordinate transforms                                                             |
-| Utility methods              | ~90   | 4%  | `svgCoordinates`, `nearestOpenTerminal`, `groundTerminal`, `handleExport`                                      |
-| Top-level helpers            | ~80   | 4%  | `isBay`, `isSelectable`, `getHighlightStyle`, `transformerHighlight`                                           |
-| `static styles`              | ~75   | 3%  | CSS                                                                                                            |
+The file is now dominated by small, focused methods rather than a few giant
+ones. Grouped by role:
+
+| Group                          | Approx. lines | Contents                                                                                                                                                                         |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `render()` composition         | ~73           | The `<svg>` scaffold, the `@mousemove` coordinate tracker, and the z-ordered list of `render*Layer` calls. No per-artifact drawing.                                            |
+| Interaction-overlay layers     | ~245          | The `render*Layer` band methods: `renderConnectionPreviewLayer` (~73, now the largest), `renderPlacingTargetsLayer` (~51), `renderPlacingPreview` (~25), plus the small VL/connectivity/PT/IED/label band methods. This is the editing overlay — Phase C territory. (The coordinate tooltip is no longer here — it is a single editor-owned `<sld-coordinate-tooltip>`.) |
+| Artifact wrappers + contexts   | ~150          | Thin delegating wrappers (`renderEquipment`, `renderPowerTransformer`, `renderConnectivityNode`, `renderBusBar`, `renderIed`, `renderLabel`) that call the generic `renderArtifact(descriptor, element, context, options)`, plus the per-artifact context builders (`sharedContext`, `equipmentContext`, `labelContext`, `powerTransformerContext`, `connectivityNodeContext`). |
+| Viewer state + utilities       | ~250          | 30+ `@property`/`@state` fields, mouse-coordinate transforms (`svgCoordinates`, `gridPosition`, `halfGridPosition`, `renderedPosition`, `renderedLabelPosition`), and edit-adjacent helpers (`nearestOpenTerminal`, `groundTerminal`, IED-resolution cache).                                    |
+| `static styles`                | ~20           | Component chrome CSS (most colour tokens now live in `theme.ts`).                                                                                                              |
+
+The per-artifact renderers the original table listed as 251/215/116/115-line
+methods (`renderEquipment`, `renderConnectivityNode`, transformer/label, …) are
+now the 10–30-line delegating wrappers above; their bodies live in
+`drawing/artifacts/*`.
 
 ### Three concerns interleaved
 
-1. **Pure SVG rendering** — Given an SCL element + display flags, produce SVG templates.
-   Most `render*` methods are effectively pure: they read element attributes and produce
-   `SVGTemplateResult`. No state mutation.
+1. **Pure SVG rendering** — largely **extracted**. Each artifact type now owns
+   its state derivation, action wiring, and SVG composition in
+   `drawing/artifacts/*`; the viewer only builds a per-artifact context and
+   delegates via `renderArtifact`.
 
-2. **Interaction state machine** — Placement, resizing, connecting. The 483-line `render()`
-   is mostly interaction overlays: placing targets, invalid-placement feedback, connection
-   preview polylines, coordinate tooltip. This is editing logic, not viewing.
+2. **Interaction-overlay rendering** — the bulk of what remains. Placement,
+   resizing, and connection preview are composed by the `render*Layer` methods
+   (placing targets, invalid-placement feedback, connection preview polylines).
+   This is editing logic, not viewing, and is the target of Phase C. (The
+   placement/resize coordinate read-out already moved out to a single
+   editor-owned `<sld-coordinate-tooltip>`.)
 
-3. **Edit dispatch** — `groundTerminal()`, context menu wiring, and various `@click`
-   handlers that build and dispatch `EditV2` events.
+3. **Edit dispatch** — `groundTerminal()` and various `@click` handlers still
+   build intent events / edits from the viewer; the larger edit-vs-view
+   consolidation (routing through `SldEditor`) is tracked in the completed
+   interaction-state and event-vocabulary workstreams above.
+
 
 ### Current decomposition strategy
 
-**Phase A: Extract functional artifact descriptors**
+**Phase A: Extract functional artifact descriptors — Done.**
 
-Each artifact type moves toward a functional descriptor in `src/drawing/artifacts/`.
-The descriptor owns artifact-specific state derivation, action wiring, and SVG
-composition. `SldSubstationViewer` builds a shared `SldArtifactContext` and calls
-`renderArtifact(descriptor, element, options)`.
+Each artifact type is a functional descriptor in `src/drawing/artifacts/`. The
+descriptor owns artifact-specific state derivation, action wiring, and SVG
+composition. `SldSubstationViewer` builds a per-artifact context (spread from a
+shared base — see the discipline pass below) and calls
+`renderArtifact(descriptor, element, context, options)`.
 
-| New module                                  | Contains                                                               | Lines |
-| ------------------------------------------- | ---------------------------------------------------------------------- | ----- |
-| `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering | ~460  |
-| `drawing/artifacts/artifact.ts`             | Shared artifact descriptor/context types                               | ~60   |
-| `drawing/artifacts/equipment-container.ts`  | Bay/VoltageLevel artifact descriptor                                   | ~250  |
-| `drawing/artifacts/connectivity-node.ts`    | ConnectivityNode artifact descriptor                                   | ~215  |
-| `drawing/artifacts/power-transformer.ts`    | PowerTransformer + TransformerWinding artifact descriptor              | ~220  |
-| `drawing/artifacts/label.ts`                | Label artifact descriptor/helper                                       | ~115  |
-| `drawing/artifacts/ied-reference.ts`        | IED reference artifact descriptor: state, actions, SVG rendering       | ~185  |
-| `drawing/artifacts/bus-bar.ts`              | BusBar artifact descriptor                                             | ~45   |
+| Module                                      | Contains                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering |
+| `drawing/artifacts/artifact.ts`             | Shared artifact descriptor/context types                               |
+| `drawing/artifacts/equipment-container.ts`  | Bay/VoltageLevel artifact descriptor                                   |
+| `drawing/artifacts/connectivity-node.ts`    | ConnectivityNode artifact descriptor                                   |
+| `drawing/artifacts/power-transformer.ts`    | PowerTransformer + TransformerWinding artifact descriptor              |
+| `drawing/artifacts/label.ts`                | Label artifact descriptor/helper                                       |
+| `drawing/artifacts/ied-reference.ts`        | IED reference artifact descriptor: state, actions, SVG rendering       |
+| `drawing/artifacts/bus-bar.ts`              | BusBar artifact descriptor                                             |
 
-Current descriptor shape:
+Descriptor shape (source of truth: `artifact.ts`; carries a `TContext` generic —
+see the discipline pass below):
 
 ```typescript
-type SldArtifactDescriptor<TState, TActions> = {
+type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext> = {
   matches(element: Element): boolean;
   state(element, context, options?): TState | undefined;
   actions(element, context, state): TActions;
@@ -622,18 +643,19 @@ type SldArtifactDescriptor<TState, TActions> = {
 };
 ```
 
-Current implemented wrappers:
+Implemented viewer wrappers (each a thin delegate to `renderArtifact`):
 
-- `renderEquipment()` delegates to `conductingEquipmentArtifact`
-- `renderIed()` delegates to `iedReferenceArtifact`
-- `renderBusBar()` delegates to `busBarArtifact`
-- `renderPowerTransformer()` delegates to `powerTransformerArtifact`
-- `renderLabel()` delegates to `drawing/artifacts/label.ts`
+- `renderEquipment()` → `conductingEquipmentArtifact`
+- `renderIed()` → `iedReferenceArtifact`
+- `renderBusBar()` → `busBarArtifact`
+- `renderPowerTransformer()` → `powerTransformerArtifact`
+- `renderConnectivityNode()` → `drawing/artifacts/connectivity-node.ts`
+- `renderLabel()` → `drawing/artifacts/label.ts`
 
-The current `SldArtifactContext` is useful but must be kept disciplined. Shared
-context should contain truly common editor/render services only. Artifact-specific
-needs should stay in the artifact module or be passed through an artifact-specific
-factory.
+The per-artifact context must be kept disciplined. The shared base
+(`SldSharedContext`) should contain truly common editor/render services only;
+artifact-specific needs stay in that artifact's own context type (which extends
+the base) — see the discipline pass below.
 
 ### `SldArtifactContext` discipline pass — Complete
 
@@ -646,31 +668,32 @@ shared base:
 type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
 ```
 
-| Type                      | Owner module                        | Fields                                                                                                                                                                     |
-| ------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `idle`, `openContextMenu`, `placing`, `placingLabel`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
-| `EquipmentContext`        | `artifacts/conducting-equipment.ts` | shared + `connecting`, `resizingTL`, `resizingBR`, `nearestOpenTerminal`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                         |
-| `PowerTransformerContext` | `artifacts/power-transformer.ts`    | shared + `connecting`, `resizingTL`, `resizingBR`, `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                                                |
-| `LabelContext`            | `artifacts/label.ts`                | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition`                                                                                                                     |
-| `BusBarContext`           | `artifacts/bus-bar.ts`              | shared + `renderConnectivityNode`                                                                                                                                          |
-| (ied-reference)           | uses `SldSharedContext` directly    | —                                                                                                                                                                          |
+| Type                      | Owner module                        | Fields                                                                                                                            |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `gridPosition`, `halfGridPosition`, `interaction`, `requestContextMenu`, `resolveIed`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
+| `EquipmentContext`        | `artifacts/conducting-equipment.ts` | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nearestOpenTerminal`, `nsp`                                         |
+| `PowerTransformerContext` | `artifacts/power-transformer.ts`    | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                                                |
+| `ConnectivityNodeContext` | `artifacts/connectivity-node.ts`    | shared + `mouseX`, `mouseY`, `mouseX2`, `mouseY2`                                                                                |
+| `BusBarContext`           | `artifacts/bus-bar.ts`              | alias of `ConnectivityNodeContext`                                                                                               |
+| `LabelContext`            | `artifacts/label.ts`                | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition`                                                                           |
+| (ied-reference)           | uses `SldSharedContext` directly    | —                                                                                                                                |
+
+Note: the single `interaction: InteractionState` field on `SldSharedContext`
+replaced the earlier per-artifact `placing`/`placingLabel`/`connecting`/
+`resizingTL`/`resizingBR`/`idle` fan-out; artifacts now read it through the
+`isMode`/`targetInMode`/`connectDetail` selectors (see the completed downward-
+projection collapse workstream above), so the now-deleted `Connecting` type is
+gone.
 
 The editor builds the shared bag once in `sharedContext()` and spreads it into
 per-artifact builders (`equipmentContext()`, `powerTransformerContext()`,
-`labelContext()`, `busBarContext()`). `renderArtifact()` now takes the context
-as an argument. The `Connecting` type lives in `artifact.ts` (shared by the
-equipment and power-transformer contexts).
+`labelContext()`, `busBarContext()`, `connectivityNodeContext()`).
+`renderArtifact()` takes the context as an argument.
 
 Remaining smell (deferred): the shared `renderLabel` and bus-bar's
 `renderConnectivityNode` are editor render callbacks, creating
-artifact→editor→artifact cycles. Removing those cycles belongs to the
-connectivity-node/label artifact extractions (Phase A), not this pass.
-
-Open cleanup identified before the next extraction:
-
-- Avoid letting `SldArtifactContext` become a "world and its mother" bag. If an
-  artifact needs something narrow and specific, keep that dependency local to
-  that artifact rather than adding it to the shared context by default.
+artifact→editor→artifact cycles. Removing those cycles is the last
+Phase-A-adjacent cleanup (the artifact modules themselves are extracted).
 
 **Phase B: Extract diagram symbols**
 
@@ -699,8 +722,10 @@ This is the most complex phase and should come last.
 ### Key challenge: shared context
 
 The render methods reference `this.mouseX`, `this.placing`, `this.placingOffset`,
-`this.disabled`, `this.showLabels`, etc. The extraction requires threading a context
-object. The interface is stable (the properties already exist) so this is mechanical
+`this.disabled`, `this.showLabels`, etc. Some of these are now derived getters off
+the consolidated `this.interaction` state (e.g. `placing`, `placingOffset`) rather
+than raw fields, but they are still read directly off the component. The extraction
+requires threading a context object. The interface is stable so this is mechanical
 but touches many lines.
 
 ### Icon Ownership Status
