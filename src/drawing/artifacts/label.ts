@@ -78,8 +78,10 @@ export function renderLabel(
   let text = labelText(element, ied, x);
 
   if (element.tagName === 'Text') {
-    ({ weight, color } = attributes(element));
-    deg = attributes(element).rot * 90;
+    const { weight: textWeight, color: textColor, rot } = attributes(element);
+    weight = textWeight;
+    color = textColor;
+    deg = rot * 90;
     if (!element.textContent) {
       text = '<Middle click to edit>';
       color = 'var(--oscd-sld-label-placeholder-color)';
