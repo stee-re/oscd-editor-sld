@@ -48,7 +48,6 @@ import type {
   PlaceLabelEvent,
   ResizeEvent,
   ResizeTLEvent,
-  StartConnectDetail,
   StartEvent,
   InteractionIntent,
   StartInteractionEvent,
@@ -130,30 +129,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   @state() showLabels: boolean = true;
 
-  get placing(): Element | undefined {
-    return this.interaction.mode === 'placing'
-      ? this.interaction.element
-      : undefined;
-  }
-
-  get placingLabel(): Element | undefined {
-    return this.interaction.mode === 'placingLabel'
-      ? this.interaction.element
-      : undefined;
-  }
-
-  get resizingBR(): Element | undefined {
-    return this.interaction.mode === 'resizingBR'
-      ? this.interaction.element
-      : undefined;
-  }
-
-  get resizingTL(): Element | undefined {
-    return this.interaction.mode === 'resizingTL'
-      ? this.interaction.element
-      : undefined;
-  }
-
   /**
    * Resolves a coordinate surface to its SCL `Substation`. A surface is the root
    * `svg#sld` of a substation viewer; its shadow host is the viewer, which
@@ -169,16 +144,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     const host = root instanceof ShadowRoot ? root.host : undefined;
     return host instanceof SldSubstationViewer ? host.substation : undefined;
   };
-
-  get connecting(): StartConnectDetail | undefined {
-    return this.interaction.mode === 'connectingFrom'
-      ? {
-        from: this.interaction.element,
-        path: this.interaction.path,
-        fromTerminal: this.interaction.terminal,
-      }
-      : undefined;
-  }
 
   connectedCallback() {
     super.connectedCallback();
