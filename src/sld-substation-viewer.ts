@@ -44,6 +44,7 @@ import type { EquipmentContext } from './drawing/artifacts/conducting-equipment.
 import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
 import type { LabelContext } from './drawing/artifacts/label.js';
 import {
+  connectPreviewElbow,
   extendConnectPointPaths,
 } from './foundations/geometry.js';
 import { containsRect } from './foundations/element-geometry.js';
@@ -589,62 +590,54 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   private renderConnectionPreviewLayer() {
-    const connectionPreview = [];
-    if (this.connecting?.from.closest('Substation') === this.substation) {
-      const { from, path, fromTerminal } = this.connecting;
-      let i = 0;
-      while (i < path.length - 2) {
-        const [x1, y1] = path[i];
-        const [x2, y2] = path[i + 1];
-        connectionPreview.push(
-          svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="currentColor" />`,
-        );
-        i += 1;
-      }
+    if (this.connecting?.from.closest('Substation') !== this.substation) {
+      return [];
+    }
 
-      const [[x1, y1], [oldX2, oldY2]] = path.slice(-2);
-      const vertical = x1 === oldX2;
+    const { from, path, fromTerminal } = this.connecting;
 
-      let x3 = this.mouseX2;
-      let y3 = this.mouseY2;
+    const targetEq = Array.from(
+      this.substation.querySelectorAll('ConductingEquipment'),
+    )
+      .filter(eq => eq !== from)
+      .find((eq) => {
+        const {
+          pos: [x, y],
+        } = attributes(eq);
+        return x === this.mouseX && y === this.mouseY;
+      });
 
-      let [x4, y4] = [x3, y3];
+    const toTerminal = this.nearestOpenTerminal(targetEq);
 
-      const targetEq = Array.from(
-        this.substation.querySelectorAll('ConductingEquipment'),
-      )
-        .filter(eq => eq !== from)
-        .find((eq) => {
-          const {
-            pos: [x, y],
-          } = attributes(eq);
-          return x === this.mouseX && y === this.mouseY;
-        });
+    let snap: { near: Point; far: Point } | undefined;
+    if (targetEq && toTerminal) {
+      const [close, far] = connectionStartPoints(targetEq)[toTerminal];
+      snap = { near: close, far };
+    }
 
-      const toTerminal = this.nearestOpenTerminal(targetEq);
+    const { corner, far, near } = connectPreviewElbow(
+      path,
+      [this.mouseX2, this.mouseY2],
+      snap,
+    );
 
-      if (targetEq && toTerminal) {
-        const [close, far] = connectionStartPoints(targetEq)[toTerminal];
-        [x3, y3] = far;
-        [x4, y4] = close;
-      }
+    // The whole preview is one orthogonal polyline: the already-committed
+    // waypoints (every point but the provisional last one) continuing through
+    // the live elbow lastFixed -> corner -> far -> near.
+    const previewPoints: Point[] = [...path.slice(0, -1), corner, far, near];
 
-      const x2 = vertical ? oldX2 : x3;
-      const y2 = vertical ? y3 : oldY2;
+    const segment = (start: Point, end: Point) =>
+      svg`<line x1="${start[0]}" y1="${start[1]}" x2="${end[0]}" y2="${end[1]}"
+                stroke-linecap="square" stroke="currentColor" />`;
 
-      connectionPreview.push(
-        svg`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
-                stroke-linecap="square" stroke="currentColor" />`,
-        svg`<line x1="${x2}" y1="${y2}" x2="${x3}" y2="${y3}"
-                stroke-linecap="square" stroke="currentColor" />`,
-        svg`<line x1="${x3}" y1="${y3}" x2="${x4}" y2="${y4}"
-                stroke-linecap="square" stroke="currentColor" />`,
-      );
-      connectionPreview.push(
-        svg`<rect width="100%" height="100%" fill="url(#grid)"
+    // draw a line between each consecutive pair of points
+    const lines = previewPoints
+      .slice(1)
+      .map((point, index) => segment(previewPoints[index], point));
+
+    const dropTarget = svg`<rect width="100%" height="100%" fill="url(#grid)"
       @click=${() => {
-        const newPath = extendConnectPointPaths(path, [x2, y2], [x3, y3], [x4, y4]);
+        const newPath = extendConnectPointPaths(path, corner, far, near);
         this.dispatchEvent(newExtendConnectPointEvent(newPath));
         if (targetEq && toTerminal) {
           this.dispatchEvent(
@@ -657,10 +650,9 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
             }),
           );
         }
-      }} />`,
-      );
-    }
-    return connectionPreview;
+      }} />`;
+
+    return [...lines, dropTarget];
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   findIntersection,
   cleanPath,
   extendConnectPointPaths,
+  connectPreviewElbow,
 } from './geometry.js';
 import type { Point, Rect } from './geometry.js';
 
@@ -200,6 +201,50 @@ describe('geometry', () => {
       // replacing the last point keeps the run collinear, so it collapses
       const next = extendConnectPointPaths(path, [5, 0], [8, 0]);
       expect(next).to.deep.equal([[0, 0], [8, 0]]);
+    });
+  });
+
+  describe('connectPreviewElbow', () => {
+    it('continues vertically then bends across when the last segment was vertical', () => {
+      // last committed segment [0,0]->[0,3] is vertical (shared x = 0)
+      const path: Point[] = [[0, 0], [0, 3]];
+      const { corner, far, near } = connectPreviewElbow(path, [5, 7]);
+      // keep x=0 down to the cursor's y=7, then the bend runs across to x=5
+      expect(corner).to.deep.equal([0, 7]);
+      // no snap target, so both endpoints are just the cursor
+      expect(far).to.deep.equal([5, 7]);
+      expect(near).to.deep.equal([5, 7]);
+    });
+
+    it('continues horizontally then bends down when the last segment was horizontal', () => {
+      // last committed segment [0,0]->[3,0] is horizontal (shared y = 0)
+      const path: Point[] = [[0, 0], [3, 0]];
+      const { corner, far, near } = connectPreviewElbow(path, [5, 7]);
+      // keep y=0 across to the cursor's x=5, then the bend runs down to y=7
+      expect(corner).to.deep.equal([5, 0]);
+      expect(far).to.deep.equal([5, 7]);
+      expect(near).to.deep.equal([5, 7]);
+    });
+
+    it('routes to a snap target using its own far/near endpoints, not the cursor', () => {
+      const path: Point[] = [[0, 0], [3, 0]]; // horizontal
+      const snap = { far: [10, 6] as Point, near: [10, 4] as Point };
+      // cursor is ignored once a snap target is supplied
+      const { corner, far, near } = connectPreviewElbow(path, [5, 7], snap);
+      // horizontal last segment -> keep y=0, travel across to the snap x=10
+      expect(corner).to.deep.equal([10, 0]);
+      expect(far).to.deep.equal([10, 6]);
+      expect(near).to.deep.equal([10, 4]);
+    });
+
+    it('returns exactly the points a subsequent extendConnectPointPaths commits', () => {
+      const path: Point[] = [[0, 0], [3, 0]]; // horizontal, provisional = [3,0]
+      const { corner, far, near } = connectPreviewElbow(path, [5, 7]);
+      const committed = extendConnectPointPaths(path, corner, far, near);
+      // committing drops the provisional [3,0], inserts the corner [5,0], and —
+      // because with no snap target far and near are the *same* cursor point —
+      // the duplicated [5,7] is collapsed to one by cleanPath:
+      expect(committed).to.deep.equal([[0, 0], [5, 0], [5, 7]]);
     });
   });
 });
