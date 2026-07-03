@@ -40,17 +40,19 @@
 
       const params = new URL(document.location).searchParams;
       for (const [name, value] of params) {
+        if (name === 'doc') continue;
         editor.setAttribute(name, value);
       }
 
-      const sample = await fetch('sample.scd').then(r => r.text());
+      const docFile = params.get('doc') ?? 'sample.scd';
+      const sample = await fetch(docFile).then(r => r.text());
       editor.docs = {
-        ['sample.scd']: new DOMParser().parseFromString(
+        [docFile]: new DOMParser().parseFromString(
           sample,
           'application/xml',
         ),
       };
-      editor.docName = 'sample.scd';
+      editor.docName = docFile;
     </script>
   </body>
 </html>

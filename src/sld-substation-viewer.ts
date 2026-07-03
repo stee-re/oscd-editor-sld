@@ -9,6 +9,7 @@ import {
 } from 'lit';
 
 import { property, query, state } from 'lit/decorators.js';
+import { guard } from 'lit/directives/guard.js';
 import { ScopedElementsMixin } from '@open-wc/scoped-elements/lit-element.js';
 
 import {
@@ -404,6 +405,38 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       dim: [w, h],
     } = attributes(this.substation);
 
+    // The five base layers (voltage levels, connectivity, power transformers,
+    // IEDs, labels) are position-independent: their geometry derives from the
+    // document and interaction, never from the live cursor — except in the three
+    // modes where a base artifact tracks the mouse (resize preview and connect
+    // target highlight/snap). Memoizing them with `guard` lets the per-move
+    // re-renders that keep the placing/connect preview under the cursor skip
+    // re-evaluating the whole (potentially thousands of `<g>`) base stack.
+    const baseLayerTracksMouse =
+      this.interaction.mode === 'resizingBR' ||
+      this.interaction.mode === 'resizingTL' ||
+      this.interaction.mode === 'connectingFrom';
+    const baseLayerKey = [
+      this.substation,
+      this.docVersion,
+      this.interaction,
+      this.showLabels,
+      this.showIeds,
+      this.gridSize,
+      this.highlight,
+      this.selectable,
+      this.disabled,
+      // Mouse coordinates only invalidate the base layers in the modes that
+      // paint them from the cursor; elsewhere a constant keeps the key stable so
+      // guard reuses the memoized layers across cursor moves.
+      baseLayerTracksMouse ? this.mouseX : 0,
+      baseLayerTracksMouse ? this.mouseY : 0,
+      baseLayerTracksMouse ? this.mouseX2 : 0,
+      baseLayerTracksMouse ? this.mouseY2 : 0,
+      baseLayerTracksMouse ? this.mouseX2f : 0,
+      baseLayerTracksMouse ? this.mouseY2f : 0,
+    ];
+
     return html`<section>
       <slot name="header"></slot>
       <svg
@@ -458,13 +491,15 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
         ${symbols}
         <rect width="100%" height="100%" style="fill: var(--md-sys-color-surface, var(--oscd-base3))" />
         ${this.renderVoltageLevelPlacingTarget()}
-        ${this.renderVoltageLevelLayer()}
+        ${guard(baseLayerKey, () => this.renderVoltageLevelLayer())}
         ${this.renderConnectionPreviewLayer()}
         ${this.renderConnectModeEquipmentLayer()}
-        ${this.renderConnectivityLayer()}
-        ${this.renderPowerTransformerLayer()}
-        ${this.renderIedLayer()}
-        ${this.renderLabelLayer()}
+        ${guard(baseLayerKey, () => [
+          this.renderConnectivityLayer(),
+          this.renderPowerTransformerLayer(),
+          this.renderIedLayer(),
+          this.renderLabelLayer(),
+        ])}
         ${this.renderPlacingTargetsLayer()}
         ${this.renderPlacingPreview()}
       </svg>
