@@ -14,6 +14,7 @@ import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldEditor } from './sld-editor.js';
 import { getSLDAttributes } from './foundations/sld-attributes.js';
 import { iedReferences, resolveIed } from './foundations/ied.js';
+import { targetInMode } from './foundations/interaction-mode.js';
 import { sldNs } from './foundations.js';
 import {
   findSubstationSvgRoot,
@@ -842,15 +843,15 @@ describe('SLD Editor', () => {
 
     it('allows placing a new voltage level', async () => {
       queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
-      expect(sldEditor.placing?.tagName).to.equal('VoltageLevel');
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('VoltageLevel');
       const [x1, y1] = svgClientPosition(element, 5, 3);
       await sendMouse({ type: 'click', position: [x1, y1] });
-      expect(sldEditor.placing).to.be.undefined;
-      expect(sldEditor.resizingBR?.tagName).to.equal('VoltageLevel');
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')?.tagName).to.equal('VoltageLevel');
       const [x2, y2] = svgClientPosition(element, 11, 10);
       await sendMouse({ type: 'click', position: [x2, y2] });
       await aTimeout(10); // Wait for quick machines
-      expect(sldEditor.resizingBR).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')).to.be.undefined;
       const voltLv = element.doc.querySelector('VoltageLevel')!;
       expect(sldAttribute(voltLv, 'x')).to.equal('5');
       expect(sldAttribute(voltLv, 'y')).to.equal('3');
@@ -887,10 +888,10 @@ describe('SLD Editor', () => {
 
     it('allows the user to abort placing an element', async () => {
       queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
-      expect(sldEditor.placing?.tagName).to.equal('VoltageLevel');
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('VoltageLevel');
       const event = new KeyboardEvent('keydown', { key: 'Escape' });
       window.dispatchEvent(event);
-      expect(sldEditor.placing).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
     });
   });
 
@@ -910,18 +911,18 @@ describe('SLD Editor', () => {
 
     it('allows placing a new bay', async () => {
       queryToolbar(element, '[title="Add Bay"]')?.click();
-      expect(sldEditor.placing?.tagName).to.equal('Bay');
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('Bay');
       await sendMouse({
         type: 'click',
         position: svgClientPosition(element, 5, 3),
       });
-      expect(sldEditor.placing).to.be.undefined;
-      expect(sldEditor.resizingBR?.tagName).to.equal('Bay');
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')?.tagName).to.equal('Bay');
       await sendMouse({
         type: 'click',
         position: svgClientPosition(element, 11, 10),
       });
-      expect(sldEditor.resizingBR).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')).to.be.undefined;
       const bay = sldEditor.doc.querySelector('Bay')!;
       expect(!!bay).to.be.true;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -932,14 +933,14 @@ describe('SLD Editor', () => {
 
     it('allows placing a new bus bar', async () => {
       queryToolbar(element, '[title="Add Bus Bar"]')?.click();
-      expect(sldEditor.placing?.tagName).to.equal('Bay');
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('Bay');
       const [x1, y1] = svgClientPosition(element, 5, 3);
       await sendMouse({ type: 'click', position: [x1, y1] });
-      expect(sldEditor.placing).to.be.undefined;
-      expect(sldEditor.resizingBR?.tagName).to.equal('Bay');
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')?.tagName).to.equal('Bay');
       const [x2, y2] = svgClientPosition(element, 11, 10);
       await sendMouse({ type: 'click', position: [x2, y2] });
-      expect(sldEditor.resizingBR).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')).to.be.undefined;
       const bus = sldEditor.doc.querySelector('Bay');
       expect(!!bus).to.be.true;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
@@ -970,13 +971,13 @@ describe('SLD Editor', () => {
 
     it('allows placing new conducting equipment', async () => {
       queryToolbar(element, '[title="Add GEN"]')?.click();
-      expect(sldEditor.placing?.tagName).to.equal('ConductingEquipment');
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('ConductingEquipment');
       await sendMouse({
         type: 'click',
         position: svgClientPosition(element, 4, 4),
       });
-      expect(sldEditor.placing).to.be.undefined;
-      expect(sldEditor.resizingBR).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(sldEditor.interaction, 'resizingBR')).to.be.undefined;
       const equipment = element.doc.querySelector('ConductingEquipment');
       expect(!!equipment).to.be.true;
       expect(sldAttribute(equipment!, 'x')).to.equal('4');

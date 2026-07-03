@@ -77,6 +77,7 @@ import {
   placingLabel,
   resizingBR,
   resizingTL,
+  targetInMode,
 } from './foundations/interaction-mode.js';
 import { defaultSldNsPrefix, sldNs } from './foundations.js';
 
@@ -605,16 +606,14 @@ describe('SLD Editor', () => {
       newVoltLevel.setAttribute('name', 'NewVoltLevel');
       element.startPlacing(newVoltLevel);
 
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.have.property('tagName', 'VoltageLevel');
       await sendMouse({ type: 'click', position: gridPos(...placeTL) });
-      expect(element).to.have.property('placing', undefined);
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.have.property('tagName', 'VoltageLevel');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(element).to.have.property('resizingBR', undefined);
+      expect(targetInMode(element.interaction, 'resizingBR')).to.be.undefined;
       const voltLv = element.doc.querySelector('VoltageLevel')!;
       expect(sldAttribute(voltLv, 'x')).to.equal('5');
       expect(sldAttribute(voltLv, 'y')).to.equal('3');
@@ -627,12 +626,11 @@ describe('SLD Editor', () => {
       newVoltLevel.setAttribute('name', 'NewVoltLevel');
       element.startPlacing(newVoltLevel);
 
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.have.property('tagName', 'VoltageLevel');
       const event = new KeyboardEvent('keydown', { key: 'Escape' });
       window.dispatchEvent(event);
-      expect(element).to.have.property('placing', undefined);
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
     });
   });
 
@@ -680,10 +678,9 @@ describe('SLD Editor', () => {
           '.handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.resizingBR!;
+      const voltageLevel = targetInMode(element.interaction, 'resizingBR')!;
       expect(sldAttribute(voltageLevel, 'w')).to.equal('48');
       expect(sldAttribute(voltageLevel, 'h')).to.equal('23');
       await sendMouse({ type: 'click', position: gridPos(...vlResizeBR) });
@@ -694,10 +691,9 @@ describe('SLD Editor', () => {
     it('moves voltage levels on move handle click', async () => {
       // Click inside VL rect but outside the TL resize handle (1x1 at VL origin) to start moving it
       await sendMouse({ type: 'click', position: gridPos(3, 2) });
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.placing!;
+      const voltageLevel = targetInMode(element.interaction, 'placing')!;
       expect(sldAttribute(voltageLevel, 'x')).to.equal('1');
       expect(sldAttribute(voltageLevel, 'y')).to.equal('1');
       // Click to place at new position (moved right and down)
@@ -725,10 +721,9 @@ describe('SLD Editor', () => {
       const item = menuItem(0);
       clickInteractive(item);
       await sldSubstationViewer.updateComplete;
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.resizingBR!;
+      const voltageLevel = targetInMode(element.interaction, 'resizingBR')!;
       expect(sldAttribute(voltageLevel, 'w')).to.equal('48');
       expect(sldAttribute(voltageLevel, 'h')).to.equal('23');
       await sendMouse({ type: 'click', position: gridPos(...vlResizeBR) });
@@ -763,10 +758,9 @@ describe('SLD Editor', () => {
       await sldSubstationViewer.updateComplete;
       await waitForMenuClose();
 
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.placing!;
+      const voltageLevel = targetInMode(element.interaction, 'placing')!;
       expect(sldAttribute(voltageLevel, 'x')).to.equal('1');
       expect(sldAttribute(voltageLevel, 'y')).to.equal('1');
 
@@ -797,8 +791,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       clickInteractive(menuItem(-4));
       await sldSubstationViewer.updateComplete;
-      expect(element)
-        .property('placingLabel')
+      expect(targetInMode(element.interaction, 'placingLabel'))
         .to.have.property('tagName', 'VoltageLevel');
       await sendMouse({ type: 'click', position: labelPos(5, 4.5) });
       const voltageLevel = element.doc.querySelector('VoltageLevel')!;
@@ -811,10 +804,9 @@ describe('SLD Editor', () => {
         scl: 'VoltageLevel',
         ui: 'rect',
       }).dispatchEvent(new PointerEvent('click'));
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.placing!;
+      const voltageLevel = targetInMode(element.interaction, 'placing')!;
       expect(sldAttribute(voltageLevel, 'x')).to.equal('1');
       expect(sldAttribute(voltageLevel, 'y')).to.equal('1');
       await sendMouse({ type: 'click', position: gridPos(...placeTL) });
@@ -825,7 +817,7 @@ describe('SLD Editor', () => {
     it('moves the voltage level label on label left click', async () => {
       // Click on label to start placing/moving it
       queryUI({ ui: '.label text' }).dispatchEvent(new PointerEvent('click'));
-      const placingLabel = element.placingLabel;
+      const placingLabel = targetInMode(element.interaction, 'placingLabel');
       const placingLabelTagName = placingLabel?.tagName;
       expect(placingLabelTagName).to.equal('VoltageLevel');
       // Unlike the menu-based "Move Label", a direct label click captures a
@@ -862,13 +854,13 @@ describe('SLD Editor', () => {
       newBay.setAttribute('name', 'NewBay');
       element.startPlacing(newBay);
 
-      expect(element).property('placing').to.have.property('tagName', 'Bay');
+      expect(targetInMode(element.interaction, 'placing')).to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeTL) });
       await aTimeout(10); // Wait for possible async operations
-      expect(element).to.have.property('placing', undefined);
-      expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(element.interaction, 'resizingBR')).to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(element).to.have.property('resizingBR', undefined);
+      expect(targetInMode(element.interaction, 'resizingBR')).to.be.undefined;
       const bay = element.doc.querySelector('Bay')!;
       expect(bay).to.exist;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -881,12 +873,12 @@ describe('SLD Editor', () => {
       const busBar = makeBusBar(element.doc, element.nsp);
       element.startPlacing(busBar);
 
-      expect(element).property('placing').to.have.property('tagName', 'Bay');
+      expect(targetInMode(element.interaction, 'placing')).to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeTL) });
-      expect(element).to.have.property('placing', undefined);
-      expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(element.interaction, 'resizingBR')).to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(element).to.have.property('resizingBR', undefined);
+      expect(targetInMode(element.interaction, 'resizingBR')).to.be.undefined;
       const bus = element.doc.querySelector('Bay');
       expect(bus).to.exist;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
@@ -918,10 +910,9 @@ describe('SLD Editor', () => {
           'g.bay .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.exist.and.to.have.property('tagName', 'Bay');
-      const bay = element.resizingBR!;
+      const bay = targetInMode(element.interaction, 'resizingBR')!;
       expect(sldAttribute(bay, 'w')).to.equal('3');
       expect(sldAttribute(bay, 'h')).to.equal('3');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
@@ -955,10 +946,9 @@ describe('SLD Editor', () => {
           'g.bay .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.exist.and.to.have.property('tagName', 'Bay');
-      const bay = element.resizingBR!;
+      const bay = targetInMode(element.interaction, 'resizingBR')!;
       expect(sldAttribute(bay, 'w')).to.equal('3');
       expect(sldAttribute(bay, 'h')).to.equal('3');
       await sendMouse({ type: 'click', position: gridPos(18, 12) });
@@ -972,10 +962,9 @@ describe('SLD Editor', () => {
           'g.voltagelevel > .handle',
         )[1];
       moveHandle.dispatchEvent(new PointerEvent('click'));
-      expect(element)
-        .property('resizingBR')
+      expect(targetInMode(element.interaction, 'resizingBR'))
         .to.exist.and.to.have.property('tagName', 'VoltageLevel');
-      const voltageLevel = element.resizingBR!;
+      const voltageLevel = targetInMode(element.interaction, 'resizingBR')!;
       expect(sldAttribute(voltageLevel, 'w')).to.equal('13');
       expect(sldAttribute(voltageLevel, 'h')).to.equal('13');
       await sendMouse({ type: 'click', position: gridPos(2, 3) });
@@ -1004,10 +993,9 @@ describe('SLD Editor', () => {
       clickInteractive(menuItem(2));
       await sldSubstationViewer.updateComplete;
 
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.exist.and.to.have.property('tagName', 'Bay');
-      const bay = element.placing!;
+      const bay = targetInMode(element.interaction, 'placing')!;
       // Click to place at new position [4,3]
       await sendMouse({ type: 'click', position: gridPos(4, 3) });
       expect(sldAttribute(bay, 'x')).to.equal('4');
@@ -1029,11 +1017,11 @@ describe('SLD Editor', () => {
       queryUI({ scl: 'Bay', ui: 'rect' }).dispatchEvent(
         new PointerEvent('click'),
       );
-      const bay = element.placing!;
+      const bay = targetInMode(element.interaction, 'placing')!;
       expect(bay.parentElement).to.have.attribute('name', 'V1');
       expect(bay).to.have.attribute('name', 'B1');
       await sendMouse({ type: 'click', position: gridPos(18, 3) });
-      expect(element).to.have.property('placing', undefined);
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       expect(sldAttribute(bay, 'x')).to.equal('18');
       expect(sldAttribute(bay, 'y')).to.equal('3');
       expect(bay.parentElement).to.have.attribute('name', 'V2');
@@ -1063,11 +1051,11 @@ describe('SLD Editor', () => {
       queryUI({ scl: 'Bay', ui: 'rect' }).dispatchEvent(
         new PointerEvent('click'),
       );
-      const bay = element.placing!;
+      const bay = targetInMode(element.interaction, 'placing')!;
       const cNode = bay.querySelector('ConnectivityNode')!;
       expect(cNode).to.have.attribute('pathName', 'S1/V1/B1/L1');
       await sendMouse({ type: 'click', position: gridPos(18, 3) });
-      expect(element).to.have.property('placing', undefined);
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       expect(cNode).to.have.attribute('pathName', 'S1/V2/B2/L1');
       await expect(element.doc.documentElement).dom.to.equalSnapshot({
         ignoreAttributes: ['esldoscd:uuid'],
@@ -1077,7 +1065,7 @@ describe('SLD Editor', () => {
     it('moves a bay when its parent voltage level is moved', async () => {
       // const voltageLevel = element.doc.querySelector('VoltageLevel')!;
       await sendMouse({ type: 'click', position: gridPos(1, 3) });
-      const bay = element.placing!.querySelector('Bay')!;
+      const bay = targetInMode(element.interaction, 'placing')!.querySelector('Bay')!;
       expect(sldAttribute(bay, 'x')).to.equal('2');
       expect(sldAttribute(bay, 'y')).to.equal('2');
       await sendMouse({
@@ -1094,12 +1082,11 @@ describe('SLD Editor', () => {
       condEq.setAttribute('name', 'GEN1');
       element.startPlacing(condEq);
 
-      expect(element)
-        .property('placing')
+      expect(targetInMode(element.interaction, 'placing'))
         .to.have.property('tagName', 'ConductingEquipment');
       await sendMouse({ type: 'click', position: gridPos(...eqPos) });
-      expect(element).to.have.property('placing', undefined);
-      expect(element).to.have.property('resizingBR', undefined);
+      expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
+      expect(targetInMode(element.interaction, 'resizingBR')).to.be.undefined;
       const equipment = element.doc.querySelector('ConductingEquipment');
       expect(equipment).to.exist;
       expect(sldAttribute(equipment!, 'x')).to.equal('4');
@@ -1121,10 +1108,9 @@ describe('SLD Editor', () => {
             'g.bay .handle',
           )[1];
         moveHandle.dispatchEvent(new PointerEvent('click'));
-        expect(element)
-          .property('resizingBR')
+        expect(targetInMode(element.interaction, 'resizingBR'))
           .to.exist.and.to.have.property('tagName', 'Bay');
-        const bay = element.resizingBR!;
+        const bay = targetInMode(element.interaction, 'resizingBR')!;
         expect(sldAttribute(bay, 'w')).to.equal('3');
         expect(sldAttribute(bay, 'h')).to.equal('3');
         await sendMouse({ type: 'click', position: gridPos(...placeBR) });
@@ -1295,7 +1281,7 @@ describe('SLD Editor', () => {
       const oldIedY = iedAttr('IED1', 'y');
 
       await sendMouse({ type: 'click', position: gridPos(5, 5) });
-      expect(element.placing).to.have.property('tagName', 'Bay');
+      expect(targetInMode(element.interaction, 'placing')).to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(7, 7) });
 
       const movedBay = element.doc.querySelector('Bay')!;
@@ -1517,8 +1503,8 @@ describe('SLD Editor', () => {
       clickInteractive(moveItem!);
       await settle();
 
-      expect(element.placing).to.exist;
-      expect(element.placing!.localName).to.equal('Reference');
+      expect(targetInMode(element.interaction, 'placing')).to.exist;
+      expect(targetInMode(element.interaction, 'placing')!.localName).to.equal('Reference');
 
       sldSubstationViewer.mouseX = 15;
       sldSubstationViewer.mouseY = 15;
@@ -1666,8 +1652,7 @@ describe('SLD Editor', () => {
       await element.updateComplete;
       clickInteractive(menuItem(-4));
       await sldSubstationViewer.updateComplete;
-      expect(element)
-        .property('placingLabel')
+      expect(targetInMode(element.interaction, 'placingLabel'))
         .to.have.property('tagName', 'ConductingEquipment');
       await sendMouse({ type: 'click', position: labelPos(5, 4.5) });
       const condEq = element.doc.querySelector('ConductingEquipment')!;
@@ -2558,8 +2543,7 @@ describe('SLD Editor', () => {
             await element.updateComplete;
             clickInteractive(menuItem(-4));
             await sldSubstationViewer.updateComplete;
-            expect(element)
-              .property('placingLabel')
+            expect(targetInMode(element.interaction, 'placingLabel'))
               .to.have.attribute('name', 'BB1');
             await sendMouse({ type: 'click', position: labelPos(5, 4.5) });
             const busBar = element.doc.querySelector('[name="BB1"]');
@@ -2694,7 +2678,7 @@ describe('SLD Editor', () => {
         newVoltLevel.setAttribute('name', 'NewVoltLevel');
         element.startPlacing(newVoltLevel);
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
     });
 
@@ -2723,7 +2707,7 @@ describe('SLD Editor', () => {
         // Click on voltage level to start placing/moving
         await sendMouse({ type: 'click', position: gridPos(...vlOrigin) });
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('disabled context menu', async () => {
@@ -2739,7 +2723,7 @@ describe('SLD Editor', () => {
         // Click on label to start placing/moving it
         queryUI({ ui: '.label text' }).dispatchEvent(new PointerEvent('click'));
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('does not trigger auxclick', async () => {
@@ -2754,14 +2738,14 @@ describe('SLD Editor', () => {
         newBay.setAttribute('name', 'NewBay');
         element.startPlacing(newBay);
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('allows placing a new bus bar', async () => {
         const busBar = makeBusBar(element.doc, element.nsp);
         element.startPlacing(busBar);
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('send a selected event on voltage level label click', async () => {
@@ -2824,7 +2808,7 @@ describe('SLD Editor', () => {
         });
         await element.updateComplete;
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('does not allow to place conducting equipment', async () => {
@@ -2833,7 +2817,7 @@ describe('SLD Editor', () => {
         condEq.setAttribute('name', 'GEN1');
         element.startPlacing(condEq);
 
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('send a selected event on bay label click', async () => {
@@ -2891,7 +2875,7 @@ describe('SLD Editor', () => {
           type: 'click',
           position: middleOf(queryUI({ scl: '[type="CBR"]', ui: 'rect' })),
         });
-        expect(element).to.have.property('placing', undefined);
+        expect(targetInMode(element.interaction, 'placing')).to.be.undefined;
       });
 
       it('does not rotate on auxclick', () => {
