@@ -1,7 +1,9 @@
 import { fixture, html, expect } from '@open-wc/testing';
+import { identity } from '@openscd/scl-lib';
 
 import { SldSubstationViewer } from './sld-substation-viewer.js';
 import * as interactions from './foundations/interaction-mode.js';
+import type { Style } from './foundations/sld-attributes.js';
 
 customElements.define('perf-sld-substation-viewer', SldSubstationViewer);
 
@@ -190,5 +192,261 @@ describe('SldSubstationViewer large-file render performance', () => {
     expect(eqCount).to.equal(
       VL_COLS * VL_ROWS * BAY_COLS * BAY_ROWS * EQ_PER_BAY,
     );
+  });
+});
+
+/**
+ * A small, schema-valid substation (2 voltage levels × 2 bays × 2 equipment)
+ * used by the guard-contract tests below. Kept tiny so each test mounts and
+ * mutates in a few milliseconds — correctness, not timing, is the point here.
+ */
+function contractSubstationDoc(): XMLDocument {
+  const parts: string[] = [
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+      `<SCL xmlns="http://www.iec.ch/61850/2003/SCL" version="2007" revision="B" xmlns:sld="${SLD_NS}">` +
+      `<Substation name="S1">` +
+      `<Private type="OpenSCD-SLD-Layout"><sld:SLDAttributes sld:w="40" sld:h="20"/></Private>`,
+  ];
+
+  for (let v = 0; v < 2; v++) {
+    const vlIndex = v + 1;
+    const vlX = 1 + v * 18;
+    const vlY = 1;
+    parts.push(
+      `<VoltageLevel name="V${vlIndex}">` +
+        `<Private type="OpenSCD-SLD-Layout"><sld:SLDAttributes ` +
+        `sld:x="${vlX}" sld:y="${vlY}" sld:w="16" sld:h="16" ` +
+        `sld:lx="${vlX}" sld:ly="${vlY}"/></Private>`,
+    );
+
+    for (let b = 0; b < 2; b++) {
+      const bayX = vlX + 1 + b * 7;
+      const bayY = vlY + 1;
+      const bayName = `B${vlIndex}_${b + 1}`;
+      parts.push(
+        `<Bay name="${bayName}">` +
+          `<Private type="OpenSCD-SLD-Layout"><sld:SLDAttributes ` +
+          `sld:x="${bayX}" sld:y="${bayY}" sld:w="6" sld:h="6" ` +
+          `sld:lx="${bayX}" sld:ly="${bayY}"/></Private>`,
+      );
+
+      for (let e = 0; e < 2; e++) {
+        const eqX = bayX + 1 + e;
+        const eqY = bayY + 1;
+        const type = EQ_TYPES[e % EQ_TYPES.length];
+        parts.push(
+          `<ConductingEquipment type="${type}" name="${bayName}_${type}${e}">` +
+            `<Private type="OpenSCD-SLD-Layout"><sld:SLDAttributes ` +
+            `sld:x="${eqX}" sld:y="${eqY}" sld:rot="0" ` +
+            `sld:lx="${eqX}" sld:ly="${eqY}"/></Private>` +
+            `</ConductingEquipment>`,
+        );
+      }
+
+      parts.push(
+        `<ConnectivityNode name="L1" pathName="S1/V${vlIndex}/${bayName}/L1"/>`,
+      );
+      parts.push(`</Bay>`);
+    }
+    parts.push(`</VoltageLevel>`);
+  }
+
+  parts.push(`</Substation></SCL>`);
+  return new DOMParser().parseFromString(parts.join(''), 'application/xml');
+}
+
+async function mountViewer(doc: XMLDocument): Promise<SldSubstationViewer> {
+  const substation = doc.querySelector('Substation')!;
+  const el = (await fixture(html`
+    <perf-sld-substation-viewer
+      .doc=${doc}
+      .substation=${substation}
+      .docVersion=${1}
+      .gridSize=${6}
+      .showLabels=${true}
+      .showIeds=${true}
+    ></perf-sld-substation-viewer>
+  `)) as SldSubstationViewer;
+  await el.updateComplete;
+  return el;
+}
+
+/**
+ * Counts how often the guarded base-layer renderers run vs. an unguarded
+ * per-render probe. `render` counts `renderPlacingPreview` (called on every
+ * `render()`); `base` counts the two guarded layer groups (`renderVoltageLevelLayer`
+ * from the first `guard`, `renderLabelLayer` from the second) — so a base-layer
+ * evaluation bumps `base` by 2, and a guard-frozen render leaves it at 0.
+ */
+function spyLayers(el: SldSubstationViewer): { base: number; render: number } {
+  const counts = { base: 0, render: 0 };
+  const host = el as unknown as Record<string, (...args: unknown[]) => unknown>;
+
+  for (const method of ['renderVoltageLevelLayer', 'renderLabelLayer']) {
+    const original = host[method].bind(el);
+    host[method] = (...args: unknown[]) => {
+      counts.base += 1;
+      return original(...args);
+    };
+  }
+
+  const originalPreview = host.renderPlacingPreview.bind(el);
+  host.renderPlacingPreview = (...args: unknown[]) => {
+    counts.render += 1;
+    return originalPreview(...args);
+  };
+
+  return counts;
+}
+
+/** Simulate a cursor move by advancing every tracked mouse coordinate. */
+async function bumpMouse(el: SldSubstationViewer, delta = 1): Promise<void> {
+  const host = el as unknown as Record<string, number>;
+  for (const coord of [
+    'mouseX',
+    'mouseY',
+    'mouseX2',
+    'mouseY2',
+    'mouseX2f',
+    'mouseY2f',
+  ]) {
+    host[coord] += delta;
+  }
+  await el.updateComplete;
+}
+
+/**
+ * Direct, self-documenting contract for the base-layer `guard` memoization in
+ * `render()`. The benchmark above proves it is *fast*; these prove it stays
+ * *correct* — i.e. the memoized base layers are reused only while nothing they
+ * depend on has changed, and are refreshed the moment something has. A dropped
+ * item from `baseLayerKey` fails a specific case here with an obvious message,
+ * rather than surfacing as a confusing symptom in an unrelated editor test.
+ */
+describe('SldSubstationViewer base-layer guard memoization', () => {
+  it('reuses the base layers on cursor moves while placing', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    el.interaction = interactions.placing(doc.querySelector('Bay')!, [0, 0]);
+    await el.updateComplete;
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    counts.render = 0;
+    await bumpMouse(el);
+
+    expect(counts.render, 'render() re-runs to move the placing preview').to.be.greaterThan(0);
+    expect(counts.base, 'base layers reused from the guard cache').to.equal(0);
+  });
+
+  it('refreshes the base layers on cursor moves while resizing', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    el.interaction = interactions.resizingBR(doc.querySelector('Bay')!);
+    await el.updateComplete;
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    await bumpMouse(el);
+
+    expect(counts.base, 'resize preview tracks the cursor inside the base layer').to.be.greaterThan(0);
+  });
+
+  it('refreshes the base layers on cursor moves while connecting', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    el.interaction = interactions.connectingFrom(
+      doc.querySelector('ConductingEquipment')!,
+      'T1',
+      [
+        [3, 3],
+        [3, 4],
+      ],
+    );
+    await el.updateComplete;
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    await bumpMouse(el);
+
+    expect(counts.base, 'connect target highlight tracks the cursor inside the base layer').to.be.greaterThan(0);
+  });
+
+  it('skips rendering entirely on cursor moves while idle', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc); // idle by default
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    counts.render = 0;
+    await bumpMouse(el);
+
+    // shouldUpdate short-circuits mouse-only changes while idle, so render()
+    // never runs — the guard never even gets a chance to matter here.
+    expect(counts.render, 'idle mouse move is dropped by shouldUpdate').to.equal(0);
+    expect(counts.base).to.equal(0);
+  });
+
+  it('refreshes the base layers when the document version changes', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    el.docVersion = 2;
+    await el.updateComplete;
+
+    expect(counts.base, 'a committed doc edit must refresh the base layers').to.be.greaterThan(0);
+  });
+
+  it('refreshes the base layers when view flags or selection inputs change', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    const counts = spyLayers(el);
+
+    const expectRefresh = async (
+      label: string,
+      mutate: () => void,
+    ): Promise<void> => {
+      counts.base = 0;
+      mutate();
+      await el.updateComplete;
+      expect(counts.base, `${label} must refresh the base layers`).to.be.greaterThan(0);
+    };
+
+    await expectRefresh('toggling showLabels', () => {
+      el.showLabels = false;
+    });
+    await expectRefresh('toggling showIeds', () => {
+      el.showIeds = false;
+    });
+    await expectRefresh('changing highlight', () => {
+      el.highlight = [{ id: 'nonexistent', style: {} as Style }];
+    });
+    await expectRefresh('changing selectable', () => {
+      el.selectable = ['Bay'];
+    });
+  });
+
+  it('suppresses the placed element from the base layers', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    const bay = doc.querySelector('Bay')!;
+    const bayId = String(identity(bay));
+
+    const baseLayerBay = () =>
+      Array.from(el.sld.querySelectorAll('g.bay')).filter(
+        g => g.id === bayId && !g.classList.contains('preview'),
+      );
+
+    expect(baseLayerBay(), 'bay drawn in the base layer while idle').to.have.lengthOf(1);
+
+    el.interaction = interactions.placing(bay, [0, 0]);
+    await el.updateComplete;
+
+    expect(
+      baseLayerBay(),
+      'placed bay removed from the base layer (drawn only as the preview ghost)',
+    ).to.have.lengthOf(0);
   });
 });
