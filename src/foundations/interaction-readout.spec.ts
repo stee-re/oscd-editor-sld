@@ -1,9 +1,10 @@
 import { expect } from '@open-wc/testing';
 
-import { coordinateTooltipState } from './sld-coordinate-tooltip-state.js';
-import { sldFixture } from './test-helpers.js';
+import { interactionReadout } from './interaction-readout.js';
+import * as interactions from './interaction-mode.js';
+import { sldFixture } from '../test-helpers.js';
 
-describe('coordinateTooltipState', () => {
+describe('interactionReadout', () => {
   function setup(children = '') {
     const doc = sldFixture({
       bay: { x: 2, y: 2, w: 10, h: 10 },
@@ -21,9 +22,9 @@ describe('coordinateTooltipState', () => {
     const { substation } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placingOffset: [0, 0],
+        interaction: interactions.idle(),
         mouseX: 5,
         mouseY: 6,
       }),
@@ -34,10 +35,9 @@ describe('coordinateTooltipState', () => {
     const { substation, bay } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placing: bay,
-        placingOffset: [2, 1],
+        interaction: interactions.placing(bay, [2, 1]),
         mouseX: 7,
         mouseY: 6,
       }),
@@ -48,24 +48,35 @@ describe('coordinateTooltipState', () => {
     const { substation, bay } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placing: bay,
-        placingOffset: [0, 0],
+        interaction: interactions.placing(bay, [0, 0]),
         mouseX: 60,
         mouseY: 6,
       }),
     ).to.deep.equal({ text: '60,6', invalid: true, hidden: false });
   });
 
+  it('stays hidden while placing a label', () => {
+    const { substation, bay } = setup();
+
+    expect(
+      interactionReadout({
+        substation,
+        interaction: interactions.placingLabel(bay, [0, 0]),
+        mouseX: 5,
+        mouseY: 6,
+      }),
+    ).to.deep.equal({ text: '', invalid: false, hidden: true });
+  });
+
   it('shows bottom-right resize dimensions', () => {
     const { substation, voltageLevel } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placingOffset: [0, 0],
-        resizingBR: voltageLevel,
+        interaction: interactions.resizingBR(voltageLevel),
         mouseX: 25,
         mouseY: 20,
       }),
@@ -76,10 +87,9 @@ describe('coordinateTooltipState', () => {
     const { substation, voltageLevel } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placingOffset: [0, 0],
-        resizingBR: voltageLevel,
+        interaction: interactions.resizingBR(voltageLevel),
         mouseX: 2,
         mouseY: 2,
       }),
@@ -99,10 +109,9 @@ describe('coordinateTooltipState', () => {
     `);
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placingOffset: [0, 0],
-        resizingBR: bay,
+        interaction: interactions.resizingBR(bay),
         mouseX: 8,
         mouseY: 8,
       }),
@@ -113,10 +122,9 @@ describe('coordinateTooltipState', () => {
     const { substation, voltageLevel } = setup();
 
     expect(
-      coordinateTooltipState({
+      interactionReadout({
         substation,
-        placingOffset: [0, 0],
-        resizingTL: voltageLevel,
+        interaction: interactions.resizingTL(voltageLevel),
         mouseX: 0,
         mouseY: 0,
       }),

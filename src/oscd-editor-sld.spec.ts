@@ -895,7 +895,6 @@ describe('SLD Editor', () => {
   });
 
   describe('given a voltage level', () => {
-    let sldSubstationViewer: SldSubstationViewer;
     let sldEditor: SldEditor;
     beforeEach(async () => {
       const doc = new DOMParser().parseFromString(
@@ -907,7 +906,6 @@ describe('SLD Editor', () => {
       await awaitToolbar(element);
       const editors = await waitForSubstationEditor(element);
       sldEditor = editors.sldEditor;
-      sldSubstationViewer = editors.sldSubstationViewer;
     });
 
     it('allows placing a new bay', async () => {
@@ -923,7 +921,7 @@ describe('SLD Editor', () => {
         type: 'click',
         position: svgClientPosition(element, 11, 10),
       });
-      expect(sldSubstationViewer.resizingBR).to.be.undefined;
+      expect(sldEditor.resizingBR).to.be.undefined;
       const bay = sldEditor.doc.querySelector('Bay')!;
       expect(!!bay).to.be.true;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -941,14 +939,14 @@ describe('SLD Editor', () => {
       expect(sldEditor.resizingBR?.tagName).to.equal('Bay');
       const [x2, y2] = svgClientPosition(element, 11, 10);
       await sendMouse({ type: 'click', position: [x2, y2] });
-      expect(sldSubstationViewer.resizingBR).to.be.undefined;
+      expect(sldEditor.resizingBR).to.be.undefined;
       const bus = sldEditor.doc.querySelector('Bay');
       expect(!!bus).to.be.true;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
       expect(sldAttribute(bus!, 'y')).to.equal('3');
       expect(sldAttribute(bus!, 'w')).to.equal('1');
       expect(sldAttribute(bus!, 'h')).to.equal('8');
-      await expect(bus).dom.to.equalSnapshot({
+      expect(bus).dom.to.equalSnapshot({
         ignoreAttributes: ['eosld:uuid'],
       });
     });

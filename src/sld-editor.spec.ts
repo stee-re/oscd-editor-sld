@@ -868,7 +868,7 @@ describe('SLD Editor', () => {
       expect(element).to.have.property('placing', undefined);
       expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(sldSubstationViewer).to.have.property('resizingBR', undefined);
+      expect(element).to.have.property('resizingBR', undefined);
       const bay = element.doc.querySelector('Bay')!;
       expect(bay).to.exist;
       expect(sldAttribute(bay, 'x')).to.equal('5');
@@ -886,7 +886,7 @@ describe('SLD Editor', () => {
       expect(element).to.have.property('placing', undefined);
       expect(element).property('resizingBR').to.have.property('tagName', 'Bay');
       await sendMouse({ type: 'click', position: gridPos(...placeBR) });
-      expect(sldSubstationViewer).to.have.property('resizingBR', undefined);
+      expect(element).to.have.property('resizingBR', undefined);
       const bus = element.doc.querySelector('Bay');
       expect(bus).to.exist;
       expect(sldAttribute(bus!, 'x')).to.equal('5');
