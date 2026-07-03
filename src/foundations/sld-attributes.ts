@@ -151,6 +151,16 @@ export function getSLDAttributes(element: Element, key: string): string | null {
 }
 
 export function attributes(element: Element): Attrs {
+  // Resolve the SLD-attribute source node once. `getSLDAttributes` would
+  // otherwise re-run the (children-scanning) `sldAttributes` lookup for each of
+  // the ~12 keys read below — a measurable cost when rendering thousands of
+  // elements. Semantics match `getSLDAttributes`: Section/Vertex carry the
+  // attributes directly, every other element via its SLDAttributes private.
+  const isSectionOrVertex = ['Section', 'Vertex'].includes(element.localName);
+  const source = isSectionOrVertex ? element : sldAttributes(element);
+  const read = (key: string): string | null =>
+    source?.getAttributeNS(sldNs, key) ?? null;
+
   const [x, y, w, h, rotVal, labelX, labelY] = [
     'x',
     'y',
@@ -159,17 +169,17 @@ export function attributes(element: Element): Attrs {
     'rot',
     'lx',
     'ly',
-  ].map(name => parseFloat(getSLDAttributes(element, name) ?? '0'));
-  const weight = parseInt(getSLDAttributes(element, 'weight') ?? '300', 10);
+  ].map(name => parseFloat(read(name) ?? '0'));
+  const weight = parseInt(read('weight') ?? '300', 10);
   const pos = [x, y].map(d => Math.max(0, d)) as Point;
   const dim = [w, h].map(d => Math.max(1, d)) as Point;
   const label = [labelX, labelY].map(d => Math.max(0, d)) as Point;
 
-  const bus = xmlBoolean(getSLDAttributes(element, 'bus'));
-  const flip = xmlBoolean(getSLDAttributes(element, 'flip'));
-  const kindVal = getSLDAttributes(element, 'kind');
+  const bus = xmlBoolean(read('bus'));
+  const flip = xmlBoolean(read('flip'));
+  const kindVal = read('kind');
   const kind = isTransformerKind(kindVal) ? kindVal : 'default';
-  const color = getSLDAttributes(element, 'color') || '#000';
+  const color = read('color') || '#000';
 
   const rot = (((rotVal % 4) + 4) % 4) as 0 | 1 | 2 | 3;
 
