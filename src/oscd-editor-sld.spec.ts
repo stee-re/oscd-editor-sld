@@ -428,10 +428,16 @@ export const iedNameAndLegacyCoordinatesDocString = `<?xml version="1.0" encodin
 
 function getSldSubstationViewer(
   element: OscdEditorSld,
+  substation?: Element,
 ): SldSubstationViewer | null | undefined {
-  return element.shadowRoot
-    ?.querySelector<SldSubstationViewer>('sld-editor')
-    ?.shadowRoot?.querySelector('sld-substation-viewer');
+  const editor = element.shadowRoot?.querySelector<SldEditor>('sld-editor');
+  const viewers = Array.from(
+    editor?.shadowRoot?.querySelectorAll('sld-substation-viewer') ?? [],
+  ) as SldSubstationViewer[];
+  if (substation) {
+    return viewers.find(viewer => viewer.substation === substation) ?? null;
+  }
+  return viewers[0] ?? null;
 }
 
 function getToolbarRoot(element: OscdEditorSld): ShadowRoot | null | undefined {

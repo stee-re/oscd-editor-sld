@@ -282,8 +282,15 @@ export const iedDocString = `<?xml version="1.0" encoding="UTF-8"?>
 
 function getSldSubstationViewer(
   element: SldEditor,
+  substation?: Element,
 ): SldSubstationViewer | null | undefined {
-  return element.shadowRoot?.querySelector('sld-substation-viewer');
+  const viewers = Array.from(
+    element.shadowRoot?.querySelectorAll('sld-substation-viewer') ?? [],
+  ) as SldSubstationViewer[];
+  if (substation) {
+    return viewers.find(viewer => viewer.substation === substation) ?? null;
+  }
+  return viewers[0] ?? null;
 }
 
 function getSldSubstationHeader(
