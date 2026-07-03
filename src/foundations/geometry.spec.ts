@@ -8,6 +8,7 @@ import {
   cleanPath,
   extendConnectPointPaths,
   connectPreviewElbow,
+  elbowCorner,
 } from './geometry.js';
 import type { Point, Rect } from './geometry.js';
 
@@ -201,6 +202,25 @@ describe('geometry', () => {
       // replacing the last point keeps the run collinear, so it collapses
       const next = extendConnectPointPaths(path, [5, 0], [8, 0]);
       expect(next).to.deep.equal([[0, 0], [8, 0]]);
+    });
+  });
+
+  describe('elbowCorner', () => {
+    it('keeps the anchor x and moves to the target y after a vertical segment', () => {
+      // last segment [0,0]->[0,3] is vertical (shared x = 0)
+      expect(elbowCorner([[0, 0], [0, 3]], [5, 7])).to.deep.equal([0, 7]);
+    });
+
+    it('keeps the anchor y and moves to the target x after a horizontal segment', () => {
+      // last segment [0,0]->[3,0] is horizontal (shared y = 0)
+      expect(elbowCorner([[0, 0], [3, 0]], [5, 7])).to.deep.equal([5, 0]);
+    });
+
+    it('reads orientation from the last two points only', () => {
+      // leading points are irrelevant; only [1,1]->[1,4] (vertical) matters
+      expect(elbowCorner([[9, 9], [1, 1], [1, 4]], [6, 2])).to.deep.equal([
+        1, 2,
+      ]);
     });
   });
 

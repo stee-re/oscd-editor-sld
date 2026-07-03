@@ -128,31 +128,54 @@ export function extendConnectPointPaths(
 }
 
 /**
- * Compute the live "elbow" that previews the in-progress segment of a
- * connection as it follows the cursor.
+ * The single 90° bend that keeps an orthogonal connection path going from its
+ * last committed waypoint toward a `target` point.
  *
- * The preview is built from the path's last two points, which play two
- * distinct roles. `lastFixed` (second-to-last) is the **anchor** the elbow is
- * drawn from — the `corner` reuses one of its coordinates. The final,
- * `provisional` point is used **only** to reveal the orientation of the segment
- * that arrived at `lastFixed` (by comparing their x's); its coordinates are
- * never used directly. A single point could not tell us that orientation, hence
- * both are needed. The preview leaves `lastFixed` continuing in that **same**
- * orientation, makes a single 90° bend (the returned `corner`), and reaches the
- * target. So the only real decision is the bend axis:
+ * A connection path's last two points play two distinct roles. `lastFixed`
+ * (second-to-last) is the **anchor** the bend is drawn from — the returned
+ * `corner` reuses one of its coordinates. The final, `provisional` point is used
+ * **only** to reveal the orientation of the segment that arrived at `lastFixed`
+ * (by comparing their x's); its coordinates are never used directly. A single
+ * point could not tell us that orientation, hence both are needed.
+ *
+ * The path leaves `lastFixed` continuing in that **same** orientation, then
+ * bends once at `corner` to line up with the `target`:
  *
  * ```text
  *   last segment horizontal          last segment vertical
  *   ───▶ lastFixed                    lastFixed
- *              │ (turn down)               └────▶ corner ─▶ far
+ *              │ (turn down)               └────▶ corner ─▶ target
  *              ▼                        (keep going, then turn across)
- *         corner ──▶ far
+ *         corner ──▶ target
  * ```
  *
- * The target is the bare `cursor`, unless it hovers a snap target that supplies
- * its own `far` approach point and `near` terminal endpoint (the preview then
- * runs `corner → far → near`; without a snap target `far` and `near` are both
- * the cursor, i.e. the `far → near` stub has zero length).
+ * @param path - the current connection path (needs at least its last two points)
+ * @param target - the point the bent path should line up with
+ * @returns the bend `corner`
+ */
+export function elbowCorner(path: Point[], target: Point): Point {
+  // Only the orientation of the last committed segment matters: it ran
+  // vertically when its two endpoints share an x-coordinate.
+  const [lastFixed, provisional] = path.slice(-2);
+  const lastSegmentWasVertical = lastFixed[0] === provisional[0];
+
+  // Leave `lastFixed` in the same orientation, then bend once toward the target:
+  //  - vertical last segment  -> keep lastFixed's x, travel to the target's y
+  //  - horizontal last segment -> keep lastFixed's y, travel to the target's x
+  return lastSegmentWasVertical
+    ? [lastFixed[0], target[1]]
+    : [target[0], lastFixed[1]];
+}
+
+/**
+ * Compute the live "elbow" that previews the in-progress segment of a
+ * connection as it follows the cursor.
+ *
+ * The bend is {@link elbowCorner} toward the target. The target is the bare
+ * `cursor`, unless it hovers a snap target that supplies its own `far` approach
+ * point and `near` terminal endpoint (the preview then runs `corner → far →
+ * near`; without a snap target `far` and `near` are both the cursor, i.e. the
+ * `far → near` stub has zero length).
  *
  * The returned `corner`, `far`, `near` are exactly the points
  * {@link extendConnectPointPaths} commits on click, so the preview and the
@@ -168,23 +191,11 @@ export function connectPreviewElbow(
   cursor: Point,
   snap?: { near: Point; far: Point },
 ): { corner: Point; far: Point; near: Point } {
-  // Only the orientation of the last committed segment matters: it ran
-  // vertically when its two endpoints share an x-coordinate.
-  const [lastFixed, provisional] = path.slice(-2);
-  const lastSegmentWasVertical = lastFixed[0] === provisional[0];
-
   // Where the preview ends: the bare cursor, or a snap target's own endpoints.
   const far = snap ? snap.far : cursor;
   const near = snap ? snap.near : cursor;
 
-  // Leave `lastFixed` in the same orientation, then bend once toward the target:
-  //  - vertical last segment  -> keep lastFixed's x, travel to the target's y
-  //  - horizontal last segment -> keep lastFixed's y, travel to the target's x
-  const corner: Point = lastSegmentWasVertical
-    ? [lastFixed[0], far[1]]
-    : [far[0], lastFixed[1]];
-
-  return { corner, far, near };
+  return { corner: elbowCorner(path, far), far, near };
 }
 
 export function cleanPath(path: Point[]): void {

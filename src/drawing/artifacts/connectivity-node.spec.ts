@@ -4,6 +4,7 @@ import { nothing } from 'lit';
 import { renderConnectivityNode } from './connectivity-node.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
 import { sldFixture } from '../../test-helpers.js';
+import { connectingFrom } from '../../foundations/interaction-mode.js';
 
 function busBarNodeDoc() {
   return sldFixture({
@@ -107,6 +108,99 @@ describe('renderConnectivityNode', () => {
       line.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       line.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
       expect(context.dispatched).to.have.lengthOf(0);
+    });
+  });
+
+  describe('connecting to the busbar', () => {
+    // The fixture's bus section runs horizontally from (2.5,2.5) to (5.5,2.5).
+    function connectLine(context: ReturnType<typeof makeArtifactContext>) {
+      const host = renderToSvg(renderConnectivityNode(cNode, context));
+      return host.querySelectorAll('g.node line')[1];
+    }
+
+    it('routes an elbow from a horizontal last segment onto the busbar', () => {
+      const from = doc.createElement('ConductingEquipment');
+      const context = makeArtifactContext({
+        substation,
+        // last committed segment (0,0)->(2.5,0) is horizontal
+        interaction: connectingFrom(from, 'T2', [
+          [0, 0],
+          [2.5, 0],
+        ]),
+        mouseX2: 4,
+        mouseY2: 2.5,
+      });
+
+      connectLine(context).dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-connect',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.from).to.equal(from);
+      expect(event.detail.fromTerminal).to.equal('T2');
+      expect(event.detail.to).to.equal(cNode);
+      // horizontal last segment -> bend down at the cursor x=4, land on the bus
+      expect(event.detail.path).to.deep.equal([
+        [0, 0],
+        [4, 0],
+        [4, 2.5],
+      ]);
+    });
+
+    it('routes an elbow from a vertical last segment onto the nearest vertex', () => {
+      const from = doc.createElement('ConductingEquipment');
+      const context = makeArtifactContext({
+        substation,
+        // last committed segment (0,0)->(0,2) is vertical
+        interaction: connectingFrom(from, 'T1', [
+          [0, 0],
+          [0, 2],
+        ]),
+        mouseX2: 4,
+        mouseY2: 2.5,
+      });
+
+      connectLine(context).dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-connect',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      // vertical last segment -> travel across at y=2.5, clamp to the bus start
+      expect(event.detail.path).to.deep.equal([
+        [0, 0],
+        [0, 2.5],
+        [2.5, 2.5],
+      ]);
+    });
+
+    it('ignores a click from equipment already connected to the node', () => {
+      const from = doc.createElement('ConductingEquipment');
+      const terminal = doc.createElement('Terminal');
+      terminal.setAttribute('connectivityNode', 'S1/V1/BB1/L');
+      from.appendChild(terminal);
+      const context = makeArtifactContext({
+        substation,
+        interaction: connectingFrom(from, 'T2', [
+          [0, 0],
+          [2.5, 0],
+        ]),
+        mouseX2: 4,
+        mouseY2: 2.5,
+      });
+
+      connectLine(context).dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+
+      expect(
+        context.dispatched.find(e => e.type === 'oscd-sld-connect'),
+      ).to.be.undefined;
     });
   });
 });
