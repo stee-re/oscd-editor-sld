@@ -10,6 +10,7 @@ import { identity } from '@openscd/scl-lib';
 import { isBusBar } from '../../foundations/connectivity.js';
 import { attributes, xmlBoolean } from '../../foundations/sld-attributes.js';
 import {
+  elbowCorner,
   extendConnectPointPaths,
   findIntersection,
 } from '../../foundations/geometry.js';
@@ -185,26 +186,25 @@ export function renderConnectivityNode(
           ) {
             return;
           }
-          const [[oldX1, oldY1], [oldX2, oldY2]] = path.slice(-2);
-          const vertical = oldX1 === oldX2;
+          const cursor: Point = [context.mouseX2, context.mouseY2];
 
-          let x3 = context.mouseX2;
-          let y3 = context.mouseY2;
-
-          let newX2 = vertical ? oldX2 : x3;
-          let newY2 = vertical ? y3 : oldY2;
-
+          // The final drawn segment approaches the busbar from the elbow bend,
+          // unless the elbow is degenerate (no bend, i.e. the bend coincides
+          // with the cursor) — then it approaches straight from the last fixed
+          // waypoint.
+          const approach = elbowCorner(path, cursor);
+          const lastFixed = path[path.length - 2];
           const start =
-            newX2 === x3 && newY2 === y3
-              ? ([oldX1, oldY1] as Point)
-              : ([newX2, newY2] as Point);
+            approach[0] === cursor[0] && approach[1] === cursor[1]
+              ? lastFixed
+              : approach;
 
-          [x3, y3] = findIntersection(start, [x3, y3], [x1, y1], [x2, y2]);
+          // Clamp the endpoint onto the busbar line segment [x1,y1]-[x2,y2],
+          // then re-bend the elbow to reach that clamped point.
+          const endpoint = findIntersection(start, cursor, [x1, y1], [x2, y2]);
+          const corner = elbowCorner(path, endpoint);
 
-          newX2 = vertical ? oldX2 : x3;
-          newY2 = vertical ? y3 : oldY2;
-
-          const newPath = extendConnectPointPaths(path, [newX2, newY2], [x3, y3]);
+          const newPath = extendConnectPointPaths(path, corner, endpoint);
           context.dispatch(
             newConnectEvent({
               from,
