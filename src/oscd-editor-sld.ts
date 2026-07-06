@@ -17,11 +17,13 @@ import { convertSldLayout, hasOldNamespace } from './converter.js';
 
 import { SldToolbar } from './toolbar/sld-toolbar.js';
 import { sldThemeStyles } from './theme.js';
+import SldMigrationNotice from './sld-migration-notice.js';
 
 export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
     'sld-editor': SldEditor,
     'sld-toolbar': SldToolbar,
+    'sld-migration-notice': SldMigrationNotice,
   };
 
   @property({ type: Object })
@@ -164,10 +166,9 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
       return html`<p>Please open an SCL document</p>`;
     }
     if (hasOldNamespace(this.doc)) {
-      return html`<oscd-text-button
-        @click="${() => this.convertSldAttributes()}"
-        >Convert SLD Layout</oscd-text-button
-      >`;
+      return html`<sld-migration-notice
+        @sld-convert=${() => this.convertSldAttributes()}
+      ></sld-migration-notice>`;
     }
 
     return html`<main>
