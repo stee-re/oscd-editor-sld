@@ -13,6 +13,7 @@ import { isBusBar } from '../foundations/connectivity.js';
 import { isIedReferenceElement } from '../foundations/ied.js';
 import { attributes } from '../foundations/sld-attributes.js';
 import { createContextMenuItems } from './sld-context-menu-factory.js';
+import { sldThemeStyles } from '../theme.js';
 
 function renderSldStartIcon(icon: string): TemplateResult<1> {
   return html`<oscd-sld-icon slot="start">${icon}</oscd-sld-icon>`;
@@ -227,17 +228,20 @@ export class SldContextMenu extends ScopedElementsMixin(LitElement) {
     `;
   }
 
-  static styles = css`
-    :host {
-      display: contents;
-      --md-divider-color: var(--oscd-base1);
-    }
+  static styles = [
+    sldThemeStyles,
+    css`
+      :host {
+        display: contents;
+        --md-divider-color: var(--oscd-base1);
+      }
 
-    #ctx-anchor {
-      position: fixed;
-      width: 0;
-      height: 0;
-      pointer-events: none;
-    }
-  `;
+      #ctx-anchor {
+        position: fixed;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+      }
+    `,
+  ];
 }

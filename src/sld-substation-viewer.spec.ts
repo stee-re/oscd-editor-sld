@@ -372,6 +372,25 @@ describe('SldSubstationViewer base-layer guard memoization', () => {
     expect(counts.base, 'connect target highlight tracks the cursor inside the base layer').to.be.greaterThan(0);
   });
 
+  it('refreshes the base layers on cursor moves while repositioning a label', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc);
+    // The repositioned label is painted inside the guarded label layer, so its
+    // cursor-following preview only moves if `baseLayerKey` folds in the mouse
+    // coords while `placingLabel` is active. Regression guard: dropping
+    // 'placingLabel' from the mouse-tracking modes freezes the label preview.
+    el.interaction = interactions.placingLabel(doc.querySelector('Bay')!, [
+      0, 0,
+    ]);
+    await el.updateComplete;
+
+    const counts = spyLayers(el);
+    counts.base = 0;
+    await bumpMouse(el);
+
+    expect(counts.base, 'label reposition preview tracks the cursor inside the base layer').to.be.greaterThan(0);
+  });
+
   it('skips rendering entirely on cursor moves while idle', async () => {
     const doc = contractSubstationDoc();
     const el = await mountViewer(doc); // idle by default

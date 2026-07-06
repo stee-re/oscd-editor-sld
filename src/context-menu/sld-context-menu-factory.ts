@@ -26,6 +26,7 @@ import {
 } from '../foundations/ied.js';
 import {
   attributes,
+  DEFAULT_LABEL_COLOR,
   getSLDAttributes,
   updateSLDAttributes,
 } from '../foundations/sld-attributes.js';
@@ -42,6 +43,22 @@ import type {
   ContextMenuItem,
   MenuItemContext,
 } from './sld-context-menu.js';
+
+/**
+ * These colours are used in three places:
+ * - the show/hide guard,
+ * - the persisted write,
+ * - the menu item's swatch preview.
+ * The swatch therefore always matches exactly what the command writes and what
+ * `label.ts` renders (a coloured label draws with the literal `color` attribute:
+ * `fill: ${attributes(el).color}`, NOT via a token).
+ * They must NOT be swapped for the themeable `--oscd-sld-red`/`--oscd-sld-blue`
+ * diagram tokens: those retint the *brand* (VL/bay/terminal) and by design may
+ * diverge from these fixed data swatches, which would make the swatch lie about
+ * the value it produces.
+ */
+const SLD_RED = '#BB1326';
+const SLD_BLUE = '#12579B';
 
 function flipElement(element: Element, context: MenuItemContext): void {
   context.dispatch(
@@ -413,7 +430,7 @@ function iedMenuItems(
         headline: 'Delete IED',
         icon: 'delete',
         style:
-          '--md-menu-item-label-text-color: var(--md-sys-color-error, var(--oscd-error, #BB1326)); --md-menu-item-leading-icon-color: var(--md-sys-color-error, var(--oscd-error, #BB1326));',
+          '--md-menu-item-label-text-color: var(--md-sys-color-error, var(--oscd-error)); --md-menu-item-leading-icon-color: var(--md-sys-color-error, var(--oscd-error));',
         handler: () => {
           const edits: EditV2[] = [createRemoveIedReferenceEdit(referencedIed)];
           edits.push(...removeIED({ node: sclIed }));
@@ -609,37 +626,35 @@ function textMenuItems(
     });
   }
 
-  if (color.toUpperCase() !== '#BB1326') {
+  if (color.toUpperCase() !== SLD_RED) {
     items.unshift({
       headline: 'Red',
       icon: 'format_color_text',
-      style:
-        '--md-menu-item-label-text-color: #BB1326; --md-menu-item-leading-icon-color: #BB1326;',
+      style: `--md-menu-item-label-text-color: ${SLD_RED}; --md-menu-item-leading-icon-color: ${SLD_RED};`,
       handler: () => {
         const colorRed = updateSLDAttributes(text, context.nsp, {
-          color: '#BB1326',
+          color: SLD_RED,
         });
         context.dispatch(newEditEventV2(colorRed));
       },
     });
   }
 
-  if (color.toUpperCase() !== '#12579B') {
+  if (color.toUpperCase() !== SLD_BLUE) {
     items.unshift({
       headline: 'Blue',
       icon: 'format_color_text',
-      style:
-        '--md-menu-item-label-text-color: #12579B; --md-menu-item-leading-icon-color: #12579B;',
+      style: `--md-menu-item-label-text-color: ${SLD_BLUE}; --md-menu-item-leading-icon-color: ${SLD_BLUE};`,
       handler: () => {
         const colorBlue = updateSLDAttributes(text, context.nsp, {
-          color: '#12579B',
+          color: SLD_BLUE,
         });
         context.dispatch(newEditEventV2(colorBlue));
       },
     });
   }
 
-  if (color !== '#000') {
+  if (color !== DEFAULT_LABEL_COLOR) {
     items.unshift({
       headline: 'Reset Color',
       icon: 'format_color_reset',

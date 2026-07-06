@@ -18,7 +18,7 @@ import {
   wrapIedReferenceEdits,
 } from './edits.js';
 import { sldNs } from '../foundations.js';
-import { createSCLDoc } from '../test-helpers.js';
+import { createSCLDoc, sldFixture } from '../test-helpers.js';
 
 describe('edits', () => {
   describe('copyElementForPlacement', () => {
@@ -72,19 +72,13 @@ describe('edits', () => {
 
   describe('createGroundTerminalEdits', () => {
     it('creates edits for grounding a terminal', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createGroundTerminalEdits(eq, 'T1');
       expect(edits).to.not.be.null;
@@ -92,19 +86,13 @@ describe('edits', () => {
     });
 
     it('creates a ConnectivityNode named "grounded" if not present', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createGroundTerminalEdits(eq, 'N1')!;
       const insertEdits = edits.filter(
@@ -119,20 +107,14 @@ describe('edits', () => {
     });
 
     it('reuses existing grounded ConnectivityNode', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
               <ConnectivityNode name="grounded" pathName="S1/V1/B1/grounded"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createGroundTerminalEdits(eq, 'T1')!;
       const insertEdits = edits.filter(
@@ -146,19 +128,13 @@ describe('edits', () => {
     });
 
     it('creates a NeutralPoint for N-prefixed terminals', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createGroundTerminalEdits(eq, 'N1')!;
       const insertEdits = edits.filter(
@@ -184,38 +160,26 @@ describe('edits', () => {
 
   describe('createFlipElementEdits', () => {
     it('returns edit to toggle flip attribute', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createFlipElementEdits(eq, 'smth');
       expect(edits.length).to.be.greaterThan(0);
     });
 
     it('sets flip to "true" when currently not flipped', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createFlipElementEdits(eq, 'smth');
       const updateEdit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -224,19 +188,13 @@ describe('edits', () => {
     });
 
     it('removes flip when currently flipped', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:flip="true"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createFlipElementEdits(eq, 'smth');
       const updateEdit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -245,10 +203,7 @@ describe('edits', () => {
     });
 
     it('also removes first winding terminals for PowerTransformer', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <PowerTransformer name="T1">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
@@ -262,10 +217,7 @@ describe('edits', () => {
                 </TransformerWinding>
               </PowerTransformer>
               <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const pt = doc.querySelector('PowerTransformer')!;
       const edits = createFlipElementEdits(pt, 'smth');
       expect(edits.length).to.be.greaterThan(1);
@@ -276,10 +228,7 @@ describe('edits', () => {
     });
 
     it('also removes NeutralPoints for earthing transformers', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <PowerTransformer name="T1">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="earthing"/>
@@ -290,10 +239,7 @@ describe('edits', () => {
                 </TransformerWinding>
               </PowerTransformer>
               <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const pt = doc.querySelector('PowerTransformer')!;
       const edits = createFlipElementEdits(pt, 'smth');
       expect(edits.length).to.be.greaterThan(1);
@@ -302,19 +248,13 @@ describe('edits', () => {
 
   describe('createAddTextEdit', () => {
     it('creates a Text element with label position', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="5" smth:w="1" smth:h="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edit = createAddTextEdit(eq, 'smth') as {
         node: Element;
@@ -328,10 +268,7 @@ describe('edits', () => {
 
   describe('createDeleteBusBarEdits', () => {
     it('removes the connectivity node and the bay', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="BB1">
+      const doc = sldFixture({ bayName: "BB1", children: `
               <ConnectivityNode name="L" pathName="S1/V1/BB1/L">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:Section smth:bus="true">
@@ -340,10 +277,7 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = createDeleteBusBarEdits(bay);
       expect(edits.length).to.be.greaterThan(1);
@@ -416,19 +350,13 @@ describe('edits', () => {
 
   describe('createRotateEdits', () => {
     it('increments rotation by 1', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="1"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createRotateEdits(eq, 'smth');
       const updateEdit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -436,19 +364,13 @@ describe('edits', () => {
     });
 
     it('wraps rotation from 3 back to 0', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="3"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createRotateEdits(eq, 'smth');
       const updateEdit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -456,10 +378,7 @@ describe('edits', () => {
     });
 
     it('removes non-grounded terminals from ConductingEquipment', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="0"/>
@@ -475,10 +394,7 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createRotateEdits(eq, 'smth');
       // First edit is the rotation, remaining edits remove the non-grounded terminal
@@ -486,20 +402,14 @@ describe('edits', () => {
     });
 
     it('does not remove grounded terminals', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="0"/>
                 </Private>
                 <Terminal name="T1" cNodeName="grounded"/>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = createRotateEdits(eq, 'smth');
       // Only the rotation edit, no terminal removal
@@ -509,10 +419,7 @@ describe('edits', () => {
 
   describe('shiftElementEdits', () => {
     it('returns empty for Vertex elements', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConnectivityNode name="L1" pathName="S1/V1/B1/L1">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:Section>
@@ -520,29 +427,20 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const vertex = doc.getElementsByTagNameNS(sldNs, 'Vertex')[0]!;
       const edits = shiftElementEdits(vertex, 5, 5, 'smth');
       expect(edits).to.have.length(0);
     });
 
     it('shifts position and label for ConductingEquipment', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:lx="4" smth:ly="4"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = shiftElementEdits(eq, 5, 6, 'smth');
       expect(edits).to.have.length(1);
@@ -555,19 +453,13 @@ describe('edits', () => {
     });
 
     it('applies default label offset for CE with no explicit label and even rotation', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="0"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = shiftElementEdits(eq, 5, 5, 'smth');
       const edit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -579,20 +471,14 @@ describe('edits', () => {
     });
 
     it('applies default label offset for PowerTransformer with rot < 2', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <PowerTransformer name="T1">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3" smth:rot="0"/>
                 </Private>
                 <TransformerWinding name="W1"/>
               </PowerTransformer>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const pt = doc.querySelector('PowerTransformer')!;
       const edits = shiftElementEdits(pt, 5, 5, 'smth');
       const edit = edits[0] as { attributesNS: Record<string, Record<string, string | null>> };
@@ -604,10 +490,7 @@ describe('edits', () => {
 
   describe('shiftTextEdits', () => {
     it('shifts all Text children by delta', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
@@ -621,10 +504,7 @@ describe('edits', () => {
                   <smth:SLDAttributes smth:lx="4" smth:ly="5"/>
                 </Private>
               </Text>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = shiftTextEdits(bay, 2, 3, 'smth');
       expect(edits).to.have.length(2);
@@ -634,17 +514,11 @@ describe('edits', () => {
     });
 
     it('returns empty when no Text children', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = shiftTextEdits(bay, 2, 3, 'smth');
       expect(edits).to.have.length(0);
@@ -653,10 +527,7 @@ describe('edits', () => {
 
   describe('shiftDescendantEdits', () => {
     it('shifts nested equipment and vertices by delta', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
@@ -665,10 +536,7 @@ describe('edits', () => {
                   <smth:SLDAttributes smth:x="2" smth:y="2" smth:lx="3" smth:ly="3"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = shiftDescendantEdits(bay, 1, 2, 'smth');
       expect(edits).to.have.length(1);
@@ -680,10 +548,7 @@ describe('edits', () => {
     });
 
     it('does not include lx/ly for Vertex descendants', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
@@ -694,10 +559,7 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = shiftDescendantEdits(bay, 1, 1, 'smth');
       // Should find the Vertex via querySelectorAll('Vertex') — but it's in SLD namespace
@@ -716,17 +578,11 @@ describe('edits', () => {
 
   describe('rewireTerminalEdits', () => {
     it('returns empty for non-equipment elements', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const parent = doc.querySelector('VoltageLevel')!;
       const edits = rewireTerminalEdits(bay, parent, doc);
@@ -734,10 +590,7 @@ describe('edits', () => {
     });
 
     it('removes non-grounded terminals', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3"/>
@@ -752,10 +605,7 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const bay = doc.querySelector('Bay')!;
       const edits = rewireTerminalEdits(eq, bay, doc);
@@ -802,19 +652,13 @@ describe('edits', () => {
 
   describe('disconnectExternalEdits', () => {
     it('returns empty for ConductingEquipment', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const edits = disconnectExternalEdits(eq, doc);
       expect(edits).to.have.length(0);
@@ -864,17 +708,11 @@ describe('edits', () => {
     });
 
     it('returns empty when element is not in the document', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const detached = bay.cloneNode(true) as Element;
       const edits = disconnectExternalEdits(detached, doc);
@@ -884,27 +722,18 @@ describe('edits', () => {
 
   describe('busBarVertexEdits', () => {
     it('returns empty for non-Vertex elements', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
               </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const bay = doc.querySelector('Bay')!;
       const edits = busBarVertexEdits(bay, 5, 5, 'smth');
       expect(edits).to.have.length(0);
     });
 
     it('produces edits to resize a bus bar when moving its end vertex', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="BB1">
+      const doc = sldFixture({ bayName: "BB1", children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="2" smth:y="3" smth:w="4" smth:h="1"/>
               </Private>
@@ -916,10 +745,7 @@ describe('edits', () => {
                   </smth:Section>
                 </Private>
               </ConnectivityNode>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const vertex = doc.getElementsByTagNameNS(sldNs, 'Vertex')[1]!;
       const edits = busBarVertexEdits(vertex, 7, 3, 'smth');
       expect(edits.length).to.be.greaterThan(0);
@@ -928,19 +754,13 @@ describe('edits', () => {
 
   describe('wrapIedReferenceEdits', () => {
     it('returns empty for non-IED reference elements', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <ConductingEquipment name="Q1" type="CBR">
                 <Private type="OpenSCD-SLD-Layout">
                   <smth:SLDAttributes smth:x="3" smth:y="3"/>
                 </Private>
               </ConductingEquipment>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const eq = doc.querySelector('ConductingEquipment')!;
       const bay = doc.querySelector('Bay')!;
       const edits = wrapIedReferenceEdits(eq, bay, doc);
@@ -979,20 +799,14 @@ describe('edits', () => {
     });
 
     it('reuses existing Private in target parent', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <VoltageLevel name="V1">
-            <Bay name="B1">
+      const doc = sldFixture({ children: `
               <Private type="OpenSCD-SLD-Layout">
                 <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
                 <smth:Reference smth:type="IED" smth:id="IED1">
                   <smth:SLDAttributes smth:x="2" smth:y="2"/>
                 </smth:Reference>
               </Private>
-            </Bay>
-          </VoltageLevel>
-        </Substation>
-      `);
+            ` });
       const iedRef = doc.getElementsByTagNameNS(sldNs, 'Reference')[0]!;
       const bay = doc.querySelector('Bay')!;
       const edits = wrapIedReferenceEdits(iedRef, bay, doc);

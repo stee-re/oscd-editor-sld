@@ -407,15 +407,18 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
 
     // The five base layers (voltage levels, connectivity, power transformers,
     // IEDs, labels) are position-independent: their geometry derives from the
-    // document and interaction, never from the live cursor — except in the three
-    // modes where a base artifact tracks the mouse (resize preview and connect
-    // target highlight/snap). Memoizing them with `guard` lets the per-move
-    // re-renders that keep the placing/connect preview under the cursor skip
-    // re-evaluating the whole (potentially thousands of `<g>`) base stack.
+    // document and interaction, never from the live cursor — except in the four
+    // modes where a base artifact tracks the mouse (resize preview, connect
+    // target highlight/snap, and the label-repositioning preview, which is
+    // painted inside the guarded label layer). Memoizing them with `guard` lets
+    // the per-move re-renders that keep the placing/connect preview under the
+    // cursor skip re-evaluating the whole (potentially thousands of `<g>`) base
+    // stack.
     const baseLayerTracksMouse =
       this.interaction.mode === 'resizingBR' ||
       this.interaction.mode === 'resizingTL' ||
-      this.interaction.mode === 'connectingFrom';
+      this.interaction.mode === 'connectingFrom' ||
+      this.interaction.mode === 'placingLabel';
     const baseLayerKey = [
       this.substation,
       this.docVersion,

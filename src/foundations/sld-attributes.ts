@@ -17,6 +17,14 @@ export type Style = {
 
 const transformerKinds = ['default', 'auto', 'earthing'] as const;
 
+/**
+ * Fallback colour for a label with no persisted `color` SLDAttribute. This is a
+ * document-data default (the value a label is treated as having when unset), not
+ * a themable render token — kept a concrete literal so it round-trips through the
+ * SCL unchanged. Shared with the context menu's "Reset Color" no-op check.
+ */
+export const DEFAULT_LABEL_COLOR = '#000';
+
 export type TransformerKind = (typeof transformerKinds)[number];
 
 export function isTransformerKind(
@@ -179,7 +187,7 @@ export function attributes(element: Element): Attrs {
   const flip = xmlBoolean(read('flip'));
   const kindVal = read('kind');
   const kind = isTransformerKind(kindVal) ? kindVal : 'default';
-  const color = read('color') || '#000';
+  const color = read('color') || DEFAULT_LABEL_COLOR;
 
   const rot = (((rotVal % 4) + 4) % 4) as 0 | 1 | 2 | 3;
 

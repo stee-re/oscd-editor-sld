@@ -3,49 +3,45 @@ import { fixture, expect } from '@open-wc/testing';
 
 import { SldContextMenu } from './sld-context-menu.js';
 
-import { createSCLDoc } from '../test-helpers.js';
+import { sldFixture } from '../test-helpers.js';
 import { sldNs } from '../foundations.js';
 
 customElements.define('sld-context-menu', SldContextMenu);
 
 function makeDoc(): XMLDocument {
-  return createSCLDoc(`
-    <Substation name="S1">
-      <VoltageLevel name="V1">
-        <Bay name="B1">
-          <ConductingEquipment name="CBR1" type="CBR">
-            <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
-            <Terminal name="T2" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
-            <Private type="https://openscd.org/SCL/SSD/SLD/v0">
-              <smth:SLDAttributes xmlns:smth="${sldNs}"
-                smth:x="4" smth:y="4" smth:rot="0" />
-            </Private>
-          </ConductingEquipment>
-          <ConductingEquipment name="DIS1" type="DIS" desc="Disconnector">
-            <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
-            <Terminal name="T2" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
-            <Private type="https://openscd.org/SCL/SSD/SLD/v0">
-              <smth:SLDAttributes xmlns:smth="${sldNs}"
-                smth:x="5" smth:y="5" smth:rot="0" />
-            </Private>
-          </ConductingEquipment>
-          <PowerTransformer name="PTR1" type="PTR" desc="Main Transformer">
-            <TransformerWinding name="W1">
-              <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
-            </TransformerWinding>
-            <TransformerWinding name="W2">
-              <Terminal name="T1" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
-            </TransformerWinding>
-            <Private type="https://openscd.org/SCL/SSD/SLD/v0">
-              <smth:SLDAttributes xmlns:smth="${sldNs}"
-                smth:x="6" smth:y="6" smth:rot="0" />
-            </Private>
-          </PowerTransformer>
-          <ConnectivityNode name="CN1" pathName="S1/V1/B1/CN1"/>
-          <ConnectivityNode name="CN2" pathName="S1/V1/B1/CN2"/>
-        </Bay>
-      </VoltageLevel>
-    </Substation>`);
+  return sldFixture({
+    children: `
+      <ConductingEquipment name="CBR1" type="CBR">
+        <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
+        <Terminal name="T2" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
+        <Private type="https://openscd.org/SCL/SSD/SLD/v0">
+          <smth:SLDAttributes xmlns:smth="${sldNs}"
+            smth:x="4" smth:y="4" smth:rot="0" />
+        </Private>
+      </ConductingEquipment>
+      <ConductingEquipment name="DIS1" type="DIS" desc="Disconnector">
+        <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
+        <Terminal name="T2" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
+        <Private type="https://openscd.org/SCL/SSD/SLD/v0">
+          <smth:SLDAttributes xmlns:smth="${sldNs}"
+            smth:x="5" smth:y="5" smth:rot="0" />
+        </Private>
+      </ConductingEquipment>
+      <PowerTransformer name="PTR1" type="PTR" desc="Main Transformer">
+        <TransformerWinding name="W1">
+          <Terminal name="T1" cNodeName="CN1" connectivityNode="S1/V1/B1/CN1"/>
+        </TransformerWinding>
+        <TransformerWinding name="W2">
+          <Terminal name="T1" cNodeName="CN2" connectivityNode="S1/V1/B1/CN2"/>
+        </TransformerWinding>
+        <Private type="https://openscd.org/SCL/SSD/SLD/v0">
+          <smth:SLDAttributes xmlns:smth="${sldNs}"
+            smth:x="6" smth:y="6" smth:rot="0" />
+        </Private>
+      </PowerTransformer>
+      <ConnectivityNode name="CN1" pathName="S1/V1/B1/CN1"/>
+      <ConnectivityNode name="CN2" pathName="S1/V1/B1/CN2"/>`,
+  });
 }
 
 function oscdMenu(el: SldContextMenu): HTMLElement {
@@ -204,8 +200,8 @@ describe('SldContextMenu', () => {
     });
 
     it('renders PowerTransformer header with 3-winding icon', async () => {
-      const ptr3Doc = createSCLDoc(`
-        <Substation name="S1"><VoltageLevel name="V1"><Bay name="B1">
+      const ptr3Doc = sldFixture({
+        children: `
           <PowerTransformer name="PTR3" type="PTR">
             <TransformerWinding name="W1"><Terminal name="T1"/></TransformerWinding>
             <TransformerWinding name="W2"><Terminal name="T1"/></TransformerWinding>
@@ -213,8 +209,8 @@ describe('SldContextMenu', () => {
             <Private type="https://openscd.org/SCL/SSD/SLD/v0">
               <smth:SLDAttributes xmlns:smth="${sldNs}" smth:x="2" smth:y="2" smth:rot="0"/>
             </Private>
-          </PowerTransformer>
-        </Bay></VoltageLevel></Substation>`);
+          </PowerTransformer>`,
+      });
       el.doc = ptr3Doc;
       const element = ptr3Doc.querySelector('PowerTransformer[name="PTR3"]')!;
       el.open({ element, x: 100, y: 200, gridX: 2, gridY: 2 });
@@ -244,15 +240,15 @@ describe('SldContextMenu', () => {
     });
 
     it('renders PowerTransformer header with 1-winding icon', async () => {
-      const ptr1Doc = createSCLDoc(`
-        <Substation name="S1"><VoltageLevel name="V1"><Bay name="B1">
+      const ptr1Doc = sldFixture({
+        children: `
           <PowerTransformer name="PTR1W" type="PTR">
             <TransformerWinding name="W1"><Terminal name="T1"/></TransformerWinding>
             <Private type="https://openscd.org/SCL/SSD/SLD/v0">
               <smth:SLDAttributes xmlns:smth="${sldNs}" smth:x="2" smth:y="2" smth:rot="0"/>
             </Private>
-          </PowerTransformer>
-        </Bay></VoltageLevel></Substation>`);
+          </PowerTransformer>`,
+      });
       el.doc = ptr1Doc;
       const element = ptr1Doc.querySelector('PowerTransformer[name="PTR1W"]')!;
       el.open({ element, x: 100, y: 200, gridX: 2, gridY: 2 });
@@ -282,13 +278,7 @@ describe('SldContextMenu', () => {
     });
 
     it('renders Text header with title icon and textContent as detail', async () => {
-      const textDoc = createSCLDoc(`
-        <Substation name="S1"><VoltageLevel name="V1"><Bay name="B1">
-          <Private type="https://openscd.org/SCL/SSD/SLD/v0">
-            <smth:SLDAttributes xmlns:smth="${sldNs}" smth:x="1" smth:y="1" smth:w="5" smth:h="5"/>
-          </Private>
-          <Text>Hello World</Text>
-        </Bay></VoltageLevel></Substation>`);
+      const textDoc = sldFixture({ children: '<Text>Hello World</Text>' });
       el.doc = textDoc;
       const element = textDoc.querySelector('Text')!;
       el.open({ element, x: 100, y: 200, gridX: 1, gridY: 1 });
