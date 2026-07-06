@@ -1,8 +1,6 @@
 import { html, LitElement } from 'lit';
 import { fixture, expect, aTimeout, waitUntil } from '@open-wc/testing';
 
-import { OscdTextButton } from '@omicronenergy/oscd-ui/button/OscdTextButton.js';
-
 import { resetMouse, sendMouse } from '@web/test-runner-commands';
 import { XMLEditor } from '@omicronenergy/oscd-editor';
 import { EditEventV2 } from '@openscd/oscd-api';
@@ -505,6 +503,21 @@ function svgClientPosition(
   return gridPosToViewportCoords(findSubstationSvgRoot(substationEditor), x, y);
 }
 
+/**
+ * Drives a conversion the way the root orchestrates it: by emitting the
+ * `sld-convert` contract event from the migration notice. Keeps the root spec
+ * decoupled from the notice's button internals (those are covered in
+ * `sld-migration-notice.spec.ts`).
+ */
+async function triggerConversion(element: OscdEditorSld): Promise<void> {
+  const notice = element.shadowRoot!.querySelector('sld-migration-notice');
+  expect(!!notice, 'migration notice is shown').to.be.true;
+  notice!.dispatchEvent(
+    new CustomEvent('sld-convert', { bubbles: true, composed: true }),
+  );
+  await element.updateComplete;
+}
+
 describe('SLD Editor', () => {
   let element: OscdEditorSld;
   let xmlEditor: XMLEditor;
@@ -584,14 +597,7 @@ describe('SLD Editor', () => {
     );
     await element.updateComplete;
 
-    const convertButton =
-      element.shadowRoot!.querySelector<OscdTextButton>('oscd-text-button');
-    expect(!!convertButton).to.be.true;
-    expect(convertButton?.textContent?.trim()).to.equal('Convert SLD Layout');
-
-    convertButton!.click();
-    await aTimeout(20);
-    await element.updateComplete;
+    await triggerConversion(element);
 
     expect(element.doc.documentElement.hasAttribute('xmlns:eosld')).to.be.true;
     expect(element.doc.documentElement.hasAttribute('xmlns:esld')).to.be.false;
@@ -707,14 +713,7 @@ describe('SLD Editor', () => {
     );
     await element.updateComplete;
 
-    const convertButton =
-      element.shadowRoot!.querySelector<OscdTextButton>('oscd-text-button');
-    expect(!!convertButton).to.be.true;
-    expect(convertButton?.textContent?.trim()).to.equal('Convert SLD Layout');
-
-    convertButton!.click();
-    await aTimeout(20);
-    await element.updateComplete;
+    await triggerConversion(element);
 
     expect(
       element.doc.querySelectorAll('Private[type="OpenSCD-Linked-IEDs"]')
@@ -756,12 +755,7 @@ describe('SLD Editor', () => {
     );
     await element.updateComplete;
 
-    const convertButton =
-      element.shadowRoot!.querySelector<OscdTextButton>('oscd-text-button');
-    expect(!!convertButton).to.be.true;
-    convertButton!.click();
-    await aTimeout(20);
-    await element.updateComplete;
+    await triggerConversion(element);
 
     const iedWithLegacyCoords = element.doc.querySelector(
       ':root > IED[name="ACMEInc_DoAnything_03"]',
@@ -803,12 +797,7 @@ describe('SLD Editor', () => {
     );
     await element.updateComplete;
 
-    const convertButton =
-      element.shadowRoot!.querySelector<OscdTextButton>('oscd-text-button');
-    expect(!!convertButton).to.be.true;
-    convertButton!.click();
-    await aTimeout(20);
-    await element.updateComplete;
+    await triggerConversion(element);
 
     const ied = element.doc.querySelector(
       ':root > IED[name="ACMEInc_DoAnything_01"]',
