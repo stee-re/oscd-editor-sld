@@ -8,7 +8,6 @@ import { idle } from '../../foundations/interaction-mode.js';
 
 import type { EquipmentContext } from './conducting-equipment.js';
 import type { PowerTransformerContext } from './power-transformer.js';
-import type { LabelContext } from './label.js';
 import type { BusBarContext } from './bus-bar.js';
 import type { EquipmentContainerContext } from './equipment-container.js';
 
@@ -19,7 +18,6 @@ import type { EquipmentContainerContext } from './equipment-container.js';
  */
 export type SpyArtifactContext = EquipmentContext &
   PowerTransformerContext &
-  LabelContext &
   BusBarContext &
   EquipmentContainerContext & {
     dispatched: Event[];
@@ -82,7 +80,6 @@ export function makeArtifactContext(
       renderedChildren.push(element);
       return svg``;
     },
-    renderLabel: () => nothing,
     renderPowerTransformer(element: Element) {
       renderedChildren.push(element);
       return svg``;

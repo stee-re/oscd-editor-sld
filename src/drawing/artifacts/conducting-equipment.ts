@@ -34,6 +34,7 @@ import {
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
+import { renderLabel } from './label.js';
 import {
   connectDetail,
   isMode,
@@ -284,9 +285,9 @@ function renderEquipmentPreviewLabels(
   return preview
     ? svg`<g class="preview">
         ${[
-          context.renderLabel(equipment, { preview }),
+          renderLabel(equipment, context, { preview }),
           ...Array.from(equipment.querySelectorAll('Text')).map(text =>
-            context.renderLabel(text, { preview }),
+            renderLabel(text, context, { preview }),
           ),
         ]}
       </g>`

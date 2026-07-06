@@ -36,6 +36,7 @@ import {
 import {
   type SldSharedContext,
 } from './artifact.js';
+import { renderLabel } from './label.js';
 import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 export type EquipmentContainerContext = SldSharedContext & {
@@ -192,7 +193,7 @@ function renderPreviewLabelLayer(
       ),
     )
     .concat(element)
-    .map(labelled => context.renderLabel(labelled, { preview }));
+    .map(labelled => renderLabel(labelled, context, { preview }));
 }
 
 function renderResizeHandlesLayer(

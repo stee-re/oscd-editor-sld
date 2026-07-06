@@ -12,6 +12,7 @@ import {
   type ConnectivityNodeContext,
 } from './connectivity-node.js';
 import type { SldArtifactDescriptor } from './artifact.js';
+import { renderLabel } from './label.js';
 
 export type BusBarContext = ConnectivityNodeContext;
 
@@ -86,9 +87,9 @@ function renderBusBar(
 
   return svg`<g class="bus preview" id="${state.diagramElementId ?? nothing}">
     <title>${busBar.getAttribute('name')}</title>
-    ${context.renderLabel(busBar)}
+    ${renderLabel(busBar, context)}
     ${Array.from(busBar.querySelectorAll('Text')).map(text =>
-      context.renderLabel(text),
+      renderLabel(text, context),
     )}
     ${renderConnectivityNode(
       busBar.querySelector('ConnectivityNode')!,

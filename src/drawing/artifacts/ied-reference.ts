@@ -17,6 +17,7 @@ import {
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
+import { renderLabel } from './label.js';
 import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 type IedReferenceRenderState = {
@@ -165,7 +166,7 @@ function renderIedReferencePreviewLabels(
 ): SVGTemplateResult | typeof nothing {
   return preview
     ? svg`<g class="preview">
-        ${context.renderLabel(referencedIed, { preview })}
+        ${renderLabel(referencedIed, context, { preview })}
       </g>`
     : nothing;
 }

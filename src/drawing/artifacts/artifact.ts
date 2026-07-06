@@ -1,4 +1,4 @@
-import type { nothing, SVGTemplateResult } from 'lit';
+import type { SVGTemplateResult } from 'lit';
 
 import type { Point } from '../../foundations/geometry.js';
 import type { InteractionState } from '../../foundations/interaction-mode.js';
@@ -21,10 +21,10 @@ export type SldSharedContext = {
   interaction: InteractionState;
   requestContextMenu(element: Element, event: MouseEvent): void;
   resolveIed(referencedIed: Element): Element | null;
-  renderLabel(
+  renderedLabelPosition(
     element: Element,
     options?: { preview?: boolean },
-  ): SVGTemplateResult | typeof nothing;
+  ): Point;
   renderedPosition(element: Element): Point;
   selectable: string[];
   substation: Element;

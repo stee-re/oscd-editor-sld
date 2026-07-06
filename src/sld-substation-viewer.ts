@@ -41,7 +41,6 @@ import type {
 import type { PowerTransformerContext } from './drawing/artifacts/power-transformer.js';
 import type { EquipmentContext } from './drawing/artifacts/conducting-equipment.js';
 import type { BusBarContext } from './drawing/artifacts/bus-bar.js';
-import type { LabelContext } from './drawing/artifacts/label.js';
 import {
   connectPreviewElbow,
   extendConnectPointPaths,
@@ -510,7 +509,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   renderLabel(element: Element, { preview = false } = {}) {
-    return renderArtifactLabel(element, this.labelContext(), { preview });
+    return renderArtifactLabel(element, this.sharedContext(), { preview });
   }
 
 
@@ -787,7 +786,8 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       requestContextMenu: (element, event) =>
         this.requestContextMenu(element, event),
       resolveIed: referencedIed => this.resolveIed(referencedIed),
-      renderLabel: (element, options) => this.renderLabel(element, options),
+      renderedLabelPosition: (element, options) =>
+        this.renderedLabelPosition(element, options),
       renderedPosition: element => this.renderedPosition(element),
       selectable: this.selectable,
       substation: this.substation,
@@ -808,16 +808,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       mouseY: this.mouseY,
       nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
       nsp: this.nsp,
-    };
-  }
-
-  private labelContext(): LabelContext {
-    return {
-      ...this.sharedContext(),
-      mouseX2: this.mouseX2,
-      mouseY2: this.mouseY2,
-      renderedLabelPosition: (element, options) =>
-        this.renderedLabelPosition(element, options),
     };
   }
 
