@@ -278,7 +278,7 @@ first). There is no separate "next steps" list.
 - `src/drawing/artifacts/bus-bar.spec.ts` — Unit tests: matches/state (diagram id), placement into voltage level, disabled no-op, render.
 - `src/drawing/artifacts/connectivity-node.ts` — Connectivity-node renderer (`renderConnectivityNode(cNode, context)`): busbar section geometry, intersection circles, place/resize/connect/context-menu handlers. `ConnectivityNodeContext` carries `connecting`, `mouseX/Y`, `mouseX2/Y2`, `resizingBR`.
 - `src/drawing/artifacts/connectivity-node.spec.ts` — Unit tests: nothing-guard, node group/lines render, busbar place/resize/context-menu actions, disabled no-op.
-- `src/drawing/artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay`. Exports thin `renderVoltageLevel(vl, context, preview)` (renders the VL then its non-busbar bays) and `renderBay(bay, context, preview)`; both delegate to a shared module-private `render(element, context, preview, kind, childContainers)` doing placement/resize math, resize handles, highlight, and fan-out to child renderers. A `ContainerKind` (`voltageLevelKind`/`bayKind`) supplies the few VL/Bay differences (className, stroke, dash, placing-child tag, placement-parent resolution). `EquipmentContainerContext` carries `highlight`, `mouseX/Y`, `nsp`, `resizingBR/TL`, `svgCoordinates`, and child-render callbacks (`renderEquipment`, `renderPowerTransformer`, `renderIed`, `renderConnectivityNode`; `renderLabel` from the shared context).
+- `src/drawing/artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay`. Exports thin `renderVoltageLevel(vl, context, preview)` (renders the VL then its non-busbar bays) and `renderBay(bay, context, preview)`; both delegate to a shared module-private `render(element, context, preview, kind, childContainers)` doing placement/resize math, resize handles, highlight, and fan-out to child renderers. A `ContainerKind` (`voltageLevelKind`/`bayKind`) supplies the few VL/Bay differences (className, stroke, dash, placing-child tag, placement-parent resolution). `EquipmentContainerContext` carries `highlight`, `mouseX/Y`, `nsp`, `resizingBR/TL`, `svgCoordinates`, and child-render callbacks (`renderEquipment`, `renderPowerTransformer`, `renderIed`, `renderConnectivityNode`); labels are drawn via the directly-imported pure `renderLabel`, not a context callback.
 - `src/drawing/artifacts/equipment-container.spec.ts` — Unit tests for `renderVoltageLevel`/`renderBay`: VL/Bay structure, placing-self nothing-guard, VL→Bay nesting + equipment/transformer delegation, start-place/copy/place/context-menu actions, resize-handle visibility.
 - `src/drawing/artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, and `transformerHighlight` helper.
 - `src/drawing/artifacts/power-transformer.spec.ts` — Unit tests: matches/state (windings, highlight), actions (start-place, place, select, rotate), render windings.
@@ -419,6 +419,10 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 ## Last Verified State
 
+- `npm run format` passed (only the 2 pre-existing `geometry.ts` tsdoc warnings); `tsc --noEmit` clean.
+- `npm run test` passed with `552 passed, 0 failed` (removed the `renderLabel` editor↔artifact render-callback cycle — the last Phase-A-adjacent smell). `SldSharedContext` dropped its `renderLabel` callback field and gained the pure `renderedLabelPosition` position helper (symmetric with the existing `renderedPosition`); every artifact (`conducting-equipment`, `power-transformer`, `bus-bar`, `ied-reference`, `equipment-container`) now imports the pure `renderLabel` from `drawing/artifacts/label.ts` directly instead of calling `context.renderLabel`. Deleted the vestigial `LabelContext` type (its `mouseX2`/`mouseY2` were unused; `renderedLabelPosition` moved to shared) and the now-redundant viewer `labelContext()` builder. Behaviour-preserving; no artifact renderer is injected as a context callback anymore.
+- `npm run format` passed (only the 2 pre-existing `geometry.ts` tsdoc warnings); `tsc --noEmit` clean.
+- `npm run test` passed with `552 passed, 0 failed` (fixed a label-preview regression from the base-layer `guard` memoization: `placingLabel` was missing from the mouse-tracking modes, so the cursor-following label preview — painted inside the guarded label layer — was frozen during a "Move Label"/text reposition; added `placingLabel` to `baseLayerTracksMouse` and a matching `placingLabel` guard-memoization spec, verified failing without the fix).
 - `npm run format` passed; `tsc --noEmit` clean.
 - `npm run test` passed with `551 passed, 0 failed` (added 7 direct base-layer `guard`-contract tests to `sld-substation-viewer.spec.ts`; gave both `getSldSubstationViewer` spec helpers an optional `substation` selector matching by `.substation` identity instead of document order).
 - Base-layer guard memoization is now covered directly (not only indirectly via `sld-editor.spec.ts`): a spy-based `describe('SldSubstationViewer base-layer guard memoization')` asserts the guarded layers are reused while `placing` (yet `render()` still runs), refreshed while `resizingBR`/`connectingFrom`, skipped entirely while `idle`, and invalidated by `docVersion`/`showLabels`/`showIeds`/`highlight`/`selectable` — plus placed-element suppression from the base layer.
@@ -506,7 +510,13 @@ Latest verification after the `render()` layer decomposition (Phase 1 + 2 + E):
 - `npm run format` passed.
 - `npm run test` passed with `470 passed, 0 failed` (behaviour preserved — pure method extraction, no z-order change).
 - `SldSubstationViewer.render()` is now a short paint-order stack of 13 extracted `render*` methods (see the layer-strategy checklist item near the top). The file grew slightly to ~1150 lines purely from the extra method headers/doc comments; `render()` itself dropped from ~483 lines to a readable stack.
-- Remaining: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the resize-dialog hoist, and the header/tooltip component candidates — all logged as workstream items above.
+- Done: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the
+  resize-dialog hoist, and the header/tooltip component candidates are all
+  complete (see the container sub-layer, resize-dialog, and tooltip/header
+  entries below and in Completed Workstreams). The `renderLabel` editor↔artifact
+  callback cycle — the last Phase-A-adjacent smell — is now also resolved (see
+  the discipline-pass note below). The one remaining large decomposition is the
+  interaction/render split (Phase C).
 
 Latest verification after the resize-dialog hoist:
 
@@ -593,7 +603,7 @@ ones. Grouped by role:
 | ---------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `render()` composition       | ~73           | The `<svg>` scaffold, the `@mousemove` coordinate tracker, and the z-ordered list of `render*Layer` calls. No per-artifact drawing.                                                                                                                                                                                                                                             |
 | Interaction-overlay layers   | ~245          | The `render*Layer` band methods: `renderConnectionPreviewLayer` (~73, now the largest), `renderPlacingTargetsLayer` (~51), `renderPlacingPreview` (~25), plus the small VL/connectivity/PT/IED/label band methods. This is the editing overlay — Phase C territory. (The coordinate tooltip is no longer here — it is a single editor-owned `<sld-coordinate-tooltip>`.)        |
-| Artifact wrappers + contexts | ~150          | Thin delegating wrappers (`renderEquipment`, `renderPowerTransformer`, `renderConnectivityNode`, `renderBusBar`, `renderIed`, `renderLabel`) that call the generic `renderArtifact(descriptor, element, context, options)`, plus the per-artifact context builders (`sharedContext`, `equipmentContext`, `labelContext`, `powerTransformerContext`, `connectivityNodeContext`). |
+| Artifact wrappers + contexts | ~150          | Thin delegating wrappers (`renderEquipment`, `renderPowerTransformer`, `renderConnectivityNode`, `renderBusBar`, `renderIed`, `renderLabel`) that call the generic `renderArtifact(descriptor, element, context, options)`, plus the per-artifact context builders (`sharedContext`, `equipmentContext`, `powerTransformerContext`, `connectivityNodeContext`). |
 | Viewer state + utilities     | ~250          | 30+ `@property`/`@state` fields, mouse-coordinate transforms (`svgCoordinates`, `gridPosition`, `halfGridPosition`, `renderedPosition`, `renderedLabelPosition`), and edit-adjacent helpers (`nearestOpenTerminal`, `groundTerminal`, IED-resolution cache).                                                                                                                    |
 | `static styles`              | ~20           | Component chrome CSS (most colour tokens now live in `theme.ts`).                                                                                                                                                                                                                                                                                                               |
 
@@ -685,12 +695,11 @@ type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
 
 | Type                      | Owner module                        | Fields                                                                                                                                                                                                      |
 | ------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `gridPosition`, `halfGridPosition`, `interaction`, `requestContextMenu`, `resolveIed`, `renderLabel`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
+| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `gridPosition`, `halfGridPosition`, `interaction`, `requestContextMenu`, `resolveIed`, `renderedLabelPosition`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
 | `EquipmentContext`        | `artifacts/conducting-equipment.ts` | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nearestOpenTerminal`, `nsp`                                                                                                                    |
 | `PowerTransformerContext` | `artifacts/power-transformer.ts`    | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                                                                                                                           |
 | `ConnectivityNodeContext` | `artifacts/connectivity-node.ts`    | shared + `mouseX`, `mouseY`, `mouseX2`, `mouseY2`                                                                                                                                                           |
 | `BusBarContext`           | `artifacts/bus-bar.ts`              | alias of `ConnectivityNodeContext`                                                                                                                                                                          |
-| `LabelContext`            | `artifacts/label.ts`                | shared + `mouseX2`, `mouseY2`, `renderedLabelPosition`                                                                                                                                                      |
 | (ied-reference)           | uses `SldSharedContext` directly    | —                                                                                                                                                                                                           |
 
 Note: the single `interaction: InteractionState` field on `SldSharedContext`
@@ -702,13 +711,18 @@ gone.
 
 The editor builds the shared bag once in `sharedContext()` and spreads it into
 per-artifact builders (`equipmentContext()`, `powerTransformerContext()`,
-`labelContext()`, `busBarContext()`, `connectivityNodeContext()`).
-`renderArtifact()` takes the context as an argument.
+`busBarContext()`, `connectivityNodeContext()`). `renderArtifact()` takes the
+context as an argument.
 
-Remaining smell (deferred): the shared `renderLabel` and bus-bar's
-`renderConnectivityNode` are editor render callbacks, creating
-artifact→editor→artifact cycles. Removing those cycles is the last
-Phase-A-adjacent cleanup (the artifact modules themselves are extracted).
+Resolved (was a deferred smell): the shared `renderLabel` used to be an editor
+render callback threaded through `SldSharedContext`, creating an
+artifact→editor→artifact cycle. It is gone — `SldSharedContext` now carries the
+pure position helper `renderedLabelPosition` (symmetric with `renderedPosition`),
+and every artifact imports the pure `renderLabel` from `drawing/artifacts/label.ts`
+directly (mirroring how bus-bar already imports `renderConnectivityNode`). The
+vestigial `LabelContext` (its only real addition was `renderedLabelPosition`;
+`mouseX2`/`mouseY2` were unused) was deleted, and the redundant `labelContext()`
+builder was dropped. No artifact renderer is injected as a context callback now.
 
 **Phase B: Extract diagram symbols**
 
@@ -732,7 +746,10 @@ a clean viewer/editor boundary:
 - **Viewer**: takes SCL + display flags, renders static SVG, emits selection events
 - **Editor overlay**: adds placing targets, resize handles, connection previews
 
-This is the most complex phase and should come last.
+This is the most complex phase. Its gating workstreams (the `render()` layer
+decomposition, the interaction-state/event-vocabulary consolidation, and the
+idle/base-layer render memoization) are now complete, so it is unblocked — but
+it remains the largest restructure step and should be sequenced last.
 
 ### Key challenge: shared context
 
@@ -764,13 +781,15 @@ Phase B resolves this by deleting `icons.ts`:
 
 1. ~~**Extract diagram symbols (Phase B)**~~ — Done. SVG defs/resize paths live in
    `drawing/diagram-symbols.ts`; UI icon ownership lives in `OscdSldIcon`.
-2. ~~**Extract SVG renderers (Phase A)**~~ — Mostly done. The core artifact
-   renderers now live under `drawing/artifacts/` with co-located specs. The
-   remaining renderer cleanup is the lower-risk `equipment-container.ts`
-   internal sub-layer split tracked above.
+2. ~~**Extract SVG renderers (Phase A)**~~ — Done. The core artifact
+   renderers live under `drawing/artifacts/` with co-located specs, including
+   the `equipment-container.ts` internal sub-layer split, and the last
+   Phase-A-adjacent smell — the `renderLabel` editor↔artifact callback cycle —
+   is resolved (see the discipline pass above).
 3. **Separate interaction from rendering (Phase C)** — Create viewer/editor
-   boundary. This should wait until the current layer, mode, and idle-render
-   workstreams settle.
+   boundary. The gating layer, mode, and idle-render workstreams have now
+   settled, so this is unblocked; it remains the largest and most complex
+   item, so treat it as the last major restructure step.
 4. ~~**`connectivity.ts` boundary**~~ — Done. Split into queries + edit builders.
 5. ~~**Clean up structural conventions**~~ — Reviewed as done; no broad import-order
    churn needed because the repo does not enforce import ordering.

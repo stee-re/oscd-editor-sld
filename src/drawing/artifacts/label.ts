@@ -18,15 +18,6 @@ import { isSelectable } from './highlight.js';
 import type { ArtifactRenderOptions, SldSharedContext } from './artifact.js';
 import { isMode } from '../../foundations/interaction-mode.js';
 
-export type LabelContext = SldSharedContext & {
-  mouseX2: number;
-  mouseY2: number;
-  renderedLabelPosition(
-    element: Element,
-    options?: { preview?: boolean },
-  ): Point;
-};
-
 function preventDefault(e: MouseEvent) {
   if (e.button === 1) {
     e.preventDefault();
@@ -60,7 +51,7 @@ function labelText(
 
 export function renderLabel(
   element: Element,
-  context: LabelContext,
+  context: SldSharedContext,
   { preview = false }: ArtifactRenderOptions = {},
 ): SVGTemplateResult | typeof nothing {
   if (!context.view.showLabels) {

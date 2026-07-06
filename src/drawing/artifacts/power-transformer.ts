@@ -25,6 +25,7 @@ import {
   type SldArtifactDescriptor,
   type SldSharedContext,
 } from './artifact.js';
+import { renderLabel } from './label.js';
 import { isMode, targetInMode } from '../../foundations/interaction-mode.js';
 
 export type PowerTransformerContext = SldSharedContext & {
@@ -334,9 +335,9 @@ function renderPowerTransformer(
     <g class="preview">${
       preview
         ? [
-          context.renderLabel(transformer, { preview }),
+          renderLabel(transformer, context, { preview }),
           ...Array.from(transformer.querySelectorAll('Text')).map(text =>
-            context.renderLabel(text, { preview }),
+            renderLabel(text, context, { preview }),
           ),
         ]
         : nothing
