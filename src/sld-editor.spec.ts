@@ -308,8 +308,27 @@ describe('SLD Editor', () => {
   describe('SldSubstationViewer update scheduling', () => {
     it('skips idle mouse-coordinate-only updates', async () => {
       const testEditor = await testSldSubstationViewer();
+      testEditor.interaction = idle();
 
       expect(testEditor.interaction.mode).to.equal('idle');
+      expect(
+        testEditor.shouldUpdateForTest(
+          new Map<PropertyKey, unknown>([
+            ['mouseX', 0],
+            ['mouseY', 0],
+            ['mouseX2', 0],
+            ['mouseY2', 0],
+            ['mouseX2f', 0],
+            ['mouseY2f', 0],
+          ]),
+        ),
+      ).to.equal(false);
+    });
+
+    it('skips locked mouse-coordinate-only updates (read-only default)', async () => {
+      const testEditor = await testSldSubstationViewer();
+
+      expect(testEditor.interaction.mode).to.equal('locked');
       expect(
         testEditor.shouldUpdateForTest(
           new Map<PropertyKey, unknown>([
@@ -344,6 +363,7 @@ describe('SLD Editor', () => {
 
     it('keeps idle non-mouse updates', async () => {
       const testEditor = await testSldSubstationViewer();
+      testEditor.interaction = idle();
 
       expect(testEditor.interaction.mode).to.equal('idle');
       expect(

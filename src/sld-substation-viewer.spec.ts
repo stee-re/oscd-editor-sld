@@ -469,3 +469,47 @@ describe('SldSubstationViewer base-layer guard memoization', () => {
     ).to.have.lengthOf(0);
   });
 });
+
+/**
+ * The viewer's read-only contract. A bare `<sld-substation-viewer>` (no
+ * `interaction` supplied) must be a truly static diagram: it defaults to the
+ * `locked` interaction and paints none of the editing affordances. The editor
+ * opts back in by projecting its own `idle`/gesture interaction down. These
+ * tests pin that default and the affordance suppression that follows from it.
+ */
+describe('SldSubstationViewer read-only locked default', () => {
+  it('defaults to the locked interaction when none is supplied', async () => {
+    const el = await mountViewer(contractSubstationDoc());
+    expect(el.interaction.mode).to.equal('locked');
+  });
+
+  it('paints no connect ports while locked, but does while idle', async () => {
+    const doc = contractSubstationDoc();
+    const el = await mountViewer(doc); // locked by default
+
+    expect(
+      el.sld.querySelectorAll('circle.port'),
+      'no connect ports in the read-only default',
+    ).to.have.lengthOf(0);
+
+    el.interaction = interactions.idle();
+    await el.updateComplete;
+
+    expect(
+      el.sld.querySelectorAll('circle.port').length,
+      'ports reappear once an editor drives the viewer to idle',
+    ).to.be.greaterThan(0);
+  });
+
+  it('treats locked like idle for mouse-only re-renders (no churn)', async () => {
+    const el = await mountViewer(contractSubstationDoc()); // locked
+
+    const counts = spyLayers(el);
+    counts.render = 0;
+    counts.base = 0;
+    await bumpMouse(el);
+
+    expect(counts.render, 'locked mouse move is dropped by shouldUpdate').to.equal(0);
+    expect(counts.base, 'locked never re-runs the base layers on a mouse move').to.equal(0);
+  });
+});

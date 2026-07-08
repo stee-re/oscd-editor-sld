@@ -19,6 +19,7 @@ export type Terminal = 'T1' | 'T2' | 'N1' | 'N2';
  */
 export type InteractionState =
   | { mode: 'idle' }
+  | { mode: 'locked' }
   | { mode: 'placing'; element: Element; offset: Point }
   | { mode: 'placingLabel'; element: Element; offset: Point }
   | { mode: 'resizingBR'; element: Element }
@@ -43,6 +44,15 @@ export type InteractionState =
  * narrowing without the extra machinery.
  */
 export const idle = (): InteractionState => ({ mode: 'idle' });
+
+/**
+ * The read-only resting state. Like {@link idle} it is not a gesture, but unlike
+ * `idle` it exposes **no** interaction affordances at all: ports, resize
+ * handles, context menus and click-to-place targets are all suppressed, so a
+ * viewer in this mode is a truly static, non-dispatching read-only diagram. It
+ * is the viewer's default; the editor never enters it.
+ */
+export const locked = (): InteractionState => ({ mode: 'locked' });
 
 export const placing = (element: Element, offset: Point): InteractionState => ({
   mode: 'placing',

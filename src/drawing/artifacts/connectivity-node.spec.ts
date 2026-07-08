@@ -4,7 +4,7 @@ import { nothing } from 'lit';
 import { renderConnectivityNode } from './connectivity-node.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
 import { sldFixture } from '../../test-helpers.js';
-import { connectingFrom } from '../../foundations/interaction-mode.js';
+import { connectingFrom, locked } from '../../foundations/interaction-mode.js';
 
 function busBarNodeDoc() {
   return sldFixture({
@@ -108,6 +108,14 @@ describe('renderConnectivityNode', () => {
       line.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       line.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
       expect(context.dispatched).to.have.lengthOf(0);
+    });
+
+    it('is not pointer-interactive in the read-only locked mode', () => {
+      const context = makeArtifactContext({ interaction: locked(), substation });
+      const host = renderToSvg(renderConnectivityNode(cNode, context));
+      host.querySelectorAll('g.node line').forEach((line) => {
+        expect(line.getAttribute('pointer-events')).to.equal('none');
+      });
     });
   });
 

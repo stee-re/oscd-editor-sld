@@ -2,6 +2,7 @@ import { expect } from '@open-wc/testing';
 
 import {
   idle,
+  locked,
   placing,
   placingLabel,
   resizingBR,
@@ -27,6 +28,10 @@ describe('interaction-mode constructors', () => {
 
   it('idle() builds the idle variant with no payload', () => {
     expect(idle()).to.deep.equal({ mode: 'idle' });
+  });
+
+  it('locked() builds the locked variant with no payload', () => {
+    expect(locked()).to.deep.equal({ mode: 'locked' });
   });
 
   it('placing() carries the element and offset', () => {

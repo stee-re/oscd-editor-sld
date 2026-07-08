@@ -81,7 +81,7 @@ export function renderConnectivityNode(
   const bay = cNode.closest('Bay');
   const targetSize = 0.5;
   const pointerEvents =
-    !isMode(context.interaction, 'placing') &&
+    !isMode(context.interaction, 'placing', 'locked') &&
     (!isMode(context.interaction, 'resizingBR') ||
       (targetInMode(context.interaction, 'resizingBR') === bay &&
         isBusBar(bay)))

@@ -5,7 +5,7 @@ import { identity } from '@openscd/scl-lib';
 import { eqRingPath } from '../diagram-symbols.js';
 import { containsRect } from '../../foundations/element-geometry.js';
 import { canPlaceAt } from '../../foundations/sld-placement.js';
-import { copyElementForPlacement } from '../../foundations/edits.js';
+import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import {
   connectionStartPoints,
   isBusBar,
@@ -122,6 +122,7 @@ function equipmentRenderState(
       bottomTerminal ||
       isMode(
         context.interaction,
+        'locked',
         'resizingBR',
         'resizingTL',
         'connectingFrom',
@@ -135,6 +136,7 @@ function equipmentRenderState(
       topTerminal ||
       isMode(
         context.interaction,
+        'locked',
         'resizingBR',
         'resizingTL',
         'connectingFrom',

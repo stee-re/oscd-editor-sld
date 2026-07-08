@@ -3,6 +3,7 @@ import { identity } from '@openscd/scl-lib';
 
 import { busBarArtifact } from './bus-bar.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
+import { locked } from '../../foundations/interaction-mode.js';
 import { sldFixture } from '../../test-helpers.js';
 
 function busBarDoc() {
@@ -82,6 +83,15 @@ describe('busBarArtifact', () => {
 
     it('does nothing when disabled', () => {
       const context = makeArtifactContext({ disabled: true, substation });
+      actionsFor(context).onClick();
+      expect(context.dispatched).to.have.lengthOf(0);
+    });
+
+    it('does nothing in the read-only locked mode', () => {
+      const context = makeArtifactContext({
+        interaction: locked(),
+        substation,
+      });
       actionsFor(context).onClick();
       expect(context.dispatched).to.have.lengthOf(0);
     });
