@@ -91,15 +91,15 @@ describe('conductingEquipmentArtifact', () => {
       expect(event.detail.element).to.equal(equipment);
     });
 
-    it('starts placement of a copy on shift-click', () => {
+    it('requests a copy on shift-click', () => {
       const context = makeArtifactContext({ substation });
       actionsFor(context).onClick(new MouseEvent('click', { shiftKey: true }));
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
       expect(event).to.not.be.undefined;
-      expect(event.detail.element).to.not.equal(equipment);
-      expect(event.detail.element.getAttribute('type')).to.equal('CBR');
+      expect(event.detail.element).to.equal(equipment);
+      expect(event.detail.copy).to.be.true;
     });
 
     it('places into the containing bay while placing itself', () => {

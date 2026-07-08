@@ -35,6 +35,7 @@ import {
 } from './foundations/ied.js';
 import { reparentElement, sldNs, sldPrefix } from './foundations.js';
 import { downloadSvg } from './foundations/export.js';
+import { copyElementForPlacement } from './foundations/placement-clone.js';
 
 import type {
   ConnectDetail,
@@ -324,7 +325,12 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   ): Promise<PlacementResult | undefined> | void {
     switch (intent.mode) {
       case 'placing':
-        return this.startPlacing(intent.element, intent.offset);
+        return this.startPlacing(
+          intent.copy
+            ? copyElementForPlacement(intent.element, this.nsp)
+            : intent.element,
+          intent.offset,
+        );
       case 'placingLabel':
         this.interaction = interactions.placingLabel(
           intent.element,

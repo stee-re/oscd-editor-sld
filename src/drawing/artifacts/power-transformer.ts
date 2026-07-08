@@ -3,7 +3,6 @@ import { classMap } from 'lit/directives/class-map.js';
 
 import { zigZag2WTransform, zigZagPath } from '../diagram-symbols.js';
 import { containsRect } from '../../foundations/element-geometry.js';
-import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { transformerWindingMeasures } from '../../foundations/transformer.js';
 import {
@@ -36,7 +35,6 @@ export type PowerTransformerContext = SldSharedContext & {
   highlight: Highlight[];
   mouseX: number;
   mouseY: number;
-  nsp: string;
 };
 
 type PowerTransformerRenderState = {
@@ -268,14 +266,15 @@ function powerTransformerActions(
         return;
       }
 
-      let placing = transformer;
-      if (e.shiftKey) {
-        placing = copyElementForPlacement(transformer, context.nsp);
-      }
       const [mouseX, mouseY] = context.gridPosition(e);
       const offset: Point = [mouseX - x, mouseY - y];
       context.dispatch(
-        newStartInteractionEvent({ mode: 'placing', element: placing, offset }),
+        newStartInteractionEvent({
+          mode: 'placing',
+          element: transformer,
+          copy: e.shiftKey,
+          offset,
+        }),
       );
     };
   } else if (context.disabled && state.selectable) {
@@ -284,14 +283,15 @@ function powerTransformerActions(
     handleClick = () => {};
   } else {
     handleClick = (e: MouseEvent) => {
-      let placing = transformer;
-      if (e.shiftKey) {
-        placing = copyElementForPlacement(transformer, context.nsp);
-      }
       const [mouseX, mouseY] = context.gridPosition(e);
       const offset: Point = [mouseX - x, mouseY - y];
       context.dispatch(
-        newStartInteractionEvent({ mode: 'placing', element: placing, offset }),
+        newStartInteractionEvent({
+          mode: 'placing',
+          element: transformer,
+          copy: e.shiftKey,
+          offset,
+        }),
       );
     };
   }

@@ -94,7 +94,7 @@ describe('renderVoltageLevel / renderBay', () => {
       expect(event.detail.offset).to.deep.equal([9, 10]);
     });
 
-    it('starts placement of a copy on shift-click', () => {
+    it('requests a copy on shift-click', () => {
       const context = makeArtifactContext({ substation });
       mainRect(context).dispatchEvent(
         new MouseEvent('click', { shiftKey: true, bubbles: true }),
@@ -102,8 +102,8 @@ describe('renderVoltageLevel / renderBay', () => {
       const event = context.dispatched.find(
         e => e.type === 'oscd-sld-start-interaction',
       ) as CustomEvent;
-      expect(event.detail.element).to.not.equal(voltageLevel);
-      expect(event.detail.element.tagName).to.equal('VoltageLevel');
+      expect(event.detail.element).to.equal(voltageLevel);
+      expect(event.detail.copy).to.be.true;
     });
 
     it('opens the context menu on right-click when idle', () => {

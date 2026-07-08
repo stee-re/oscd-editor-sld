@@ -10,13 +10,8 @@
 import { contains } from './geometry.js';
 import { containsRect, overlapsRect } from './element-geometry.js';
 import { isBusBar } from './connectivity.js';
-import {
-  attributes,
-  getSLDAttributes,
-  setSLDAttributes,
-} from './sld-attributes.js';
+import { attributes } from './sld-attributes.js';
 import { iedReferences, isIedReferenceElement } from './ied.js';
-import { uuid } from '../foundations.js';
 
 const parentTags: Partial<Record<string, string[]>> = {
   ConductingEquipment: ['Bay'],
@@ -136,99 +131,3 @@ export function canResizeToTL(
   return true;
 }
 
-/**
- * Deep-clones an SCL element into a stand-alone preview copy suitable for
- * placement: it strips IED references from containers, prunes connectivity to
- * foreign elements, and assigns fresh terminal/vertex UUIDs so the clone can be
- * positioned without colliding with the source topology.
- */
-export function copyElementForPlacement(
-  element: Element,
-  nsp: string,
-): Element {
-  const clone = element.cloneNode(true) as Element;
-  if (['Bay', 'VoltageLevel'].includes(element.tagName)) {
-    iedReferences(clone).forEach(ied => ied.remove());
-  }
-
-  const terminals = new Set<Element>(
-    Array.from(element.querySelectorAll('Terminal, NeutralPoint')),
-  );
-  const cNodes = new Set<Element>(
-    Array.from(element.querySelectorAll('ConnectivityNode')),
-  );
-
-  terminals.forEach((terminal) => {
-    const cNode = element.ownerDocument.querySelector(
-      `ConnectivityNode[pathName="${terminal.getAttribute(
-        'connectivityNode',
-      )}"]`,
-    );
-    if (cNode) {
-      cNodes.add(cNode);
-    }
-  });
-
-  const foreignCNodes = new Set<Element>();
-  cNodes.forEach((cNode) => {
-    const foreignTerminal = Array.from(
-      element.ownerDocument.querySelectorAll(
-        `[connectivityNode="${cNode.getAttribute('pathName')}"]`,
-      ),
-    ).find(terminal => !terminals.has(terminal));
-    if (
-      foreignTerminal ||
-      (isBusBar(cNode.closest('Bay')!) &&
-        cNode.closest(element.tagName) !== element)
-    ) {
-      foreignCNodes.add(cNode);
-    }
-  });
-
-  foreignCNodes.forEach((cNode) => {
-    if (cNode.closest(element.tagName) === element) {
-      if (isBusBar(cNode.closest('Bay')!)) {
-        clone
-          .querySelector(
-            `ConnectivityNode[pathName="${cNode.getAttribute('pathName')}"]`,
-          )
-          ?.closest('Bay')
-          ?.remove();
-      } else {
-        clone
-          .querySelector(
-            `ConnectivityNode[pathName="${cNode.getAttribute('pathName')}"]`,
-          )
-          ?.remove();
-      }
-    }
-
-    terminals.forEach((terminal) => {
-      if (
-        terminal.getAttribute('connectivityNode') ===
-        cNode.getAttribute('pathName')
-      ) {
-        clone
-          .querySelector(`[*|uuid="${getSLDAttributes(terminal, 'uuid')}"]`)
-          ?.remove();
-      }
-    });
-  });
-
-  Array.from(clone.querySelectorAll('Terminal, NeutralPoint')).forEach(
-    (terminal) => {
-      const oldUUID = getSLDAttributes(terminal, 'uuid');
-      if (!oldUUID) {
-        return;
-      }
-
-      const newUUID = uuid();
-      Array.from(clone.querySelectorAll(`Vertex[*|uuid="${oldUUID}"`)).forEach(
-        vertex => setSLDAttributes(vertex, nsp, { uuid: newUUID }),
-      );
-      setSLDAttributes(terminal, nsp, { uuid: newUUID });
-    },
-  );
-
-  return clone;
-}

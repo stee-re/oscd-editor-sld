@@ -14,7 +14,6 @@ import {
   canResizeTo,
   canResizeToTL,
 } from '../../foundations/sld-placement.js';
-import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import { isBusBar } from '../../foundations/connectivity.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { iedReferences } from '../../foundations/ied.js';
@@ -43,7 +42,6 @@ export type EquipmentContainerContext = SldSharedContext & {
   highlight: Highlight[];
   mouseX: number;
   mouseY: number;
-  nsp: string;
   svgCoordinates(clientX: number, clientY: number): Point;
   renderEquipment(equipment: Element): SVGTemplateResult;
   renderPowerTransformer(equipment: Element): SVGTemplateResult;
@@ -303,9 +301,8 @@ function render(
       context.dispatch(
         newStartInteractionEvent({
           mode: 'placing',
-          element: e.shiftKey
-            ? copyElementForPlacement(element, context.nsp)
-            : element,
+          element,
+          copy: e.shiftKey,
           offset: [mouseX - x, mouseY - y],
         }),
       );

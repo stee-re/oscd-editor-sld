@@ -57,7 +57,6 @@ export function makeArtifactContext(
     mouseX2: 0,
     mouseY2: 0,
     nearestOpenTerminal: () => undefined,
-    nsp: 'smth',
     requestContextMenu(element: Element, event: MouseEvent) {
       const [gridX, gridY] = this.gridPosition(event);
       this.dispatch(

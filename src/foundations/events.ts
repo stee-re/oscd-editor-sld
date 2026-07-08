@@ -126,7 +126,18 @@ export type StartConnectDetail = {
  * the active `InteractionState` modes.
  */
 export type InteractionIntent =
-  | { mode: 'placing'; element: Element; offset?: Point }
+  | {
+    mode: 'placing';
+    element: Element;
+    offset?: Point;
+    /**
+       * When true, the editor treats `element` as a copy *source* and clones it
+       * (fresh UUIDs, pruned connectivity) before placement. The view decides
+       * *that* a copy should happen (e.g. shift-click); constructing the clone
+       * is the editor's concern.
+       */
+    copy?: boolean;
+  }
   | { mode: 'placingLabel'; element: Element; offset?: Point }
   | { mode: 'resizingBR'; element: Element }
   | { mode: 'resizingTL'; element: Element }

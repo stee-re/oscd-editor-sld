@@ -582,6 +582,28 @@ describe('SLD Editor', () => {
       expect(result).to.be.an.instanceof(Promise);
     });
 
+    it('clones the source before placing a copy intent', () => {
+      element.startInteraction({
+        mode: 'placing',
+        element: voltageLevel,
+        copy: true,
+      });
+      expectActiveMode('placing');
+      const target = targetInMode(element.interaction, 'placing');
+      expect(target).to.not.equal(voltageLevel);
+      expect(target?.tagName).to.equal('VoltageLevel');
+    });
+
+    it('places the source itself when copy is not set', () => {
+      element.startInteraction({
+        mode: 'placing',
+        element: voltageLevel,
+      });
+      expect(targetInMode(element.interaction, 'placing')).to.equal(
+        voltageLevel,
+      );
+    });
+
     it('resolves the placing intent promise when the mode is escaped', async () => {
       const result = element.startInteraction({
         mode: 'placing',
