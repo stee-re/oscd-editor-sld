@@ -752,7 +752,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       highlight: this.highlight,
       mouseX: this.mouseX,
       mouseY: this.mouseY,
-      nsp: this.nsp,
       svgCoordinates: (clientX, clientY) =>
         this.svgCoordinates(clientX, clientY),
       renderEquipment: equipment => this.renderEquipment(equipment),
@@ -807,7 +806,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       mouseX: this.mouseX,
       mouseY: this.mouseY,
       nearestOpenTerminal: equipment => this.nearestOpenTerminal(equipment),
-      nsp: this.nsp,
     };
   }
 
@@ -823,7 +821,6 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
       highlight: this.highlight,
       mouseX: this.mouseX,
       mouseY: this.mouseY,
-      nsp: this.nsp,
     };
   }
 

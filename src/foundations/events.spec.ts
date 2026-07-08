@@ -112,6 +112,15 @@ describe('events', () => {
       expect(event.detail).to.have.property('element', element);
     });
 
+    it('carries the copy flag on a placing intent', () => {
+      const event = newStartInteractionEvent({
+        mode: 'placing',
+        element,
+        copy: true,
+      });
+      expect(event.detail).to.have.property('copy', true);
+    });
+
     it('creates resizingBR and resizingTL intents', () => {
       expect(
         newStartInteractionEvent({ mode: 'resizingBR', element }).detail,

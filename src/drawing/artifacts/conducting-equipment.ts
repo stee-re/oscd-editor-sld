@@ -5,7 +5,6 @@ import { identity } from '@openscd/scl-lib';
 import { eqRingPath } from '../diagram-symbols.js';
 import { containsRect } from '../../foundations/element-geometry.js';
 import { canPlaceAt } from '../../foundations/sld-placement.js';
-import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import {
   connectionStartPoints,
   isBusBar,
@@ -47,7 +46,6 @@ export type EquipmentContext = SldSharedContext & {
   mouseX: number;
   mouseY: number;
   nearestOpenTerminal(equipment?: Element): 'T1' | 'T2' | undefined;
-  nsp: string;
 };
 
 export type EquipmentRenderState = {
@@ -190,11 +188,12 @@ function equipmentRenderActions(
   state: EquipmentRenderState,
 ): EquipmentRenderActions {
   let handleClick = (e: MouseEvent) => {
-    const placing = e.shiftKey
-      ? copyElementForPlacement(equipment, context.nsp)
-      : equipment;
     context.dispatch(
-      newStartInteractionEvent({ mode: 'placing', element: placing }),
+      newStartInteractionEvent({
+        mode: 'placing',
+        element: equipment,
+        copy: e.shiftKey,
+      }),
     );
   };
 
