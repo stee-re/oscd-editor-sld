@@ -9,7 +9,6 @@ import {
   createFlipElementEdits,
   createGroundTerminalEdits,
 } from '../foundations/edits.js';
-import { copyElementForPlacement } from '../foundations/sld-placement.js';
 import {
   connectionStartPoints,
   isBusBar,
@@ -189,7 +188,8 @@ function transformerMenuItems(
         context.dispatch(
           newStartInteractionEvent({
             mode: 'placing',
-            element: copyElementForPlacement(transformer, context.nsp),
+            element: transformer,
+            copy: true,
             offset,
           }),
         ),
@@ -272,7 +272,8 @@ function equipmentMenuItems(
         context.dispatch(
           newStartInteractionEvent({
             mode: 'placing',
-            element: copyElementForPlacement(equipment, context.nsp),
+            element: equipment,
+            copy: true,
           }),
         ),
     },
@@ -532,7 +533,8 @@ function containerMenuItems(
         context.dispatch(
           newStartInteractionEvent({
             mode: 'placing',
-            element: copyElementForPlacement(bayOrVL, context.nsp),
+            element: bayOrVL,
+            copy: true,
             offset,
           }),
         ),
