@@ -49,9 +49,9 @@ export {
   attributes,
   getSLDAttributes,
   setSLDAttributes,
-  updateSLDAttributes,
   xmlBoolean,
 } from './foundations/sld-attributes.js';
+export { updateSLDAttributes } from './foundations/sld-attribute-edits.js';
 export {
   busSections,
   connectionStartPoints,

@@ -3,13 +3,13 @@ import { newEditEventV2 } from '@openscd/oscd-api/utils.js';
 import { getReference, removeIED } from '@openscd/scl-lib';
 
 import {
-  copyElementForPlacement,
   createAddTextEdit,
   createDeleteBusBarEdits,
   createDeleteContainerEdits,
   createFlipElementEdits,
   createGroundTerminalEdits,
 } from '../foundations/edits.js';
+import { copyElementForPlacement } from '../foundations/sld-placement.js';
 import {
   connectionStartPoints,
   isBusBar,
@@ -20,16 +20,16 @@ import {
 } from '../foundations/connectivity-edits.js';
 import { singleTerminal } from '../foundations/equipment.js';
 import {
-  createRemoveIedReferenceEdit,
   isIedReferenceElement,
   resolveIed,
 } from '../foundations/ied.js';
+import { createRemoveIedReferenceEdit } from '../foundations/ied-edits.js';
 import {
   attributes,
   DEFAULT_LABEL_COLOR,
   getSLDAttributes,
-  updateSLDAttributes,
 } from '../foundations/sld-attributes.js';
+import { updateSLDAttributes } from '../foundations/sld-attribute-edits.js';
 import {
   newEditIedEvent,
   newRotateEvent,

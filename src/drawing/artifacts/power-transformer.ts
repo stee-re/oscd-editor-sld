@@ -3,7 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 
 import { zigZag2WTransform, zigZagPath } from '../diagram-symbols.js';
 import { containsRect } from '../../foundations/element-geometry.js';
-import { copyElementForPlacement } from '../../foundations/edits.js';
+import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { transformerWindingMeasures } from '../../foundations/transformer.js';
 import {

@@ -1,8 +1,6 @@
 import { identity } from '@openscd/scl-lib';
 
-import { privType, sldNs } from '../foundations.js';
-
-import type { EditV2 } from '@openscd/oscd-api';
+import { sldNs } from '../foundations.js';
 
 export function isIedReferenceElement(element: Element): boolean {
   return (
@@ -52,23 +50,3 @@ export function resolveIed(referencedIed: Element): Element | null {
   return null;
 }
 
-/** Creates the edit that removes an SLD IED reference and its empty layout container. */
-export function createRemoveIedReferenceEdit(referencedIed: Element): EditV2 {
-  const sldLayoutPrivate = referencedIed.parentElement;
-
-  const sldChildren = sldLayoutPrivate
-    ? Array.from(sldLayoutPrivate.children).filter(
-      child => child.namespaceURI === sldNs,
-    )
-    : [];
-
-  if (
-    sldLayoutPrivate?.tagName === 'Private' &&
-    sldLayoutPrivate.getAttribute('type') === privType &&
-    sldChildren.length === 1
-  ) {
-    return { node: sldLayoutPrivate };
-  }
-
-  return { node: referencedIed };
-}

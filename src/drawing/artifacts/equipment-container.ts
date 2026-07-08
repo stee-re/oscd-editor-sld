@@ -14,7 +14,7 @@ import {
   canResizeTo,
   canResizeToTL,
 } from '../../foundations/sld-placement.js';
-import { copyElementForPlacement } from '../../foundations/edits.js';
+import { copyElementForPlacement } from '../../foundations/sld-placement.js';
 import { isBusBar } from '../../foundations/connectivity.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { iedReferences } from '../../foundations/ied.js';
