@@ -16,6 +16,7 @@ import { OscdSldIcon } from '../oscd-sld-icon.js';
 import { isBusBar } from '../foundations/connectivity.js';
 import { eqTypes } from '../foundations/equipment.js';
 import { setSLDAttributes } from '../foundations/sld-attributes.js';
+import { newStartInteractionEvent } from '../foundations/events.js';
 import { sldThemeStyles } from '../theme.js';
 import { sldPrefix } from '../foundations.js';
 
@@ -47,20 +48,6 @@ const transformerConfigs: TransformerConfig[] = [
 
 function transformerIconName({ windings, kind }: TransformerConfig): string {
   return kind ? `sld_ptr_${windings}_${kind}` : `sld_ptr_${windings}`;
-}
-
-// --- Event for requesting element placement ---
-
-export type StartPlacingDetail = { element: Element };
-
-export type StartPlacingEvent = CustomEvent<StartPlacingDetail>;
-
-function newStartPlacingEvent(element: Element): StartPlacingEvent {
-  return new CustomEvent('start-placing', {
-    bubbles: true,
-    composed: true,
-    detail: { element },
-  });
 }
 
 // --- Event for toggling visibility ---
@@ -156,7 +143,9 @@ export class SldToolbar extends ScopedElementsMixin(LitElement) {
   }
 
   private startPlacing(element: Element) {
-    this.dispatchEvent(newStartPlacingEvent(element));
+    this.dispatchEvent(
+      newStartInteractionEvent({ mode: 'placing', element }),
+    );
   }
 
   // --- Template builders for FAB groups ---

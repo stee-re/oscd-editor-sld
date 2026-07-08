@@ -888,6 +888,16 @@ describe('SLD Editor', () => {
       window.dispatchEvent(event);
       expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
     });
+
+    it('aborts placing via the toolbar cancel button', async () => {
+      queryToolbar(element, '[title="Add VoltageLevel"]')?.click();
+      expect(targetInMode(sldEditor.interaction, 'placing')?.tagName).to.equal('VoltageLevel');
+      await element.updateComplete;
+      await awaitToolbar(element);
+      const cancel = queryToolbar<HTMLElement>(element, '[title="Cancel"]')!;
+      clickInteractive(cancel);
+      expect(targetInMode(sldEditor.interaction, 'placing')).to.be.undefined;
+    });
   });
 
   describe('given a voltage level', () => {

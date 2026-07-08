@@ -190,21 +190,22 @@ describe('SldToolbar', () => {
       );
       await toolbar.updateComplete;
       placingSpy = spy();
-      toolbar.addEventListener('start-placing', placingSpy);
+      toolbar.addEventListener('oscd-sld-start-interaction', placingSpy);
     });
 
-    it('dispatches start-placing for VoltageLevel', () => {
+    it('dispatches a placing intent for VoltageLevel', () => {
       const fab = queryToolbar(toolbar, '[title="Add VoltageLevel"]');
       expect(!!fab).to.be.true;
       clickInteractive(fab!);
 
       expect(placingSpy.calledOnce).to.be.true;
+      expect(placingSpy.firstCall.args[0].detail.mode).to.equal('placing');
       expect(
         placingSpy.firstCall.args[0].detail.element.tagName,
       ).to.equal('VoltageLevel');
     });
 
-    it('dispatches start-placing for ConductingEquipment', () => {
+    it('dispatches a placing intent for ConductingEquipment', () => {
       const fab = queryToolbar(toolbar, '[title="Add CBR"]');
       expect(!!fab).to.be.true;
       clickInteractive(fab!);
@@ -215,7 +216,7 @@ describe('SldToolbar', () => {
       expect(el.getAttribute('type')).to.equal('CBR');
     });
 
-    it('dispatches start-placing for PowerTransformer', () => {
+    it('dispatches a placing intent for PowerTransformer', () => {
       const fab = queryToolbar(toolbar, '[title="Add Two Winding Transformer"]');
       expect(!!fab).to.be.true;
       clickInteractive(fab!);

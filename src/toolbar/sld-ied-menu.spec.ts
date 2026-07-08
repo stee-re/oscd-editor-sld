@@ -89,7 +89,7 @@ describe('SldIedMenu', () => {
       );
       await menu.updateComplete;
       placingSpy = spy();
-      menu.addEventListener('start-placing', placingSpy);
+      menu.addEventListener('oscd-sld-start-interaction', placingSpy);
     });
 
     it('renders the Add IED button', () => {
@@ -109,7 +109,7 @@ describe('SldIedMenu', () => {
       expect(items[1].getAttribute('data-name')).to.equal('IED2');
     });
 
-    it('dispatches start-placing with a Reference element on IED selection', async () => {
+    it('dispatches a placing intent with a Reference element on IED selection', async () => {
       queryMenu(menu, 'oscd-fab[title="Add IED"]')!.click();
       await menu.updateComplete;
 

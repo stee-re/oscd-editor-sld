@@ -17,6 +17,7 @@ import { sldNs, sldPrefix } from '../foundations.js';
 import { iedReferences } from '../foundations/ied.js';
 import { createRemoveIedReferenceEdit } from '../foundations/ied-edits.js';
 import { getSLDAttributes } from '../foundations/sld-attributes.js';
+import { newStartInteractionEvent } from '../foundations/events.js';
 
 type IedMenuModel = {
   doc: XMLDocument;
@@ -156,11 +157,7 @@ export class SldIedMenu extends ScopedElementsMixin(LitElement) {
     const element = this.insertOrGetIedReference(ied);
     this.closeMenu();
     this.dispatchEvent(
-      new CustomEvent('start-placing', {
-        bubbles: true,
-        composed: true,
-        detail: { element },
-      }),
+      newStartInteractionEvent({ mode: 'placing', element }),
     );
   }
 
