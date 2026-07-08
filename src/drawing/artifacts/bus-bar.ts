@@ -5,6 +5,7 @@ import { containsRect } from '../../foundations/element-geometry.js';
 import { isBusBar } from '../../foundations/connectivity.js';
 import { attributes } from '../../foundations/sld-attributes.js';
 import { newPlaceEvent } from '../../foundations/events.js';
+import { isMode } from '../../foundations/interaction-mode.js';
 
 import type { Point } from '../../foundations/geometry.js';
 import {
@@ -53,7 +54,7 @@ function busBarActions(
   const [x, y] = state.position;
   const [w, h] = state.dimensions;
 
-  if (context.disabled) {
+  if (context.disabled || isMode(context.interaction, 'locked')) {
     return { onClick: () => {} };
   }
 

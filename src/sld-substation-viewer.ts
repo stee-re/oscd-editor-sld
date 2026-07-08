@@ -72,7 +72,7 @@ import { sldPrefix, svgNs, xlinkNs } from './foundations.js';
 
 import type { Point } from './foundations/geometry.js';
 import type { InteractionState } from './foundations/interaction-mode.js';
-import { connectDetail } from './foundations/interaction-mode.js';
+import { connectDetail, isMode } from './foundations/interaction-mode.js';
 import type {
   StartConnectDetail,
 } from './foundations/events.js';
@@ -113,7 +113,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   @property({ attribute: false })
-  interaction: InteractionState = { mode: 'idle' };
+  interaction: InteractionState = { mode: 'locked' };
 
   /**
    * The following read-only getters project the single {@link interaction}
@@ -202,7 +202,7 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   }
 
   protected override shouldUpdate(changedProperties: PropertyValues<this>) {
-    if (this.interaction.mode !== 'idle') {
+    if (!isMode(this.interaction, 'idle', 'locked')) {
       return true;
     }
 
@@ -899,6 +899,23 @@ export class SldSubstationViewer extends ScopedElementsMixin(LitElement) {
   static styles = [
     sldThemeStyles,
     css`
+    :host {
+      display: block;
+    }
+
+    /*
+     * Contain the intrinsically-sized svg (width = w × gridSize) within this
+     * host. This is dormant in the plugin — nothing there constrains the
+     * viewer's width (the host lays out at 'width: fit-content'), so the section
+     * grows to the svg's native size and never scrolls; the shell owns the
+     * scroll/zoom viewport. It only activates for a *constrained* standalone
+     * consumer (e.g. a fixed-width card), where it scrolls instead of spilling.
+     * See the fit-to-container workstream for scale-to-fit (vs. scroll).
+     */
+    section {
+      overflow: auto;
+    }
+
     #sld {
       color: var(--md-sys-color-on-surface, var(--oscd-base03));
     }

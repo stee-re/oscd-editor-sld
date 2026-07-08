@@ -3,7 +3,7 @@ import { identity } from '@openscd/scl-lib';
 
 import { conductingEquipmentArtifact } from './conducting-equipment.js';
 import { makeArtifactContext, renderToSvg } from './test-context.js';
-import { placing } from '../../foundations/interaction-mode.js';
+import { locked, placing } from '../../foundations/interaction-mode.js';
 import { sldFixture } from '../../test-helpers.js';
 
 function equipmentDoc() {
@@ -63,6 +63,13 @@ describe('conductingEquipmentArtifact', () => {
         preview: true,
       })!;
       expect(state.placingSelf).to.be.true;
+    });
+
+    it('hides the connect ports in the read-only locked mode', () => {
+      const context = makeArtifactContext({ interaction: locked(), substation });
+      const state = conductingEquipmentArtifact.state(equipment, context)!;
+      expect(state.canShowTopPort).to.be.false;
+      expect(state.canShowBottomPort).to.be.false;
     });
   });
 
