@@ -246,7 +246,8 @@ Beyond driving the viewers, the editor renders the singletons that must exist on
 | --- | --- | --- |
 | `geometry.ts` | Pure rectangle/point math (no DOM) | any |
 | `element-geometry.ts` | Element-aware geometry bridge (`containsRect`, `overlapsRect`) | any |
-| `sld-placement.ts` | Placement/resize validation (`canPlaceAt`, `canResizeTo`, `canResizeToTL`) + `copyElementForPlacement` | viewer |
+| `sld-placement.ts` | Placement/resize validation (`canPlaceAt`, `canResizeTo`, `canResizeToTL`) | viewer |
+| `placement-clone.ts` | `copyElementForPlacement` (preview-clone construction; invoked by `SldEditor` on a `copy` placing intent) | editor |
 | `sld-attributes.ts` | Read SLD-namespace attributes + imperative mutation primitives | viewer |
 | `sld-attribute-edits.ts` | `updateSLDAttributes` (`EditV2` builder) | editor |
 | `ied.ts` | IED reference queries / resolution | viewer |
