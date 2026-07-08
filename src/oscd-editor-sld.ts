@@ -8,7 +8,6 @@ import type { EditEventV2 } from '@openscd/oscd-api';
 import { insertIed } from '@openscd/scl-lib';
 
 import { SldEditor } from './sld-editor.js';
-import { idle } from './foundations/interaction-mode.js';
 
 import { makeBusBar } from './foundations/connectivity.js';
 import { withSldNamespace } from './foundations/edits.js';
@@ -18,6 +17,8 @@ import { convertSldLayout, hasOldNamespace } from './converter.js';
 import { SldToolbar } from './toolbar/sld-toolbar.js';
 import { sldThemeStyles } from './theme.js';
 import SldMigrationNotice from './sld-migration-notice.js';
+
+import type { StartInteractionEvent } from './foundations/events.js';
 
 export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
@@ -72,13 +73,17 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     }
   }
 
-  startPlacing(element: Element | undefined) {
-    this.reset();
-    this.sldEditor?.startPlacing(element);
-  }
-
-  async startBayTypicalPlacing ({bayTypical,ieds}: { bayTypical: Element; ieds: Element[] })  {
-    const result = await this.sldEditor?.startPlacing(bayTypical);
+  async startBayTypicalPlacing({
+    bayTypical,
+    ieds,
+  }: {
+    bayTypical: Element;
+    ieds: Element[];
+  }) {
+    const result = await this.sldEditor?.startInteraction({
+      mode: 'placing',
+      element: bayTypical,
+    });
     if (result) {
       const scl = this.doc.querySelector('SCL')!;
       ieds.forEach((ied) => {
@@ -87,28 +92,6 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         );
       });
     }
-  }
-  reset() {
-    this.inAction = false;
-    if (this.sldEditor) {
-      this.sldEditor.interaction = idle();
-    }
-  }
-
-  handleKeydown = ({ key }: KeyboardEvent) => {
-    if (key === 'Escape') {
-      this.reset();
-    }
-  };
-
-  connectedCallback() {
-    super.connectedCallback();
-    window.addEventListener('keydown', this.handleKeydown);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    window.removeEventListener('keydown', this.handleKeydown);
   }
 
   willUpdate(changedProperties: Map<string, unknown>) {
@@ -179,8 +162,8 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         .inAction=${this.inAction}
         .gridSize=${this.gridSize}
         @oscd-edit-v2=${this.normalizeEditsWithSldNS}
-        @start-placing=${({ detail }: CustomEvent) => {
-          this.startPlacing(detail.element);
+        @oscd-sld-start-interaction=${({ detail }: StartInteractionEvent) => {
+          this.sldEditor?.startInteraction(detail);
         }}
         @start-placing-typical=${({ detail }: CustomEvent) => {
           this.startBayTypicalPlacing(detail);
@@ -200,7 +183,7 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
             this.zoomOut();
           }
         }}
-        @cancel=${() => this.reset()}
+        @cancel=${() => this.sldEditor?.cancelInteraction()}
       ></sld-toolbar>
       <sld-editor
         .doc="${this.doc}"

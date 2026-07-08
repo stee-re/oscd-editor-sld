@@ -561,6 +561,54 @@ describe('SLD Editor', () => {
     });
   });
 
+  describe('public interaction API', () => {
+    let voltageLevel: Element;
+    let bay: Element;
+
+    beforeEach(() => {
+      const modeDoc = sldFixture({
+        children: '<ConductingEquipment name="QA1" type="CBR" />',
+      });
+      voltageLevel = modeDoc.querySelector('VoltageLevel')!;
+      bay = modeDoc.querySelector('Bay')!;
+    });
+
+    it('enters placing and returns the placement promise for a placing intent', () => {
+      const result = element.startInteraction({
+        mode: 'placing',
+        element: voltageLevel,
+      });
+      expectActiveMode('placing');
+      expect(result).to.be.an.instanceof(Promise);
+    });
+
+    it('resolves the placing intent promise when the mode is escaped', async () => {
+      const result = element.startInteraction({
+        mode: 'placing',
+        element: voltageLevel,
+      }) as Promise<unknown>;
+      await element.updateComplete;
+      element.cancelInteraction();
+      expect(await result).to.be.undefined;
+    });
+
+    it('enters a non-placing mode and returns void', () => {
+      const result = element.startInteraction({
+        mode: 'resizingBR',
+        element: bay,
+      });
+      expectActiveMode('resizingBR');
+      expect(result).to.be.undefined;
+    });
+
+    it('returns to idle on cancelInteraction', () => {
+      element.startInteraction({ mode: 'resizingBR', element: bay });
+      expectActiveMode('resizingBR');
+      element.cancelInteraction();
+      expectActiveMode(undefined);
+    });
+  });
+
   describe('given a substation', () => {
     let sldSubstationViewer: SldSubstationViewer;
     beforeEach(async () => {

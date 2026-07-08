@@ -183,7 +183,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   private handleKeydown = ({ key }: KeyboardEvent) => {
     if (key === 'Escape') {
-      this.interaction = interactions.idle();
+      this.cancelInteraction();
     }
   };
 
@@ -309,32 +309,54 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
   }
 
-  private handleStartInteraction = (detail: InteractionIntent) => {
-    switch (detail.mode) {
+  /**
+   * The single public entry for interaction *intents* — from the editor's own
+   * views (via bubbling `oscd-sld-start-interaction`) and, bridged by the host,
+   * from the sibling toolbar. Keeping every begin-transition behind this one
+   * method (rather than letting callers assign `interaction` or call
+   * `startPlacing` directly) makes the editor the sole owner of its interaction
+   * state. Returns the placement promise for the `placing` case so a caller
+   * orchestrating a follow-up (e.g. the host inserting IEDs after a bay-typical
+   * placement) can await the result; other modes return `void`.
+   */
+  startInteraction(
+    intent: InteractionIntent,
+  ): Promise<PlacementResult | undefined> | void {
+    switch (intent.mode) {
       case 'placing':
-        this.startPlacing(detail.element, detail.offset);
-        break;
+        return this.startPlacing(intent.element, intent.offset);
       case 'placingLabel':
         this.interaction = interactions.placingLabel(
-          detail.element,
-          detail.offset ?? [0, 0],
+          intent.element,
+          intent.offset ?? [0, 0],
         );
         break;
       case 'resizingBR':
-        this.interaction = interactions.resizingBR(detail.element);
+        this.interaction = interactions.resizingBR(intent.element);
         break;
       case 'resizingTL':
-        this.interaction = interactions.resizingTL(detail.element);
+        this.interaction = interactions.resizingTL(intent.element);
         break;
       case 'connecting':
         this.interaction = interactions.connectingFrom(
-          detail.from,
-          detail.fromTerminal,
-          detail.path,
+          intent.from,
+          intent.fromTerminal,
+          intent.path,
         );
         break;
     }
-  };
+    return undefined;
+  }
+
+  /**
+   * Abort the current interaction, returning the editor to its idle resting
+   * state. The host's toolbar cancel affordance requests this rather than
+   * assigning `interaction` directly, keeping the editor the sole owner of its
+   * interaction state.
+   */
+  cancelInteraction() {
+    this.interaction = interactions.idle();
+  }
 
   handleSubstationResize(element: Element, w: number, h: number) {
     this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
@@ -444,7 +466,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
               )}
             @oscd-sld-start-interaction=${({
               detail,
-            }: StartInteractionEvent) => this.handleStartInteraction(detail)}
+            }: StartInteractionEvent) => this.startInteraction(detail)}
             @oscd-sld-ground-terminal=${(event: GroundTerminalEvent) => {
               this.handleGroundTerminalRequest(event);
             }}
@@ -502,7 +524,7 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
       .doc=${this.doc}
       .nsp=${this.nsp}
       @oscd-sld-start-interaction=${({ detail }: StartInteractionEvent) =>
-        this.handleStartInteraction(detail)}
+        this.startInteraction(detail)}
       @oscd-sld-rotate=${({ detail }: StartEvent) =>
         this.rotateElement(detail)}
       @sld-ground-hint=${() => {
