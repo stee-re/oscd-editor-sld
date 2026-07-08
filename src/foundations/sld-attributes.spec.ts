@@ -4,7 +4,6 @@ import {
   attributes,
   getSLDAttributes,
   setSLDAttributes,
-  updateSLDAttributes,
   xmlBoolean,
   isTransformerKind,
 } from './sld-attributes.js';
@@ -168,43 +167,6 @@ describe('sld-attributes', () => {
       setSLDAttributes(vertex, 'smth', { x: '5', y: '6' });
       expect(getSLDAttributes(vertex, 'x')).to.equal('5');
       expect(getSLDAttributes(vertex, 'y')).to.equal('6');
-    });
-  });
-
-  describe('updateSLDAttributes', () => {
-    it('returns an EditV2 update object', () => {
-      const el = substationWithSLD(`smth:w="50" smth:h="25"`);
-      const edit = updateSLDAttributes(el, 'smth', { w: '60' });
-      expect(edit).to.have.property('element');
-      expect(edit).to.have.property('attributesNS');
-    });
-
-    it('maps keys with namespace prefix', () => {
-      const el = substationWithSLD(`smth:w="50"`);
-      const edit = updateSLDAttributes(el, 'smth', { w: '60', h: '30' });
-      const nsAttrs = (edit as { attributesNS: Record<string, Record<string, string | null>> }).attributesNS[sldNs];
-      expect(nsAttrs).to.have.property(`smth:w`, '60');
-      expect(nsAttrs).to.have.property(`smth:h`, '30');
-    });
-
-    it('supports null values for attribute removal', () => {
-      const el = substationWithSLD(`smth:w="50" smth:flip="true"`);
-      const edit = updateSLDAttributes(el, 'smth', { flip: null });
-      const nsAttrs = (edit as { attributesNS: Record<string, Record<string, string | null>> }).attributesNS[sldNs];
-      expect(nsAttrs).to.have.property(`smth:flip`, null);
-    });
-
-    it('targets the Section element directly for Section elements', () => {
-      const doc = createSCLDoc(`
-        <Substation name="S1">
-          <Private type="OpenSCD-SLD-Layout">
-            <smth:Section smth:bus="true"/>
-          </Private>
-        </Substation>
-      `);
-      const section = doc.getElementsByTagNameNS(sldNs, 'Section')[0];
-      const edit = updateSLDAttributes(section, 'smth', { bus: 'false' });
-      expect((edit as { element: Element }).element).to.equal(section);
     });
   });
 

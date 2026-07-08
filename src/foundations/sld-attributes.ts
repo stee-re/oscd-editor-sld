@@ -3,7 +3,6 @@ import { getReference } from '@openscd/scl-lib';
 import { isIedReferenceElement } from './ied.js';
 import { privType, sldNs } from '../foundations.js';
 
-import type { EditV2 } from '@openscd/oscd-api';
 import type { Point } from './geometry.js';
 
 export type Style = {
@@ -49,7 +48,10 @@ export function xmlBoolean(value?: string | null) {
   return ['true', '1'].includes(value?.trim() ?? 'false');
 }
 
-function sldAttributes(element: Element, nsPrefix?: string): Element | null {
+export function sldAttributes(
+  element: Element,
+  nsPrefix?: string,
+): Element | null {
   if (isIedReferenceElement(element)) {
     const referenceSldAttrs = Array.from(element.children).find(
       child =>
@@ -124,29 +126,6 @@ export function setSLDAttributes(
       ),
     );
   }
-}
-
-export function updateSLDAttributes(
-  element: Element,
-  nsPrefix: string,
-  values: Partial<Record<string, string | null>>,
-): EditV2 {
-  const isSectionOrVertex = ['Section', 'Vertex'].includes(element.localName);
-  const toBeUpdated = isSectionOrVertex
-    ? element
-    : sldAttributes(element, nsPrefix)!;
-
-  return {
-    element: toBeUpdated,
-    attributesNS: {
-      [sldNs]: Object.fromEntries(
-        Object.entries(values).map(([key, value]) => [
-          `${nsPrefix}:${key}`,
-          value,
-        ]),
-      ),
-    },
-  };
 }
 
 export function getSLDAttributes(element: Element, key: string): string | null {
