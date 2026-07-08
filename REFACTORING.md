@@ -10,43 +10,35 @@
 
 ## Guiding Star
 
-The immediate goal of this refactor is to reduce cognitive load: each file
-should have a clear responsibility, and behavior should be easier to understand,
-test, and change without reading the whole plugin.
+The immediate goal of this refactor is to reduce cognitive load: each file should have a clear responsibility, and behavior should be easier to understand, test, and change without reading the whole plugin.
 
-The longer-term goal is to make SLD functionality much easier to integrate with
-other plugins by enabling a future split into reusable npm modules. That split
-has not been analyzed yet, and the exact package boundaries, names, and APIs are
-not decided. The current refactor should create the conditions for that future
-analysis by making responsibilities clearer and dependencies easier to see.
+The longer-term goal is to make SLD functionality much easier to integrate with other plugins by enabling a future split into reusable npm modules. That split has not been analyzed yet, and the exact package boundaries, names, and APIs are not decided. The current refactor should create the conditions for that future analysis by making responsibilities clearer and dependencies easier to see.
 
-This is only a guiding star for the current work. We are not trying to design the
-future package split yet, but refactors should avoid making that future harder.
+This is only a guiding star for the current work. We are not trying to design the future package split yet, but refactors should avoid making that future harder.
 
 The code should move toward boundaries that could support a shape like this:
 
-- `oscd-sld-viewer`: renders an SLD from an SCL `Element`. It should own the
-  read-only SVG/grid rendering and expose user intent through events, such as
-  selecting a rendered artifact or clicking a grid position. The ideal core API
-  may be as simple as SCL `Element` in, SVG out; whether that is exposed as a
-  function, a web component, or both remains open.
-- `oscd-sld-editor`: builds on top of the viewer and translates editing intent
-  into a clean Edit API. It should likely build and surface edits so the owning
-  plugin can intercept, amend, or apply them and know when changes have
-  completed. The exact event/API shape is still unclear and should emerge from
-  behavior-preserving extractions.
-- `oscd-editor-plugin`: the OpenSCD plugin wrapper. It should eventually become
-  a thin container for plugin-specific toolbar/menu wiring, document integration,
-  and the reusable SLD editor.
+- `oscd-sld-viewer`: renders an SLD from an SCL `Element`. It should own the read-only SVG/grid rendering and expose user intent through events, such as selecting a rendered artifact or clicking a grid position. The ideal core API may be as simple as SCL `Element` in, SVG out; whether that is exposed as a function, a web component, or both remains open.
+- `oscd-sld-editor`: builds on top of the viewer and translates editing intent into a clean Edit API. It should likely build and surface edits so the owning plugin can intercept, amend, or apply them and know when changes have completed. The exact event/API shape is still unclear and should emerge from behavior-preserving extractions.
+- `oscd-editor-plugin`: the OpenSCD plugin wrapper. It should eventually become a thin container for plugin-specific toolbar/menu wiring, document integration, and the reusable SLD editor.
 
-Because the module split is not final, current refactors should avoid hardening
-temporary package boundaries too early. Prefer extracting cohesive rendering,
-validation, edit-building, and plugin-orchestration responsibilities in small
-steps that preserve behavior and keep future options open.
+Because the module split is not final, current refactors should avoid hardening temporary package boundaries too early. Prefer extracting cohesive rendering, validation, edit-building, and plugin-orchestration responsibilities in small steps that preserve behavior and keep future options open.
 
 ## Planned Workstreams
 
+- [ ] **Introduce an `sld-viewer` facade — first step of the §7 viewer/editor split.** Today there is no read-only, multi-substation viewer: `sld-substation-viewer` is per-`Substation`, and the only thing that maps `:root > Substation` → one-viewer-each is `sld-editor` (read-write). Create `src/sld-viewer.ts` (scoped-elements + co-located `sld-viewer.spec.ts`, per the code-structure conventions) as the read-only mirror of `sld-editor`: it takes `doc` / `docVersion` (plus `showLabels` / `showIeds` / `selectable` / `highlight`), owns the substation loop, and renders one `sld-substation-viewer` each — starting as an "empty vessel delegating to `sld-substation-viewer`" (ARCHITECTURE.md §7), then progressively pulling general (non-substation-specific) code up out of `sld-substation-viewer`. **Deliberately design the API rather than hatch it as a byproduct** — decide up front whether it owns selection, highlight, and interaction pass-through. Surfaced while writing the `demo/viewer-demo.html` PoC: that demo currently does the substation loop itself in an inline script, which is precisely the "the consumer is doing the viewer's job" signal that this facade should exist. Once it lands, upgrade `viewer-demo.html` to use `<sld-viewer>` instead of the hand-rolled loop. _(Note: the per-`Substation` viewer now defaults to the `locked` read-only interaction — see the locked-mode entry below — so the facade only has to own the substation **loop**, not re-establish read-only-ness; it simply leaves `interaction` at the default.)_
+
+- [ ] **Route toolbar-initiated placement through the intent channel (interaction ownership).** The `<sld-toolbar>` is rendered by the **host** (`oscd-editor-sld.ts`), but placement is an _interaction_ and therefore an editor concern. Today the host starts it by reaching **imperatively** into the editor — `this.sldEditor?.startPlacing(element)` and `this.sldEditor.interaction = idle()` — which bypasses the `oscd-sld-start-interaction` intent/state boundary that every other interaction uses, and splits ownership of the interaction lifecycle between host and editor. Fix: route toolbar-initiated placement through the same intent channel so the editor stays the sole owner of `interaction` state. (Surfaced while writing `ARCHITECTURE.md`; kept out of that doc, which describes the intended clean design.)
+
+- [ ] **Move preview-clone creation out of the viewer tier.** `copyElementForPlacement` (in viewer-tier `foundations/sld-placement.ts`) is currently invoked _by the viewer_ — inside an artifact's shift-click (copy-drag) action in `drawing/artifacts/{conducting-equipment,equipment-container,power-transformer}.ts` — which then hands the freshly-cloned element up as the `element` of a `placing` intent. So the viewer manufactures the clone (including UUID surgery via `setSLDAttributes`). Cleaner model: the viewer emits a "copy-and-place this source" intent and the **editor** creates the clone, keeping clone construction (and `setSLDAttributes`) out of the rendering tier entirely. Not a correctness bug today (the clone is a detached, not-yet-inserted element and only reaches the document via an `EditV2` Insert), but a tier-boundary smell. (Surfaced while writing `ARCHITECTURE.md`.)
+
+- [ ] **Give `sld-substation-viewer` an opt-in fit-to-container (scale-to-fit) mode for standalone use.** The viewer paints its `svg#sld` at **intrinsic resolution** — `width = w × gridSize`, `height = h × gridSize` (e.g. a 50×25 substation at `gridSize` 32 → a fixed 1600×800px svg). **Containment is now handled** by a default `section { overflow: auto }` on the viewer's shadow wrapper (see the completed entry below): the svg no longer spills out of a constrained container — it scrolls within it. That default is deliberately safe because `overflow: auto` is **dormant unless an ancestor imposes a definite width below the content**: verified in the live plugin that `main { width: fit-content }` still expands to the svg's native 1600px and the section shows **no** scrollbar (`scrollWidth === clientWidth`), so the shell keeps owning the scroll/zoom viewport exactly as before; only a _constrained_ standalone consumer (e.g. a fixed-width card) activates the scroll. **What remains open is _fit_, not _containment_:** scrolling lets you reach the rest of a too-large diagram, but not _see the whole substation at once_ scaled down. Add an **opt-in** fit mode (a `fit` / `scale-to-fit` boolean, or a sizing strategy prop), **off by default** to preserve the native-size/zoom contract, that lets the svg scale to its container via the viewBox (already clean — drop the fixed pixel `width`/`height` and let CSS `width:100%; height:auto` drive it when the flag is set; note a blanket `max-width:100%` would break the shell's gridSize-based zoom, so it must be opt-in). Likely owned by / co-designed with the `sld-viewer` facade (above), since read-only standalone display is precisely where scale-to-fit matters; once it exists, `viewer-demo.html` would enable it instead of showing native resolution.
+
 ## Completed Workstreams
+
+- [x] **Make `sld-substation-viewer` well-behaved in a constrained container (`:host { display: block }` + `section { overflow: auto }`). DONE.** Two small viewer-CSS fixes surfaced while diagnosing the `demo/viewer-demo.html` "the VL overflows its substation" observation. **Diagnosis (measured live, not assumed):** the apparent VL overflow was neither a VL-CSS bug nor a substation rect — the substation's own extent is painted by an invisible borderless white `<rect 100%×100%>`, so only the yellow-bordered VL _looked_ like the offender; in reality the whole `svg#sld` is drawn at intrinsic pixel size (`width = w × gridSize`, e.g. 1600px for a 50-wide substation at `gridSize` 32) and simply overflows its shadow `<section>` (measured 1600px svg vs. a 928px section). **Fix 1:** the host defaulted to `display: inline` (no `:host` rule) — a latent oddity for a diagram component — set to `display: block`. **Fix 2:** `section { overflow: auto }` so a constrained container scrolls the diagram instead of letting it spill and break page layout. **Why this is safe as a default (verified in the live plugin, not just the demo):** `overflow: auto` is _dormant_ unless an ancestor imposes a definite width below the content — and the plugin never does (`oscd-editor-sld`'s `main { width: fit-content }` grows to the svg's native size). Measured inside the real `oscd-shell`: `main` still computes to 1600px and the viewer section shows **no** scrollbar (`scrollWidth === clientWidth === 1600`), so the shell keeps owning the scroll/zoom viewport (zoom = `gridSize`) exactly as before — zero behaviour change in-plugin. Only a constrained standalone consumer (e.g. the demo's fixed-width card) activates the scroll. _(Author's note: an initial worry that a scroll container would sever the `fit-content` size propagation was **disproven** by the plugin measurement — scroll containers still contribute their content's max-content size upward.)_ This handles _containment_; _scale-to-fit_ (see the whole diagram shrunk to fit) remains the open fit-to-container workstream above. A clarifying comment was added at the `section` rule so the dormant-in-plugin default isn't later "cleaned up" as a no-op. Verified `tsc --noEmit` clean, `npm run test` (`564 passed, 0 failed`), `npm run format` (only the 2 pre-existing `geometry.ts` tsdoc warnings), and live plugin/demo measurements as above.
+
+- [x] **Add a `locked` interaction mode — a truly static, read-only viewer default. DONE.** `sld-substation-viewer` had no genuine read-only state: `idle` is the editor's _ready_ resting state, which still paints the affordances that _begin_ a gesture (connect ports, click-to-place targets, connectivity-node picks, context menus), and `disabled` greys the whole diagram to 20% opacity (`.disabled:not(.selectable){opacity:.2}`) — i.e. "inactive", not "read-only". Surfaced by `demo/viewer-demo.html`: a bare standalone viewer showed the orange connect-port circles and hover handles. **Design (sparred out with the user):** rather than add a third independent state axis (a `readonly` flag alongside `interaction` × `disabled`), added a new gesture-less member `{ mode: 'locked' }` to the `InteractionState` discriminated union (constructor `locked()` in `foundations/interaction-mode.ts`), and made it the **viewer's default** (was `{ mode: 'idle' }`). Because every affordance already gated on `isMode(interaction,'idle')` is false for any non-idle mode, the entire in-progress-overlay + gesture-start surface hides for free with zero artifact edits. **Enumerating what was _not_ idle-gated** (the user's key question — "what could still fire an imperative in locked?") found exactly three stragglers, each fixed behaviour-preservingly by adding `'locked'` to an existing gate: (1) conducting-equipment connect **ports** (`canShowTopPort`/`canShowBottomPort` — the orange circles), (2) **connectivity-node** lines (`pointerEvents` → `'none'`), (3) the **bus-bar** body `onClick` (noop guard, previously only `disabled`). The power-transformer body already noops in non-idle. **Consequence:** once those three are inert, nothing in a locked diagram is pointer-interactive, so **no imperative intent can be dispatched** — the earlier "should locked suppress `dispatch`?" question dissolved (no blanket/family-split guard needed; a future consumer wanting a "user clicked X" signal would add a deliberate notification path). Also special-cased `shouldUpdate` so `locked` behaves like `idle` for perf (skips mouse-coordinate-only re-renders). The editor is unaffected: it defaults its own `interaction` to `idle()`, always resets to it, and projects it down — it never enters `locked`. Docs updated (`ARCHITECTURE.md` §1/§2/§3 default + the two-resting-states distinction; `demo/viewer-demo.html` header). Verified `tsc --noEmit` clean, `npm run test` (`564 passed, 0 failed`; +8 specs across `interaction-mode`, `conducting-equipment`, `connectivity-node`, `bus-bar`, `sld-substation-viewer`, `sld-editor`), `npm run format` (only the 2 pre-existing `geometry.ts` tsdoc warnings), and a headless check confirming `viewer-demo.html` now renders in `locked` with **0** connect ports.
 
 - [x] **(UX) Make the legacy-coordinate migration screen clear and reassuring.** Done. Replaced the bare top-left `Convert SLD Layout` text button with a centered, no-chrome informational block (`.migration`): `oscd-icon` (shield) + reassuring heading/lead + a `<details>` _"What will change?"_ disclosure explaining that only _where_ the layout is stored changes (custom attributes → `<Private type="OpenSCD-SLD-Layout">`, which IEC 61850 requires conformant tools to preserve) + an `oscd-filled-button` CTA. Framed as protecting the user's layout, not a risky conversion. No card/dialog chrome — plain center-screen facts.
 
@@ -94,11 +86,7 @@ steps that preserve behavior and keep future options open.
   - **SVG constraint handled:** SVG presentation attributes don't resolve `var()`, so colour moved from `fill=`/`stroke=` attributes into inline `style="…: var(…)"` (and CSS for component chrome) across `diagram-symbols`, `equipment-container`, `conducting-equipment`, `power-transformer`, `label`, `sld-toolbar`, `sld-ied-menu`, `sld-coordinate-tooltip`, `sld-snackbar`, viewer `h2`.
   - **Behaviour notes:** floating panels (toolbar nav, tooltip) now use opaque `--md-sys-color-surface` instead of the old translucent `#fffd`; per-icon foregrounds added (substation/bay white, voltage-level dark on its yellow badge).
   - Verified `tsc --noEmit`, `npm run test` (`512 passed, 0 failed`), `npm run format`.
-  - **Follow-ups:**
-    ~~(c) structural diagram ink/paper~~ done (item 102, surface/on-surface pairing);
-    ~~(d) document the public hooks~~ done (item 97, `THEMING.md`).
-    ~~(e) the label-colour **data** picker in `sld-context-menu-factory.ts` (Red/Blue/Reset)~~ — needs the swatch token resolved to a concrete hex at persist time so preview matches persisted data (item 100);
-    ~~(f) the "Delete IED" destructive red cue, theme-error vs brand-red decision~~ (item 101).
+  - **Follow-ups:** ~~(c) structural diagram ink/paper~~ done (item 102, surface/on-surface pairing); ~~(d) document the public hooks~~ done (item 97, `THEMING.md`). ~~(e) the label-colour **data** picker in `sld-context-menu-factory.ts` (Red/Blue/Reset)~~ — needs the swatch token resolved to a concrete hex at persist time so preview matches persisted data (item 100); ~~(f) the "Delete IED" destructive red cue, theme-error vs brand-red decision~~ (item 101).
 - [x] **Label-colour data picker: resolve token → hex at persist time (`sld-context-menu-factory.ts`).** The Red/Blue/Reset picker (lines ~608–648) both _previews_ a swatch colour and _writes_ a concrete hex into the document (`updateSLDAttributes(text, …, { color: '#BB1326' })`); the dedupe guards compare the stored value (`color.toUpperCase() !== '#BB1326'`). For these to follow the active theme without the preview disagreeing with persisted data, resolve the themed token to a concrete hex (via `getComputedStyle(...).getPropertyValue('--oscd-sld-…')` on a live element) at persist time, and align the comparisons. Deferred — needs a live element for resolution; pairs naturally with the SVG-export resolution above. **Resolved as won't do**
 
 - [x] **Document the public `--oscd-editor-sld-*` theming tokens. DONE.** Added [`THEMING.md`](THEMING.md) (mirrors `@omicronenergy/oscd-shell`'s convention; better home than the stale template README, which now links to it). Documents the two-tier override model and every public hook (brand palette, surface/on-surface pairing, semantic tokens) with default and effect, plus the monochrome-export caveat. Source of truth remains `src/theme.ts`.
@@ -180,9 +168,7 @@ steps that preserve behavior and keep future options open.
 - [x] Extract container renderer (Bay/VoltageLevel) into `artifacts/equipment-container.ts` — with `EquipmentContainerContext` carrying child-renderer callbacks
 - [x] Split the container renderer into explicit `renderVoltageLevel`/`renderBay` entry points over a shared private `renderContainer(element, context, preview, kind, childContainers)` helper; `ContainerKind` constants (`voltageLevelKind`/`bayKind`) funnel the VL/Bay differences. Removes the dead Bay→Bay "recursion" branch (the SCL hierarchy is fixed-depth: bays never nest).
 - [x] **Split large SVG renderers only after lower-risk extractions — decompose `render()` into explicit, content-named _layer_ sub-renderers.** The agreed strategy (worked out in mentoring): because SVG has no `z-index`, **paint order _is_ the design** — the sequence in which children are emitted is exactly their stacking order (last-drawn wins). So `SldSubstationViewer.render()` (currently ~483 lines) should become a short, readable **stack of layer calls in paint order**, where the call order _is_ the documented z-order.
-  - **✅ DONE (2026-06-19, all steps verified tsc + format + 470 tests green after each cut).** `SldSubstationViewer.render()` is now fully flattened: Part-1 is just the substation-dim destructure, and the body is a pure stack of `render*()` calls. Methods created (in paint order):
-    `renderHeader` (h2 toolbar) · `renderVoltageLevelPlacingTarget` (VL drop-zone, back) · `renderVoltageLevelLayer` · `renderConnectionPreviewLayer` · `renderConnectModeEquipmentLayer` (renamed from the confusing `renderConnectEquipmentLayer`; + doc comment on the suppress-below/re-paint-on-top trick) · `renderConnectivityLayer` (collapsed the two busbar/non-busbar passes into one stable "busbars last" sort) · `renderPowerTransformerLayer` · `renderIedLayer` · `renderLabelLayer` · `renderPlacingTargetsLayer` (transformer/ied/label, front) · `renderPlacingPreview` (the ghost, top) · `renderCoordinateTooltip` (DOM overlay outside the `<svg>`, owns the placing/resizingBR/resizingTL invalid/hidden/coords math — no `Layer` suffix as it is not a z-band) · `renderResizeDialog`.
-    The placing targets kept their deliberate TOP/BOTTOM z-split (VL target back; transformer/ied/label targets front) — preserved exactly, with comments. `handleExport` and `this.sld` left untouched (export is a view concern — see the litmus-test workstream below).
+  - **✅ DONE (2026-06-19, all steps verified tsc + format + 470 tests green after each cut).** `SldSubstationViewer.render()` is now fully flattened: Part-1 is just the substation-dim destructure, and the body is a pure stack of `render*()` calls. Methods created (in paint order): `renderHeader` (h2 toolbar) · `renderVoltageLevelPlacingTarget` (VL drop-zone, back) · `renderVoltageLevelLayer` · `renderConnectionPreviewLayer` · `renderConnectModeEquipmentLayer` (renamed from the confusing `renderConnectEquipmentLayer`; + doc comment on the suppress-below/re-paint-on-top trick) · `renderConnectivityLayer` (collapsed the two busbar/non-busbar passes into one stable "busbars last" sort) · `renderPowerTransformerLayer` · `renderIedLayer` · `renderLabelLayer` · `renderPlacingTargetsLayer` (transformer/ied/label, front) · `renderPlacingPreview` (the ghost, top) · `renderCoordinateTooltip` (DOM overlay outside the `<svg>`, owns the placing/resizingBR/resizingTL invalid/hidden/coords math — no `Layer` suffix as it is not a z-band) · `renderResizeDialog`. The placing targets kept their deliberate TOP/BOTTOM z-split (VL target back; transformer/ied/label targets front) — preserved exactly, with comments. `handleExport` and `this.sld` left untouched (export is a view concern — see the litmus-test workstream below).
   - **Phase 3 later completed separately:** apply the same layer treatment to the _container-internal_ sub-stack in `equipment-container.ts` `render()` (frame → contained equipment → transformers → IEDs → handles → drop-targets, lines ~299–349). These are the nested sub-layers; tracked as its own completed checkbox below.
   - **The `Layer` naming convention.** Use the `…Layer` suffix **only** where a method renders a _band_ whose position in the call sequence is z-critical — i.e. reordering the call would visibly change what sits on top (`renderConnectivityLayer`, `renderLabelLayer`, `renderPlacingTargetsLayer`, `renderConnectionPreviewLayer`, `renderResizeOverlayLayer`, …). Do **not** suffix per-element artifact renderers (`renderEquipment`, single-element `renderLabel`) or order-independent helpers — they render one thing in one spot and make no stacking claim. Rule of thumb: _if reordering the call would change the picture, it's a `Layer`; if it only draws one item in a place, it isn't._ The word `Layer` is a signal to the reader "this is a distinct stacking level — when it is called (the order) is crucial."
   - **Layers nest (two scales).** Not everything is a flat substation-root band. The **container** subtree (`equipment-container.ts`) is itself an internal z-stack (frame → contained equipment → transformers → IEDs → handles → drop-targets, lines ~299–349) — those are _sub-layers_. Contained equipment is painted _inside_ its container's `<g>`, not as a flat top-level band, so the layer model applies recursively rather than flattening everything to the root.
@@ -208,14 +194,7 @@ steps that preserve behavior and keep future options open.
 
 ## Reference Principles
 
-- **GUIDING PRINCIPLE for the viewer/editor split — the edit-vs-view litmus test.** When deciding where an operation belongs, ask: _does it produce an `EditV2` (mutate the SCL document)?_ → it belongs in the **editor/controller** layer (`SldEditor`). _Does it read/serialise the rendered view?_ → it belongs in the **view** layer (`SldSubstationViewer`). This is the rule that should drive the eventual `viewer / editor / plugin` module split. State of the four header buttons against this test, now that the header is an **editor-owned** `<sld-substation-header>` slotted into the viewer:
-  | button | what it does | belongs to | status |
-  |---|---|---|---|
-  | **Resize dialog** | builds `updateSLDAttributes` → `newEditEventV2` | controller | **✅ editor-side: header → `resizeDialog.show(substation)`** |
-  | **Delete** | `newEditEventV2({ node: substation })` | controller | **✅ editor-side: header → direct `newEditEventV2`** |
-  | **Edit** | dialog → `newEditEventV2` | host/controller | **✅ editor-side: header → `editScl(substation)`** |
-  | **Export** | serialises the rendered `<svg>` via `serializeForExport` | **view** | **✅ view-owned `viewer.exportableSvg()`; editor triggers `downloadSvg`** |
-  Evidence the controller already owns the main gesture edits: `sld-editor.ts` handles `@oscd-sld-resize`/`-resize-tl`/`-place`/`-place-label`/`-connect`/`-rotate` and dispatches `newEditEventV2` (see `createResizeEdits`/`createResizeTLEdits` etc.). The viewer now emits only diagram-gesture intents.
+- **GUIDING PRINCIPLE for the viewer/editor split — the edit-vs-view litmus test.** When deciding where an operation belongs, ask: _does it produce an `EditV2` (mutate the SCL document)?_ → it belongs in the **editor/controller** layer (`SldEditor`). _Does it read/serialise the rendered view?_ → it belongs in the **view** layer (`SldSubstationViewer`). This is the rule that should drive the eventual `viewer / editor / plugin` module split. State of the four header buttons against this test, now that the header is an **editor-owned** `<sld-substation-header>` slotted into the viewer: | button | what it does | belongs to | status | |---|---|---|---| | **Resize dialog** | builds `updateSLDAttributes` → `newEditEventV2` | controller | **✅ editor-side: header → `resizeDialog.show(substation)`** | | **Delete** | `newEditEventV2({ node: substation })` | controller | **✅ editor-side: header → direct `newEditEventV2`** | | **Edit** | dialog → `newEditEventV2` | host/controller | **✅ editor-side: header → `editScl(substation)`** | | **Export** | serialises the rendered `<svg>` via `serializeForExport` | **view** | **✅ view-owned `viewer.exportableSvg()`; editor triggers `downloadSvg`** | Evidence the controller already owns the main gesture edits: `sld-editor.ts` handles `@oscd-sld-resize`/`-resize-tl`/`-place`/`-place-label`/`-connect`/`-rotate` and dispatches `newEditEventV2` (see `createResizeEdits`/`createResizeTLEdits` etc.). The viewer now emits only diagram-gesture intents.
 
 ## Current File Layout
 
@@ -247,16 +226,18 @@ steps that preserve behavior and keep future options open.
 
 - `src/foundations/geometry.ts` — pure rectangle/point math (Rect, Point tuples, no DOM)
 - `src/foundations/element-geometry.ts` — Element-aware geometry bridge (`containsRect`, `overlapsRect`)
-- `src/foundations/sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`)
+- `src/foundations/sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`) **+ `copyElementForPlacement`** (pure preview-clone: strips foreign connectivity/IED refs and re-UUIDs terminals). **Viewer tier — returns `Element`, never `EditV2`.**
 - `src/foundations/equipment.ts` — Type constants & guards
 - `src/foundations/transformer.ts` — Rendering geometry for windings
-- `src/foundations/sld-attributes.ts` — Read/write SLD namespace attributes
+- `src/foundations/sld-attributes.ts` — Read SLD namespace attributes + imperative mutation primitives (`getSLDAttributes`, `setSLDAttributes`, `sldAttributes`, `attributes`). **No `EditV2` — viewer-tier safe.**
+- `src/foundations/sld-attribute-edits.ts` — SLD-attribute `EditV2` builder (`updateSLDAttributes`). **Editor tier.**
 - `src/foundations/events.ts` — Custom event factories & types
 - `src/foundations/export.ts` — XML pretty-print & download
-- `src/foundations/ied.ts` — IED resolution + one edit builder
+- `src/foundations/ied.ts` — IED resolution/queries (`iedReferences`, `resolveIed`, `unresolvedIedReferences`). **No `EditV2` — viewer-tier safe.**
+- `src/foundations/ied-edits.ts` — IED reference `EditV2` builder (`createRemoveIedReferenceEdit`). **Editor tier.**
 - `src/foundations/connectivity.ts` — Queries (isBusBar, busSections, connectionStartPoints, connectivityPath, makeBusBar)
 - `src/foundations/connectivity-edits.ts` — Connectivity edit builders (removeNode, removeTerminal, reparentElement, uniqueName)
-- `src/foundations/edits.ts` — Pure edit builders (ground, flip, delete, copy, connect)
+- `src/foundations/edits.ts` — Editor-tier `EditV2` builders (ground, flip, delete, connect, resize, rotate, text)
 
 ### Other
 
@@ -287,38 +268,29 @@ steps that preserve behavior and keep future options open.
 
 ## Toolbar Architecture
 
-The toolbar is extracted into three self-contained components, each with their own
-scoped element registrations.
+The toolbar is extracted into three self-contained components, each with their own scoped element registrations.
 
 ### `<sld-toolbar>`
 
-Layout compositor. Receives `doc`, `docVersion`, `nsp`, `templateElements`,
-`inAction`, `gridSize` as properties. Handles `insertSubstation` and the about
-dialog internally. Emits events upward:
+Layout compositor. Receives `doc`, `docVersion`, `nsp`, `templateElements`, `inAction`, `gridSize` as properties. Handles `insertSubstation` and the about dialog internally. Emits events upward:
 
-| Event                   | Detail                         | Purpose                                      |
-| ----------------------- | ------------------------------ | -------------------------------------------- |
-| `start-placing`         | `{ element }`                  | Equipment/structural/transformer FAB clicked |
-| `start-placing-typical` | `{ bayTypical, ieds }`         | Bay typical imported (from ied-importer)     |
-| `view-change`           | `{ showLabels, showIeds }`     | Toggle labels or IED visibility              |
-| `zoom`                  | `{ direction: 'in' \| 'out' }` | Zoom in/out                                  |
-| `cancel`                | —                              | Cancel action                                |
+| Event | Detail | Purpose |
+| --- | --- | --- |
+| `start-placing` | `{ element }` | Equipment/structural/transformer FAB clicked |
+| `start-placing-typical` | `{ bayTypical, ieds }` | Bay typical imported (from ied-importer) |
+| `view-change` | `{ showLabels, showIeds }` | Toggle labels or IED visibility |
+| `zoom` | `{ direction: 'in' \| 'out' }` | Zoom in/out |
+| `cancel` | — | Cancel action |
 
-Data-driven transformer configs (`TransformerConfig[]`) replace 6 repetitive FAB
-blocks with a single config array + `createTransformerElement(config)` factory.
+Data-driven transformer configs (`TransformerConfig[]`) replace 6 repetitive FAB blocks with a single config array + `createTransformerElement(config)` factory.
 
 ### `<sld-ied-importer>`
 
-FAB + hidden file input. On file selection: parses SCL, runs `convertSldLayout()`,
-dispatches `EditV2` for conversion edits, then emits `start-placing-typical`
-with `{ bayTypical, ieds }`. The root component uses the promise-based placement
-API to await placement and then imports the IEDs.
+FAB + hidden file input. On file selection: parses SCL, runs `convertSldLayout()`, dispatches `EditV2` for conversion edits, then emits `start-placing-typical` with `{ bayTypical, ieds }`. The root component uses the promise-based placement API to await placement and then imports the IEDs.
 
 ### `<sld-ied-menu>`
 
-Sectioned menu (unmatched refs, available IEDs, used IEDs). Contains
-`insertOrGetIedReference()` logic (moved from root). Emits `start-placing`
-with `{ element }` — handled by root as a regular placement.
+Sectioned menu (unmatched refs, available IEDs, used IEDs). Contains `insertOrGetIedReference()` logic (moved from root). Emits `start-placing` with `{ element }` — handled by root as a regular placement.
 
 ## Promise-Based Placement API
 
@@ -337,11 +309,9 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 **Why promises over events:**
 
-- 1:1 correlation between initiator and completion — no ambiguity about "was this
-  event mine or someone else's?"
+- 1:1 correlation between initiator and completion — no ambiguity about "was this event mine or someone else's?"
 - Eliminates special-case state (`placingBayTypical`) and its code paths
-- Fits naturally: downward calls (parent → child) are already imperative; upward
-  signals (child → parent) remain events
+- Fits naturally: downward calls (parent → child) are already imperative; upward signals (child → parent) remain events
 
 **Usage pattern (bay typical import):**
 
@@ -391,16 +361,9 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 - `OscdSldIcon` provides SLD-specific UI icons with a fallback chain (SLD_ICONS → SCL_ICONS → Material Symbols). It owns toolbar and context-menu icon rendering for SLD entities and actions.
 - Approved small UI correction: context-menu headers now render SLD entity icons through `<oscd-sld-icon slot="start">...`, so VoltageLevel and ConductingEquipment headers show the same kind of visible start icon as transformer headers. Snapshot updates are expected for this change.
-- Prefer functional artifact descriptors over artifact classes for the diagram
-  extraction. The class model (`SldConductingEquipment`, etc.) is coherent, but
-  the existing codebase already leans toward pure helpers, data-driven configs,
-  discriminated unions, and Lit template functions. Functional descriptors keep
-  dependencies explicit and avoid hidden coupling through class instances.
-- Artifact descriptors expose `matches`, `state`, `actions`, and `render`.
-  `SldSubstationViewer` remains the orchestration layer and provides an explicit
-  `SldArtifactContext`; artifacts must not receive the concrete editor instance.
-- Do not add `index.ts` barrel files for artifact modules. Import specific files
-  directly to avoid needless boilerplate and hidden coupling.
+- Prefer functional artifact descriptors over artifact classes for the diagram extraction. The class model (`SldConductingEquipment`, etc.) is coherent, but the existing codebase already leans toward pure helpers, data-driven configs, discriminated unions, and Lit template functions. Functional descriptors keep dependencies explicit and avoid hidden coupling through class instances.
+- Artifact descriptors expose `matches`, `state`, `actions`, and `render`. `SldSubstationViewer` remains the orchestration layer and provides an explicit `SldArtifactContext`; artifacts must not receive the concrete editor instance.
+- Do not add `index.ts` barrel files for artifact modules. Import specific files directly to avoid needless boilerplate and hidden coupling.
 - Avoid exported render helper functions that secretly require callers to register scoped child components, instead prefer actual internal components when templates need their own scoped dependencies.
 - Avoid adding new inline CSS during refactors unless the value is truly dynamic or cannot cross a shadow DOM boundary cleanly.
 - Avoid passing `TemplateResult` through data shapes. Prefer plain strings for labels/headlines.
@@ -416,6 +379,8 @@ startPlacing(element, offset?): Promise<PlacementResult | undefined>
 
 ## Last Verified State
 
+- `npm run format` passed (only the 2 pre-existing `geometry.ts` tsdoc warnings); `tsc --noEmit` clean.
+- `npm run test` passed with `556 passed, 0 failed` (37 test files). **Viewer/editor dependency boundary made provably clean via three move-only relocations** (no behaviour change), so the rendering tier imports zero `EditV2`/`@openscd/oscd-api` and no edit builders: (1) `updateSLDAttributes` (the sole `EditV2` builder in `sld-attributes.ts`) extracted to new editor-tier `foundations/sld-attribute-edits.ts` — `sld-attributes.ts` sheds its `EditV2` import and keeps only queries + the imperative `setSLDAttributes`/`sldAttributes` mutation primitives (a **shared** low-level helper deliberately left viewer-accessible; it does not build `EditV2`); (2) `createRemoveIedReferenceEdit` extracted from `ied.ts` to new editor-tier `foundations/ied-edits.ts` — `ied.ts` sheds its `EditV2` import; (3) `copyElementForPlacement` (a pure preview-clone returning `Element`, never `EditV2`) moved from editor-tier `edits.ts` to viewer-tier `sld-placement.ts`, so `drawing/**` no longer imports `edits.js` at all. Importers updated across `context-menu`, `toolbar`, the `foundations.ts` barrel, and the 3 artifacts. Per the code-structure test-co-location rule the three relocated `describe` blocks moved into co-located specs (`sld-attribute-edits.spec.ts`, `ied-edits.spec.ts`, and the `copyElementForPlacement` block into the existing `sld-placement.spec.ts`). Verified clean: `grep` finds **zero** `oscd-api`/`EditV2` refs and **zero** `edits.js`/`*-edits.js` imports across `drawing/**` + `sld-substation-viewer.ts` + the viewer-tier foundations. The three-tier arrow (rendering → foundations, never → controller) now holds statically, not just conceptually.
 - `npm run format` passed (only the 2 pre-existing `geometry.ts` tsdoc warnings); `tsc --noEmit` clean.
 - `npm run test` passed with `556 passed, 0 failed` (35 test files). Extracted the legacy-coordinate migration screen out of the root into its own presentational component `src/sld-migration-notice.ts` (`SldMigrationNotice`, `ScopedElementsMixin`, registers `oscd-icon`/`oscd-filled-button`, owns the copy, styles and the disabled `Converting…` busy-state + two-`requestAnimationFrame` paint-yield). It emits a composed, bubbling `sld-convert` intent event; the root wires `@sld-convert=${() => this.convertSldAttributes()}` and `convertSldAttributes` is synchronous again — the root sheds the two `oscd-ui` imports/registrations, the `converting` `@state`, and ~70 lines of `.migration*` CSS. Per the code-structure test-co-location rule, the button/busy-state contract moved to the new co-located `src/sld-migration-notice.spec.ts` (4 tests); the root spec now drives conversion through the `sld-convert` contract via a `triggerConversion()` helper instead of reaching into the child's button.
 - `npm run format` passed (only the 2 pre-existing `geometry.ts` tsdoc warnings); `tsc --noEmit` clean.
@@ -511,13 +476,7 @@ Latest verification after the `render()` layer decomposition (Phase 1 + 2 + E):
 - `npm run format` passed.
 - `npm run test` passed with `470 passed, 0 failed` (behaviour preserved — pure method extraction, no z-order change).
 - `SldSubstationViewer.render()` is now a short paint-order stack of 13 extracted `render*` methods (see the layer-strategy checklist item near the top). The file grew slightly to ~1150 lines purely from the extra method headers/doc comments; `render()` itself dropped from ~483 lines to a readable stack.
-- Done: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the
-  resize-dialog hoist, and the header/tooltip component candidates are all
-  complete (see the container sub-layer, resize-dialog, and tooltip/header
-  entries below and in Completed Workstreams). The `renderLabel` editor↔artifact
-  callback cycle — the last Phase-A-adjacent smell — is now also resolved (see
-  the discipline-pass note below). The one remaining large decomposition is the
-  interaction/render split (Phase C).
+- Done: Phase 3 (container-internal sub-layers in `equipment-container.ts`), the resize-dialog hoist, and the header/tooltip component candidates are all complete (see the container sub-layer, resize-dialog, and tooltip/header entries below and in Completed Workstreams). The `renderLabel` editor↔artifact callback cycle — the last Phase-A-adjacent smell — is now also resolved (see the discipline-pass note below). The one remaining large decomposition is the interaction/render split (Phase C).
 
 Latest verification after the resize-dialog hoist:
 
@@ -530,131 +489,99 @@ Latest verification after the resize-dialog hoist:
 
 ## Edit Builder Extraction — Complete
 
-Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API).
-`sld-editor.ts` is now a thin orchestrator (state + event routing + promise-based placement),
-while edit-building logic lives as pure functions in `foundations/`.
+Edit builders extracted from `sld-editor.ts` (848 → 369 lines, now 402 after placement API). `sld-editor.ts` is now a thin orchestrator (state + event routing + promise-based placement), while edit-building logic lives as pure functions in `foundations/`.
 
 ### Foundations Structure Assessment
 
 Current files are well-grouped by domain concept:
 
-| File                    | Responsibility                                                                  | Notes        |
-| ----------------------- | ------------------------------------------------------------------------------- | ------------ |
-| `geometry.ts`           | Pure math (Rect, Point, contains, overlaps)                                     | ✅           |
-| `element-geometry.ts`   | Bridges geometry ↔ SCL elements                                                 | ✅           |
-| `sld-placement.ts`      | Validation (`canPlaceAt`, `canResizeTo`)                                        | ✅ read-only |
-| `equipment.ts`          | Type constants & guards                                                         | ✅           |
-| `transformer.ts`        | Rendering geometry for windings                                                 | ✅           |
-| `sld-attributes.ts`     | Read/write SLD namespace attributes                                             | ✅           |
-| `events.ts`             | Custom event factories & types                                                  | ✅           |
-| `export.ts`             | XML pretty-print & download                                                     | ✅           |
-| `ied.ts`                | IED resolution + one edit builder                                               | ✅           |
-| `connectivity.ts`       | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`)          | ✅ pure      |
-| `connectivity-edits.ts` | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅           |
-| `edits.ts`              | Pure edit builders (ground, flip, delete, copy, connect)                        | ✅           |
+| File | Responsibility | Notes |
+| --- | --- | --- |
+| `geometry.ts` | Pure math (Rect, Point, contains, overlaps) | ✅ |
+| `element-geometry.ts` | Bridges geometry ↔ SCL elements | ✅ |
+| `sld-placement.ts` | Validation (`canPlaceAt`, `canResizeTo`) | ✅ read-only |
+| `equipment.ts` | Type constants & guards | ✅ |
+| `transformer.ts` | Rendering geometry for windings | ✅ |
+| `sld-attributes.ts` | Read/write SLD namespace attributes | ✅ |
+| `events.ts` | Custom event factories & types | ✅ |
+| `export.ts` | XML pretty-print & download | ✅ |
+| `ied.ts` | IED resolution + one edit builder | ✅ |
+| `connectivity.ts` | Read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`) | ✅ pure |
+| `connectivity-edits.ts` | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) | ✅ |
+| `edits.ts` | Pure edit builders (ground, flip, delete, copy, connect) | ✅ |
 
-`connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`,
-`busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`,
-`makeBusBar`). A future pass could move the edit builders into `edits.ts`, leaving
-connectivity as purely read-only. Not a prerequisite for the current work.
+`connectivity.ts` mixes read-only queries (`isBusBar`, `connectionStartPoints`, `busSections`) with edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `makeBusBar`). A future pass could move the edit builders into `edits.ts`, leaving connectivity as purely read-only. Not a prerequisite for the current work.
 
 ## Toolbar Extraction — Complete
 
 The root component's ~500-line `render()` was decomposed into three components:
 
-| Before                                           | After                                           |
-| ------------------------------------------------ | ----------------------------------------------- |
+| Before | After |
+| --- | --- |
 | `oscd-editor-sld.ts` 784 lines, ~500-line render | `oscd-editor-sld.ts` 210 lines, ~40-line render |
-| 6 repetitive transformer FAB blocks              | Data-driven `TransformerConfig[]` array         |
-| IED menu logic embedded in render                | Self-contained `<sld-ied-menu>` component       |
-| Bay typical import mixed into root               | Self-contained `<sld-ied-importer>` component   |
-| `placingBayTypical` special state                | Promise-based `startPlacing()` with async/await |
-| About dialog in root                             | Toolbar-internal (no event needed)              |
-| `insertSubstation` in root                       | Toolbar-internal (dispatches `EditV2` directly) |
-| 10 verbose `sld-toolbar-*` events                | 5 clean short-name events                       |
+| 6 repetitive transformer FAB blocks | Data-driven `TransformerConfig[]` array |
+| IED menu logic embedded in render | Self-contained `<sld-ied-menu>` component |
+| Bay typical import mixed into root | Self-contained `<sld-ied-importer>` component |
+| `placingBayTypical` special state | Promise-based `startPlacing()` with async/await |
+| About dialog in root | Toolbar-internal (no event needed) |
+| `insertSubstation` in root | Toolbar-internal (dispatches `EditV2` directly) |
+| 10 verbose `sld-toolbar-*` events | 5 clean short-name events |
 
 ## Connectivity Boundary Split — Complete
 
 `connectivity.ts` (433 lines) separated into:
 
-| File                    | Lines | Responsibility                                                                                                                     |
-| ----------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `connectivity.ts`       | 106   | Pure read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`). No `EditV2` import. |
-| `connectivity-edits.ts` | 334   | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) + private helpers                                  |
+| File | Lines | Responsibility |
+| --- | --- | --- |
+| `connectivity.ts` | 106 | Pure read-only queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`). No `EditV2` import. |
+| `connectivity-edits.ts` | 334 | Edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`) + private helpers |
 
-`connectivity.ts` is now a clean read-only module suitable for the future viewer package — it
-has no dependency on `EditV2`, `@openscd/scl-lib`, or `./ied.js`.
+`connectivity.ts` is now a clean read-only module suitable for the future viewer package — it has no dependency on `EditV2`, `@openscd/scl-lib`, or `./ied.js`.
 
 ## `sld-substation-viewer.ts` Analysis — The (Shrinking) Elephant (~930 lines)
 
-Still the largest single file and the future viewer extraction target, but no
-longer the 2,173-line monolith this section originally described: Phase A
-(artifact descriptors) and Phase B (diagram symbols) below are **done**, which
-moved ~1,200 lines of per-artifact SVG rendering out into `drawing/`. What
-remains is a thinner viewer that still mixes three concerns — SVG composition,
-interaction-overlay rendering, and edit dispatch — with the interaction/render
-split (Phase C) the main outstanding decomposition.
+Still the largest single file and the future viewer extraction target, but no longer the 2,173-line monolith this section originally described: Phase A (artifact descriptors) and Phase B (diagram symbols) below are **done**, which moved ~1,200 lines of per-artifact SVG rendering out into `drawing/`. What remains is a thinner viewer that still mixes three concerns — SVG composition, interaction-overlay rendering, and edit dispatch — with the interaction/render split (Phase C) the main outstanding decomposition.
 
 ### Structural breakdown (current)
 
-The file is now dominated by small, focused methods rather than a few giant
-ones. Grouped by role:
+The file is now dominated by small, focused methods rather than a few giant ones. Grouped by role:
 
-| Group                        | Approx. lines | Contents                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `render()` composition       | ~73           | The `<svg>` scaffold, the `@mousemove` coordinate tracker, and the z-ordered list of `render*Layer` calls. No per-artifact drawing.                                                                                                                                                                                                                                      |
-| Interaction-overlay layers   | ~245          | The `render*Layer` band methods: `renderConnectionPreviewLayer` (~73, now the largest), `renderPlacingTargetsLayer` (~51), `renderPlacingPreview` (~25), plus the small VL/connectivity/PT/IED/label band methods. This is the editing overlay — Phase C territory. (The coordinate tooltip is no longer here — it is a single editor-owned `<sld-coordinate-tooltip>`.) |
-| Artifact wrappers + contexts | ~150          | Thin delegating wrappers (`renderEquipment`, `renderPowerTransformer`, `renderConnectivityNode`, `renderBusBar`, `renderIed`, `renderLabel`) that call the generic `renderArtifact(descriptor, element, context, options)`, plus the per-artifact context builders (`sharedContext`, `equipmentContext`, `powerTransformerContext`, `connectivityNodeContext`).          |
-| Viewer state + utilities     | ~250          | 30+ `@property`/`@state` fields, mouse-coordinate transforms (`svgCoordinates`, `gridPosition`, `halfGridPosition`, `renderedPosition`, `renderedLabelPosition`), and edit-adjacent helpers (`nearestOpenTerminal`, `groundTerminal`, IED-resolution cache).                                                                                                             |
-| `static styles`              | ~20           | Component chrome CSS (most colour tokens now live in `theme.ts`).                                                                                                                                                                                                                                                                                                        |
+| Group | Approx. lines | Contents |
+| --- | --- | --- |
+| `render()` composition | ~73 | The `<svg>` scaffold, the `@mousemove` coordinate tracker, and the z-ordered list of `render*Layer` calls. No per-artifact drawing. |
+| Interaction-overlay layers | ~245 | The `render*Layer` band methods: `renderConnectionPreviewLayer` (~73, now the largest), `renderPlacingTargetsLayer` (~51), `renderPlacingPreview` (~25), plus the small VL/connectivity/PT/IED/label band methods. This is the editing overlay — Phase C territory. (The coordinate tooltip is no longer here — it is a single editor-owned `<sld-coordinate-tooltip>`.) |
+| Artifact wrappers + contexts | ~150 | Thin delegating wrappers (`renderEquipment`, `renderPowerTransformer`, `renderConnectivityNode`, `renderBusBar`, `renderIed`, `renderLabel`) that call the generic `renderArtifact(descriptor, element, context, options)`, plus the per-artifact context builders (`sharedContext`, `equipmentContext`, `powerTransformerContext`, `connectivityNodeContext`). |
+| Viewer state + utilities | ~250 | 30+ `@property`/`@state` fields, mouse-coordinate transforms (`svgCoordinates`, `gridPosition`, `halfGridPosition`, `renderedPosition`, `renderedLabelPosition`), and edit-adjacent helpers (`nearestOpenTerminal`, `groundTerminal`, IED-resolution cache). |
+| `static styles` | ~20 | Component chrome CSS (most colour tokens now live in `theme.ts`). |
 
-The per-artifact renderers the original table listed as 251/215/116/115-line
-methods (`renderEquipment`, `renderConnectivityNode`, transformer/label, …) are
-now the 10–30-line delegating wrappers above; their bodies live in
-`drawing/artifacts/*`.
+The per-artifact renderers the original table listed as 251/215/116/115-line methods (`renderEquipment`, `renderConnectivityNode`, transformer/label, …) are now the 10–30-line delegating wrappers above; their bodies live in `drawing/artifacts/*`.
 
 ### Three concerns interleaved
 
-1. **Pure SVG rendering** — largely **extracted**. Each artifact type now owns
-   its state derivation, action wiring, and SVG composition in
-   `drawing/artifacts/*`; the viewer only builds a per-artifact context and
-   delegates via `renderArtifact`.
+1. **Pure SVG rendering** — largely **extracted**. Each artifact type now owns its state derivation, action wiring, and SVG composition in `drawing/artifacts/*`; the viewer only builds a per-artifact context and delegates via `renderArtifact`.
 
-2. **Interaction-overlay rendering** — the bulk of what remains. Placement,
-   resizing, and connection preview are composed by the `render*Layer` methods
-   (placing targets, invalid-placement feedback, connection preview polylines).
-   This is editing logic, not viewing, and is the target of Phase C. (The
-   placement/resize coordinate read-out already moved out to a single
-   editor-owned `<sld-coordinate-tooltip>`.)
+2. **Interaction-overlay rendering** — the bulk of what remains. Placement, resizing, and connection preview are composed by the `render*Layer` methods (placing targets, invalid-placement feedback, connection preview polylines). This is editing logic, not viewing, and is the target of Phase C. (The placement/resize coordinate read-out already moved out to a single editor-owned `<sld-coordinate-tooltip>`.)
 
-3. **Edit dispatch** — `groundTerminal()` and various `@click` handlers still
-   build intent events / edits from the viewer; the larger edit-vs-view
-   consolidation (routing through `SldEditor`) is tracked in the completed
-   interaction-state and event-vocabulary workstreams above.
+3. **Edit dispatch** — `groundTerminal()` and various `@click` handlers still build intent events / edits from the viewer; the larger edit-vs-view consolidation (routing through `SldEditor`) is tracked in the completed interaction-state and event-vocabulary workstreams above.
 
 ### Current decomposition strategy
 
 **Phase A: Extract functional artifact descriptors — Done.**
 
-Each artifact type is a functional descriptor in `src/drawing/artifacts/`. The
-descriptor owns artifact-specific state derivation, action wiring, and SVG
-composition. `SldSubstationViewer` builds a per-artifact context (spread from a
-shared base — see the discipline pass below) and calls
-`renderArtifact(descriptor, element, context, options)`.
+Each artifact type is a functional descriptor in `src/drawing/artifacts/`. The descriptor owns artifact-specific state derivation, action wiring, and SVG composition. `SldSubstationViewer` builds a per-artifact context (spread from a shared base — see the discipline pass below) and calls `renderArtifact(descriptor, element, context, options)`.
 
-| Module                                      | Contains                                                               |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
+| Module | Contains |
+| --- | --- |
 | `drawing/artifacts/conducting-equipment.ts` | ConductingEquipment artifact descriptor: state, actions, SVG rendering |
-| `drawing/artifacts/artifact.ts`             | Shared artifact descriptor/context types                               |
-| `drawing/artifacts/equipment-container.ts`  | Bay/VoltageLevel artifact descriptor                                   |
-| `drawing/artifacts/connectivity-node.ts`    | ConnectivityNode artifact descriptor                                   |
-| `drawing/artifacts/power-transformer.ts`    | PowerTransformer + TransformerWinding artifact descriptor              |
-| `drawing/artifacts/label.ts`                | Label artifact descriptor/helper                                       |
-| `drawing/artifacts/ied-reference.ts`        | IED reference artifact descriptor: state, actions, SVG rendering       |
-| `drawing/artifacts/bus-bar.ts`              | BusBar artifact descriptor                                             |
+| `drawing/artifacts/artifact.ts` | Shared artifact descriptor/context types |
+| `drawing/artifacts/equipment-container.ts` | Bay/VoltageLevel artifact descriptor |
+| `drawing/artifacts/connectivity-node.ts` | ConnectivityNode artifact descriptor |
+| `drawing/artifacts/power-transformer.ts` | PowerTransformer + TransformerWinding artifact descriptor |
+| `drawing/artifacts/label.ts` | Label artifact descriptor/helper |
+| `drawing/artifacts/ied-reference.ts` | IED reference artifact descriptor: state, actions, SVG rendering |
+| `drawing/artifacts/bus-bar.ts` | BusBar artifact descriptor |
 
-Descriptor shape (source of truth: `artifact.ts`; carries a `TContext` generic —
-see the discipline pass below):
+Descriptor shape (source of truth: `artifact.ts`; carries a `TContext` generic — see the discipline pass below):
 
 ```typescript
 type SldArtifactDescriptor<
@@ -678,52 +605,30 @@ Implemented viewer wrappers (each a thin delegate to `renderArtifact`):
 - `renderConnectivityNode()` → `drawing/artifacts/connectivity-node.ts`
 - `renderLabel()` → `drawing/artifacts/label.ts`
 
-The per-artifact context must be kept disciplined. The shared base
-(`SldSharedContext`) should contain truly common editor/render services only;
-artifact-specific needs stay in that artifact's own context type (which extends
-the base) — see the discipline pass below.
+The per-artifact context must be kept disciplined. The shared base (`SldSharedContext`) should contain truly common editor/render services only; artifact-specific needs stay in that artifact's own context type (which extends the base) — see the discipline pass below.
 
 ### `SldArtifactContext` discipline pass — Complete
 
-The flat `SldArtifactContext` (~24 fields) was split so single-consumer
-dependencies are no longer shared. The descriptor now carries a `TContext`
-generic, and each artifact declares its own context type extending a small
-shared base:
+The flat `SldArtifactContext` (~24 fields) was split so single-consumer dependencies are no longer shared. The descriptor now carries a `TContext` generic, and each artifact declares its own context type extending a small shared base:
 
 ```typescript
 type SldArtifactDescriptor<TState, TActions, TContext extends SldSharedContext>
 ```
 
-| Type                      | Owner module                        | Fields                                                                                                                                                                                                                |
-| ------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SldSharedContext`        | `artifacts/artifact.ts`             | `disabled`, `dispatch`, `gridPosition`, `halfGridPosition`, `interaction`, `requestContextMenu`, `resolveIed`, `renderedLabelPosition`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
-| `EquipmentContext`        | `artifacts/conducting-equipment.ts` | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nearestOpenTerminal`, `nsp`                                                                                                                              |
-| `PowerTransformerContext` | `artifacts/power-transformer.ts`    | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp`                                                                                                                                                     |
-| `ConnectivityNodeContext` | `artifacts/connectivity-node.ts`    | shared + `mouseX`, `mouseY`, `mouseX2`, `mouseY2`                                                                                                                                                                     |
-| `BusBarContext`           | `artifacts/bus-bar.ts`              | alias of `ConnectivityNodeContext`                                                                                                                                                                                    |
-| (ied-reference)           | uses `SldSharedContext` directly    | —                                                                                                                                                                                                                     |
+| Type | Owner module | Fields |
+| --- | --- | --- |
+| `SldSharedContext` | `artifacts/artifact.ts` | `disabled`, `dispatch`, `gridPosition`, `halfGridPosition`, `interaction`, `requestContextMenu`, `resolveIed`, `renderedLabelPosition`, `renderedPosition`, `selectable`, `substation`, `view` (used by ≥2 artifacts) |
+| `EquipmentContext` | `artifacts/conducting-equipment.ts` | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nearestOpenTerminal`, `nsp` |
+| `PowerTransformerContext` | `artifacts/power-transformer.ts` | shared + `groundTerminal`, `highlight`, `mouseX`, `mouseY`, `nsp` |
+| `ConnectivityNodeContext` | `artifacts/connectivity-node.ts` | shared + `mouseX`, `mouseY`, `mouseX2`, `mouseY2` |
+| `BusBarContext` | `artifacts/bus-bar.ts` | alias of `ConnectivityNodeContext` |
+| (ied-reference) | uses `SldSharedContext` directly | — |
 
-Note: the single `interaction: InteractionState` field on `SldSharedContext`
-replaced the earlier per-artifact `placing`/`placingLabel`/`connecting`/
-`resizingTL`/`resizingBR`/`idle` fan-out; artifacts now read it through the
-`isMode`/`targetInMode`/`connectDetail` selectors (see the completed downward-
-projection collapse workstream above), so the now-deleted `Connecting` type is
-gone.
+Note: the single `interaction: InteractionState` field on `SldSharedContext` replaced the earlier per-artifact `placing`/`placingLabel`/`connecting`/ `resizingTL`/`resizingBR`/`idle` fan-out; artifacts now read it through the `isMode`/`targetInMode`/`connectDetail` selectors (see the completed downward- projection collapse workstream above), so the now-deleted `Connecting` type is gone.
 
-The editor builds the shared bag once in `sharedContext()` and spreads it into
-per-artifact builders (`equipmentContext()`, `powerTransformerContext()`,
-`busBarContext()`, `connectivityNodeContext()`). `renderArtifact()` takes the
-context as an argument.
+The editor builds the shared bag once in `sharedContext()` and spreads it into per-artifact builders (`equipmentContext()`, `powerTransformerContext()`, `busBarContext()`, `connectivityNodeContext()`). `renderArtifact()` takes the context as an argument.
 
-Resolved (was a deferred smell): the shared `renderLabel` used to be an editor
-render callback threaded through `SldSharedContext`, creating an
-artifact→editor→artifact cycle. It is gone — `SldSharedContext` now carries the
-pure position helper `renderedLabelPosition` (symmetric with `renderedPosition`),
-and every artifact imports the pure `renderLabel` from `drawing/artifacts/label.ts`
-directly (mirroring how bus-bar already imports `renderConnectivityNode`). The
-vestigial `LabelContext` (its only real addition was `renderedLabelPosition`;
-`mouseX2`/`mouseY2` were unused) was deleted, and the redundant `labelContext()`
-builder was dropped. No artifact renderer is injected as a context callback now.
+Resolved (was a deferred smell): the shared `renderLabel` used to be an editor render callback threaded through `SldSharedContext`, creating an artifact→editor→artifact cycle. It is gone — `SldSharedContext` now carries the pure position helper `renderedLabelPosition` (symmetric with `renderedPosition`), and every artifact imports the pure `renderLabel` from `drawing/artifacts/label.ts` directly (mirroring how bus-bar already imports `renderConnectivityNode`). The vestigial `LabelContext` (its only real addition was `renderedLabelPosition`; `mouseX2`/`mouseY2` were unused) was deleted, and the redundant `labelContext()` builder was dropped. No artifact renderer is injected as a context callback now.
 
 **Phase B: Extract diagram symbols**
 
@@ -734,41 +639,29 @@ Move diagram-specific SVG primitives into `drawing/diagram-symbols.ts`:
 - `zigZagPath`, `zigZag2WTransform`, `eqRingPath`
 - `equipmentPath`
 
-These are diagram renderer internals, not shared UI icons. This removes the
-large mixed-purpose `icons.ts` module and leaves UI icon rendering with
-`OscdSldIcon`.
+These are diagram renderer internals, not shared UI icons. This removes the large mixed-purpose `icons.ts` module and leaves UI icon rendering with `OscdSldIcon`.
 
 **Phase C: Separate interaction from rendering**
 
-The `render()` method's placing/resizing/connecting logic could become a Lit
-reactive controller or a separate interaction-layer component. This would create
-a clean viewer/editor boundary:
+The `render()` method's placing/resizing/connecting logic could become a Lit reactive controller or a separate interaction-layer component. This would create a clean viewer/editor boundary:
 
 - **Viewer**: takes SCL + display flags, renders static SVG, emits selection events
 - **Editor overlay**: adds placing targets, resize handles, connection previews
 
-This is the most complex phase. Its gating workstreams (the `render()` layer
-decomposition, the interaction-state/event-vocabulary consolidation, and the
-idle/base-layer render memoization) are now complete, so it is unblocked — but
-it remains the largest restructure step and should be sequenced last.
+This is the most complex phase. Its gating workstreams (the `render()` layer decomposition, the interaction-state/event-vocabulary consolidation, and the idle/base-layer render memoization) are now complete, so it is unblocked — but it remains the largest restructure step and should be sequenced last.
 
 ### Key challenge: shared context
 
-The render methods reference `this.mouseX`, `this.placing`, `this.placingOffset`,
-`this.disabled`, `this.showLabels`, etc. Some of these are now derived getters off
-the consolidated `this.interaction` state (e.g. `placing`, `placingOffset`) rather
-than raw fields, but they are still read directly off the component. The extraction
-requires threading a context object. The interface is stable so this is mechanical
-but touches many lines.
+The render methods reference `this.mouseX`, `this.placing`, `this.placingOffset`, `this.disabled`, `this.showLabels`, etc. Some of these are now derived getters off the consolidated `this.interaction` state (e.g. `placing`, `placingOffset`) rather than raw fields, but they are still read directly off the component. The extraction requires threading a context object. The interface is stable so this is mechanical but touches many lines.
 
 ### Icon Ownership Status
 
 The former `icons.ts` served three unrelated consumers:
 
-| Consumer                   | Uses                                                                      |
-| -------------------------- | ------------------------------------------------------------------------- |
-| `sld-toolbar.ts`           | SLD entity/action icons for FAB `slot="icon"`                             |
-| `sld-context-menu.ts`      | SLD entity/action icons for menu/list `slot="start"`                      |
+| Consumer | Uses |
+| --- | --- |
+| `sld-toolbar.ts` | SLD entity/action icons for FAB `slot="icon"` |
+| `sld-context-menu.ts` | SLD entity/action icons for menu/list `slot="start"` |
 | `sld-substation-viewer.ts` | Diagram `<defs>`, resize paths, transformer paths, equipment symbol paths |
 
 Phase B resolves this by deleting `icons.ts`:
@@ -780,30 +673,13 @@ Phase B resolves this by deleting `icons.ts`:
 
 ### Near-term (before module split)
 
-1. ~~**Extract diagram symbols (Phase B)**~~ — Done. SVG defs/resize paths live in
-   `drawing/diagram-symbols.ts`; UI icon ownership lives in `OscdSldIcon`.
-2. ~~**Extract SVG renderers (Phase A)**~~ — Done. The core artifact
-   renderers live under `drawing/artifacts/` with co-located specs, including
-   the `equipment-container.ts` internal sub-layer split, and the last
-   Phase-A-adjacent smell — the `renderLabel` editor↔artifact callback cycle —
-   is resolved (see the discipline pass above).
-3. **Separate interaction from rendering (Phase C)** — Create viewer/editor
-   boundary. The gating layer, mode, and idle-render workstreams have now
-   settled, so this is unblocked; it remains the largest and most complex
-   item, so treat it as the last major restructure step.
+1. ~~**Extract diagram symbols (Phase B)**~~ — Done. SVG defs/resize paths live in `drawing/diagram-symbols.ts`; UI icon ownership lives in `OscdSldIcon`.
+2. ~~**Extract SVG renderers (Phase A)**~~ — Done. The core artifact renderers live under `drawing/artifacts/` with co-located specs, including the `equipment-container.ts` internal sub-layer split, and the last Phase-A-adjacent smell — the `renderLabel` editor↔artifact callback cycle — is resolved (see the discipline pass above).
+3. **Separate interaction from rendering (Phase C)** — Create viewer/editor boundary. The gating layer, mode, and idle-render workstreams have now settled, so this is unblocked; it remains the largest and most complex item, so treat it as the last major restructure step.
 4. ~~**`connectivity.ts` boundary**~~ — Done. Split into queries + edit builders.
-5. ~~**Clean up structural conventions**~~ — Reviewed as done; no broad import-order
-   churn needed because the repo does not enforce import ordering.
-6. ~~**Consolidate test fixtures/helpers**~~ — Done for the repeated artifact SLD
-   scaffolds via `sldFixture()` in `test-helpers.ts`; the opportunistic follow-up
-   (converting `context-menu/sld-context-menu.spec.ts` and the eligible
-   `foundations/edits.spec.ts` fixtures) is also done — see Completed Workstreams.
-7. ~~**Expose themable artifact colours as CSS variables**~~ — Done. The rendered
-   diagram was already fully tokenised by the theming workstream (the old
-   "equipment top-indicator `#BB1326`" example is stale — it renders via
-   `var(--oscd-sld-terminal-color)`). The residual context-menu literals are now
-   split into themed chrome vs. deliberately-literal persisted document values —
-   see Completed Workstreams.
+5. ~~**Clean up structural conventions**~~ — Reviewed as done; no broad import-order churn needed because the repo does not enforce import ordering.
+6. ~~**Consolidate test fixtures/helpers**~~ — Done for the repeated artifact SLD scaffolds via `sldFixture()` in `test-helpers.ts`; the opportunistic follow-up (converting `context-menu/sld-context-menu.spec.ts` and the eligible `foundations/edits.spec.ts` fixtures) is also done — see Completed Workstreams.
+7. ~~**Expose themable artifact colours as CSS variables**~~ — Done. The rendered diagram was already fully tokenised by the theming workstream (the old "equipment top-indicator `#BB1326`" example is stale — it renders via `var(--oscd-sld-terminal-color)`). The residual context-menu literals are now split into themed chrome vs. deliberately-literal persisted document values — see Completed Workstreams.
 
 ### Future (module split preparation)
 
