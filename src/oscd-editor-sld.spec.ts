@@ -10,6 +10,7 @@ import { identity } from '@openscd/scl-lib';
 import OscdEditorSld from './oscd-editor-sld.js';
 import { SldSubstationViewer } from './sld-substation-viewer.js';
 import { SldEditor } from './sld-editor.js';
+import type { PlacementResult } from './sld-editor.js';
 import { getSLDAttributes } from './foundations/sld-attributes.js';
 import { iedReferences, resolveIed } from './foundations/ied.js';
 import { targetInMode } from './foundations/interaction-mode.js';
@@ -817,6 +818,86 @@ describe('SLD Editor', () => {
     expect(attrs!.getAttributeNS(sldNs, 'y')).to.equal('3');
     expect(attrs!.getAttributeNS(sldNs, 'lx')).to.equal('4');
     expect(attrs!.getAttributeNS(sldNs, 'ly')).to.equal('4');
+  });
+
+  describe('zoom controls', () => {
+    it('increases the grid size when zooming in', () => {
+      const before = element.gridSize;
+      element.zoomIn();
+      expect(element.gridSize).to.equal(before + 3);
+    });
+
+    it('decreases the grid size when zooming out', () => {
+      const before = element.gridSize;
+      element.zoomOut();
+      expect(element.gridSize).to.equal(before - 3);
+    });
+
+    it('clamps the grid size to a minimum of 2 when zooming out', () => {
+      element.gridSize = 3;
+      element.zoomOut();
+      expect(element.gridSize).to.equal(2);
+    });
+  });
+
+  describe('toolbar actions', () => {
+    function dispatchOnToolbar(type: string, detail?: unknown): void {
+      const toolbar = element.shadowRoot!.querySelector('sld-toolbar')!;
+      toolbar.dispatchEvent(new CustomEvent(type, { detail }));
+    }
+
+    it('zooms in on a toolbar zoom event', () => {
+      const before = element.gridSize;
+      dispatchOnToolbar('zoom', { direction: 'in' });
+      expect(element.gridSize).to.equal(before + 3);
+    });
+
+    it('zooms out on a toolbar zoom event', () => {
+      const before = element.gridSize;
+      dispatchOnToolbar('zoom', { direction: 'out' });
+      expect(element.gridSize).to.equal(before - 3);
+    });
+
+    it('updates label and IED visibility on a view-change event', () => {
+      dispatchOnToolbar('view-change', { showLabels: false, showIeds: false });
+      expect(element.showLabels).to.be.false;
+      expect(element.showIeds).to.be.false;
+    });
+
+    it('inserts imported IEDs when bay typical placement succeeds', async () => {
+      const bayTypical = element.doc.createElement('Bay');
+      const ied = element.doc.createElement('IED');
+      ied.setAttribute('name', 'IED_A');
+      element.sldEditor!.startInteraction = () =>
+        Promise.resolve({} as PlacementResult);
+
+      const edits: EditEventV2[] = [];
+      element.addEventListener('oscd-edit-v2', e =>
+        edits.push(e as EditEventV2),
+      );
+      dispatchOnToolbar('start-placing-typical', { bayTypical, ieds: [ied] });
+      await aTimeout(0);
+
+      expect(edits.length).to.be.greaterThan(0);
+      expect(element.doc.querySelector('IED[name="IED_A"]')).to.not.be.null;
+    });
+
+    it('does not insert IEDs when bay typical placement is aborted', async () => {
+      const bayTypical = element.doc.createElement('Bay');
+      const ied = element.doc.createElement('IED');
+      ied.setAttribute('name', 'IED_B');
+      element.sldEditor!.startInteraction = () => Promise.resolve(undefined);
+
+      const edits: EditEventV2[] = [];
+      element.addEventListener('oscd-edit-v2', e =>
+        edits.push(e as EditEventV2),
+      );
+      dispatchOnToolbar('start-placing-typical', { bayTypical, ieds: [ied] });
+      await aTimeout(0);
+
+      expect(edits.length).to.equal(0);
+      expect(element.doc.querySelector('IED[name="IED_B"]')).to.be.null;
+    });
   });
 
   describe('given a substation', () => {

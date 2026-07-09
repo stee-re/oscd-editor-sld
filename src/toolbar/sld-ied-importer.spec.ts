@@ -68,6 +68,27 @@ describe('SldIedImporter', () => {
 
     expect(eventSpy.called).to.be.false;
   });
+
+  it('ignores a change event with no file selected', async () => {
+    const input = importer.shadowRoot!.querySelector('input')!;
+    Object.defineProperty(input, 'files', {
+      value: { item: () => null, length: 0 },
+      writable: false,
+      configurable: true,
+    });
+    input.dispatchEvent(new Event('change'));
+    await new Promise(r => setTimeout(r, 20));
+
+    expect(eventSpy.called).to.be.false;
+  });
+
+  it('opens the file picker when the FAB is clicked', () => {
+    const input = importer.shadowRoot!.querySelector('input')!;
+    const clickSpy = spy(input, 'click');
+    const fab = importer.shadowRoot!.querySelector('oscd-fab')!;
+    fab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(clickSpy.called).to.be.true;
+  });
 });
 
 async function simulateFileSelect(

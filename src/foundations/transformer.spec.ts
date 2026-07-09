@@ -1,7 +1,48 @@
 import { expect } from '@open-wc/testing';
 
 import { transformerWindingMeasures } from './transformer.js';
+import type { TransformerKind } from './sld-attributes.js';
 import { createSCLDoc } from '../test-helpers.js';
+
+const groundedN1 = '<NeutralPoint name="N1" cNodeName="grounded"/>';
+const groundedN2 = '<NeutralPoint name="N2" cNodeName="grounded"/>';
+
+/** Builds `count` windings, placing `neutral` XML inside winding `neutralOn`. */
+function windingXml(count: number, neutralOn = -1, neutral = ''): string {
+  let out = '';
+  for (let i = 0; i < count; i += 1) {
+    out += `<TransformerWinding name="W${i + 1}">${
+      i === neutralOn ? neutral : ''
+    }</TransformerWinding>`;
+  }
+  return out;
+}
+
+/** Computes winding measures for the winding at `index` of `inner`. */
+function measures(
+  inner: string,
+  opts: { rot?: 0 | 1 | 2 | 3; kind?: TransformerKind; flip?: boolean } = {},
+  index = 0,
+  zigZag = '',
+): ReturnType<typeof transformerWindingMeasures> {
+  const doc = createSCLDoc(`
+    <Substation name="S1">
+      <VoltageLevel name="V1">
+        <Bay name="B1">
+          <PowerTransformer name="T1">${inner}</PowerTransformer>
+        </Bay>
+      </VoltageLevel>
+    </Substation>
+  `);
+  const winding = doc.querySelectorAll('TransformerWinding')[index];
+  return transformerWindingMeasures(
+    winding,
+    [5, 3],
+    { rot: opts.rot ?? 0, kind: opts.kind ?? 'default', flip: opts.flip ?? false },
+    zigZag,
+  );
+}
+
 
 describe('transformer', () => {
   describe('transformerWindingMeasures', () => {
@@ -227,6 +268,12 @@ describe('transformer', () => {
         expect(result.arc).to.not.be.undefined;
       });
 
+      it('honours flip on the first winding', () => {
+        const noFlip = measures(windingXml(2), { kind: 'auto' }, 0);
+        const flipped = measures(windingXml(2), { kind: 'auto', flip: true }, 0);
+        expect(flipped.terminals.T1).to.not.deep.equal(noFlip.terminals.T1);
+      });
+
       it('returns T1 terminal for second winding', () => {
         const doc = createSCLDoc(`
           <Substation name="S1">
@@ -385,6 +432,134 @@ describe('transformer', () => {
           '',
         );
         expect(noFlip.terminals.T1).to.not.deep.equal(flipped.terminals.T1);
+      });
+    });
+
+    describe('grounded neutral points', () => {
+      it('grounds N1 for a single default winding', () => {
+        const result = measures(windingXml(1, 0, groundedN1), {
+          kind: 'default',
+        });
+        expect(result.grounded.N1).to.not.be.undefined;
+        expect(result.grounded.N1).to.have.length(2);
+        expect(result.terminals.N1).to.be.undefined;
+      });
+
+      it('grounds N2 for a single default winding', () => {
+        const result = measures(windingXml(1, 0, groundedN2), {
+          kind: 'default',
+        });
+        expect(result.grounded.N2).to.not.be.undefined;
+        expect(result.grounded.N1).to.be.undefined;
+      });
+
+      it('grounds N1 for an auto first winding', () => {
+        const result = measures(windingXml(2, 0, groundedN1), { kind: 'auto' }, 0);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N1 for an auto second winding', () => {
+        const result = measures(windingXml(2, 1, groundedN1), { kind: 'auto' }, 1);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N2 for an auto second winding', () => {
+        const result = measures(windingXml(2, 1, groundedN2), { kind: 'auto' }, 1);
+        expect(result.grounded.N2).to.not.be.undefined;
+      });
+
+      it('grounds N1 for a default two-winding first winding', () => {
+        const result = measures(windingXml(2, 0, groundedN1), {
+          kind: 'default',
+        }, 0);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N2 for a default two-winding first winding', () => {
+        const result = measures(windingXml(2, 0, groundedN2), {
+          kind: 'default',
+        }, 0);
+        expect(result.grounded.N2).to.not.be.undefined;
+      });
+
+      it('grounds N1 for a default two-winding second winding', () => {
+        const result = measures(windingXml(2, 1, groundedN1), {
+          kind: 'default',
+        }, 1);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N2 for a default two-winding second winding', () => {
+        const result = measures(windingXml(2, 1, groundedN2), {
+          kind: 'default',
+        }, 1);
+        expect(result.grounded.N2).to.not.be.undefined;
+      });
+
+      it('grounds N1 for a three-winding first winding', () => {
+        const result = measures(windingXml(3, 0, groundedN1), {}, 0);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N2 for a three-winding first winding', () => {
+        const result = measures(windingXml(3, 0, groundedN2), {}, 0);
+        expect(result.grounded.N2).to.not.be.undefined;
+      });
+
+      it('grounds N1 for a three-winding second winding', () => {
+        const result = measures(windingXml(3, 1, groundedN1), {}, 1);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+
+      it('grounds N1 for a three-winding third winding', () => {
+        const result = measures(windingXml(3, 2, groundedN1), {}, 2);
+        expect(result.grounded.N1).to.not.be.undefined;
+      });
+    });
+
+    describe('two windings - earthing kind', () => {
+      it('applies the zig-zag transform and a T1 terminal on the first winding', () => {
+        const result = measures(
+          windingXml(2),
+          { kind: 'earthing' },
+          0,
+          'rotate(30)',
+        );
+        expect(result.zigZagTransform).to.equal('rotate(30)');
+        expect(result.terminals.T1).to.not.be.undefined;
+        expect(result.terminals.N1).to.not.be.undefined;
+      });
+
+      it('grounds N1 on the first winding when the neutral is grounded', () => {
+        const result = measures(
+          windingXml(2, 0, groundedN1),
+          { kind: 'earthing' },
+          0,
+          'rotate(30)',
+        );
+        expect(result.grounded.N1).to.not.be.undefined;
+        expect(result.terminals.N1).to.be.undefined;
+      });
+
+      it('honours flip on the first winding', () => {
+        const result = measures(
+          windingXml(2),
+          { kind: 'earthing', flip: true },
+          0,
+          'rotate(30)',
+        );
+        expect(result.terminals.T1).to.not.be.undefined;
+      });
+
+      it('places a T1 terminal on the second winding without a zig-zag transform', () => {
+        const result = measures(
+          windingXml(2),
+          { kind: 'earthing' },
+          1,
+          'rotate(30)',
+        );
+        expect(result.terminals.T1).to.not.be.undefined;
+        expect(result.zigZagTransform).to.be.undefined;
       });
     });
   });

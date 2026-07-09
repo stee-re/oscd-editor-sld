@@ -173,9 +173,9 @@ export function elbowCorner(path: Point[], target: Point): Point {
  *
  * The bend is {@link elbowCorner} toward the target. The target is the bare
  * `cursor`, unless it hovers a snap target that supplies its own `far` approach
- * point and `near` terminal endpoint (the preview then runs `corner → far →
- * near`; without a snap target `far` and `near` are both the cursor, i.e. the
- * `far → near` stub has zero length).
+ * point and `near` terminal endpoint (the preview then runs
+ * `corner → far → near`; without a snap target `far` and `near` are both the
+ * cursor, i.e. the `far → near` stub has zero length).
  *
  * The returned `corner`, `far`, `near` are exactly the points
  * {@link extendConnectPointPaths} commits on click, so the preview and the
