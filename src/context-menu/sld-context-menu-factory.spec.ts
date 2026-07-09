@@ -15,6 +15,122 @@ function headlines(items: ContextMenuItem[]): string[] {
   return actions(items).map(i => i.headline);
 }
 
+/**
+ * Builds the menu for `element` with a capturing dispatch, invokes the handler
+ * of the action whose headline matches, and returns the events it dispatched.
+ */
+function invoke(
+  element: Element,
+  headline: string,
+  overrides: Partial<MenuItemContext> = {},
+): Event[] {
+  const dispatched: Event[] = [];
+  const ctx = makeContext(element, {
+    dispatch: e => dispatched.push(e),
+    ...overrides,
+  });
+  const action = actions(createContextMenuItems(ctx)).find(
+    i => i.headline === headline,
+  );
+  if (!action) {
+    throw new Error(`no menu action "${headline}"`);
+  }
+  action.handler();
+  return dispatched;
+}
+
+/**
+ * Reduces a dispatched event to a stable "signature" the map below asserts on.
+ * Interaction intents all share the `oscd-sld-start-interaction` type and are
+ * only distinguished by their `mode`, so fold the mode into the signature.
+ */
+function signature(event: Event): string {
+  const custom = event as CustomEvent;
+  if (custom.type === 'oscd-sld-start-interaction') {
+    return `${custom.type}/${custom.detail.mode}`;
+  }
+  return custom.type;
+}
+
+/**
+ * The finite contract of the context menu: every menu-item headline maps to the
+ * signature of the single event its handler must dispatch. This is the source
+ * of truth `expectHandlerSignatures` iterates over — a handler firing the wrong
+ * event (or a new item added without an entry here) fails the suite.
+ *
+ * Context-dependent labels are handled by per-call `extra` overrides:
+ * IED `Edit` dispatches `oscd-sld-edit-ied`, and Text `Move` moves the label
+ * (`placingLabel`) rather than the element (`placing`).
+ */
+const EXPECTED_SIGNATURE: Record<string, string> = {
+  // interaction intents (oscd-sld-start-interaction, distinguished by mode)
+  Copy: 'oscd-sld-start-interaction/placing',
+  Move: 'oscd-sld-start-interaction/placing',
+  'Move Label': 'oscd-sld-start-interaction/placingLabel',
+  Resize: 'oscd-sld-start-interaction/resizingBR',
+  'Connect top': 'oscd-sld-start-interaction/connecting',
+  'Connect right': 'oscd-sld-start-interaction/connecting',
+  'Connect bottom': 'oscd-sld-start-interaction/connecting',
+  'Connect left': 'oscd-sld-start-interaction/connecting',
+  // document edits (oscd-edit-v2)
+  Mirror: 'oscd-edit-v2',
+  Delete: 'oscd-edit-v2',
+  'Add Text': 'oscd-edit-v2',
+  'Remove Text': 'oscd-edit-v2',
+  'Delete Text': 'oscd-edit-v2',
+  'Detach top': 'oscd-edit-v2',
+  'Detach right': 'oscd-edit-v2',
+  'Detach bottom': 'oscd-edit-v2',
+  'Detach left': 'oscd-edit-v2',
+  'Detach Terminal': 'oscd-edit-v2',
+  'Detach Terminals': 'oscd-edit-v2',
+  'Detach Neutral Point': 'oscd-edit-v2',
+  'Add Tap Changer': 'oscd-edit-v2',
+  'Remove Tap Changer': 'oscd-edit-v2',
+  'Ground top': 'oscd-edit-v2',
+  'Ground right': 'oscd-edit-v2',
+  'Ground bottom': 'oscd-edit-v2',
+  'Ground left': 'oscd-edit-v2',
+  Bold: 'oscd-edit-v2',
+  'Remove Formatting': 'oscd-edit-v2',
+  Red: 'oscd-edit-v2',
+  Blue: 'oscd-edit-v2',
+  'Reset Color': 'oscd-edit-v2',
+  'Delete IED': 'oscd-edit-v2',
+  'Remove from SLD': 'oscd-edit-v2',
+  // SCL edit dialog (oscd-sld-edit-scl)
+  Edit: 'oscd-sld-edit-scl',
+  'Edit Winding': 'oscd-sld-edit-scl',
+  'Edit Tap Changer': 'oscd-sld-edit-scl',
+  // rotation (oscd-sld-rotate)
+  Rotate: 'oscd-sld-rotate',
+};
+
+/**
+ * Exhaustively asserts that every action in the built menu dispatches exactly
+ * one event whose signature matches {@link EXPECTED_SIGNATURE} (merged with any
+ * `extra` overrides). Fails on an unmapped item, a silent no-op, or a wrong
+ * event — replacing the old "dispatches at least one event" smoke check.
+ */
+function expectHandlerSignatures(
+  element: Element,
+  overrides: Partial<MenuItemContext> = {},
+  extra: Record<string, string> = {},
+): void {
+  const map = { ...EXPECTED_SIGNATURE, ...extra };
+  const labels = headlines(createContextMenuItems(makeContext(element, overrides)));
+  expect(labels.length, 'menu produced no action items').to.be.greaterThan(0);
+  labels.forEach((label) => {
+    expect(map[label], `no expected signature mapped for menu item "${label}"`)
+      .to.be.a('string');
+    const events = invoke(element, label, overrides);
+    expect(events.length, `handler "${label}" dispatched wrong event count`)
+      .to.equal(1);
+    expect(signature(events[0]), `handler "${label}" dispatched wrong event`)
+      .to.equal(map[label]);
+  });
+}
+
 function makeContext(
   element: Element,
   overrides: Partial<MenuItemContext> = {},
@@ -132,7 +248,22 @@ describe('sld-context-menu-factory', () => {
       expect(connectLabels.length).to.equal(1);
     });
 
-    it('dispatches events from handlers', () => {
+    it('dispatches the correct event from every action handler', () => {
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>Label</Text>
+          <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
+        </ConductingEquipment>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
+      `);
+      const eq = doc.querySelector('ConductingEquipment')!;
+      expectHandlerSignatures(eq);
+    });
+
+    it('Copy dispatches a copy placement intent', () => {
       const doc = bayDoc(`
         <ConductingEquipment name="Q1" type="CBR">
           <Private type="OpenSCD-SLD-Layout">
@@ -141,12 +272,33 @@ describe('sld-context-menu-factory', () => {
         </ConductingEquipment>
       `);
       const eq = doc.querySelector('ConductingEquipment')!;
-      const dispatched: Event[] = [];
-      const ctx = makeContext(eq, { dispatch: e => dispatched.push(e) });
-      const items = createContextMenuItems(ctx);
-      const rotateAction = actions(items).find(i => i.headline === 'Rotate')!;
-      rotateAction.handler();
-      expect(dispatched.length).to.equal(1);
+      const [event] = invoke(eq, 'Copy') as CustomEvent[];
+      expect(event.type).to.equal('oscd-sld-start-interaction');
+      expect(event.detail).to.deep.include({
+        mode: 'placing',
+        element: eq,
+        copy: true,
+      });
+    });
+
+    it('a ground handler with no containing bay emits a ground hint', () => {
+      const doc = createSCLDoc(`
+        <Substation name="S1">
+          <VoltageLevel name="V1">
+            <ConductingEquipment name="Q1" type="CBR">
+              <Private type="OpenSCD-SLD-Layout">
+                <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+              </Private>
+            </ConductingEquipment>
+          </VoltageLevel>
+        </Substation>
+      `);
+      const eq = doc.querySelector('ConductingEquipment')!;
+      const ground = headlines(
+        createContextMenuItems(makeContext(eq)),
+      ).find(l => l.startsWith('Ground'))!;
+      const [event] = invoke(eq, ground);
+      expect(event.type).to.equal('sld-ground-hint');
     });
   });
 
@@ -212,6 +364,42 @@ describe('sld-context-menu-factory', () => {
       const pt = doc.querySelector('PowerTransformer')!;
       const items = createContextMenuItems(makeContext(pt));
       expect(headlines(items)).to.not.include('Mirror');
+    });
+
+    it('dispatches the correct event from every action handler', () => {
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:kind="auto"/>
+          </Private>
+          <Text>Label</Text>
+          <TransformerWinding name="W1">
+            <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
+            <NeutralPoint name="N1" connectivityNode="S1/V1/B1/N"/>
+          </TransformerWinding>
+        </PowerTransformer>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
+        <ConnectivityNode name="N" pathName="S1/V1/B1/N"/>
+      `);
+      const pt = doc.querySelector('PowerTransformer')!;
+      expectHandlerSignatures(pt);
+    });
+
+    it('Copy dispatches a copy placement intent with offset', () => {
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
+      `);
+      const pt = doc.querySelector('PowerTransformer')!;
+      const [event] = invoke(pt, 'Copy') as CustomEvent[];
+      expect(event.type).to.equal('oscd-sld-start-interaction');
+      expect(event.detail.mode).to.equal('placing');
+      expect(event.detail.copy).to.be.true;
+      expect(event.detail.offset).to.be.an('array');
     });
   });
 
@@ -285,6 +473,54 @@ describe('sld-context-menu-factory', () => {
       const items = createContextMenuItems(makeContext(winding));
       expect(headlines(items)).to.include('Detach Neutral Point');
     });
+
+    it('dispatches the correct event from every action handler (with tap changer + terminals)', () => {
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1">
+            <TapChanger name="LTC" type="LTC"/>
+            <Terminal name="T1" connectivityNode="S1/V1/B1/L1"/>
+            <NeutralPoint name="N1" connectivityNode="S1/V1/B1/N"/>
+          </TransformerWinding>
+        </PowerTransformer>
+        <ConnectivityNode name="L1" pathName="S1/V1/B1/L1"/>
+        <ConnectivityNode name="N" pathName="S1/V1/B1/N"/>
+      `);
+      const winding = doc.querySelector('TransformerWinding')!;
+      expectHandlerSignatures(winding);
+    });
+
+    it('dispatches the correct event from every action handler (add tap changer path)', () => {
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
+      `);
+      const winding = doc.querySelector('TransformerWinding')!;
+      expectHandlerSignatures(winding);
+    });
+
+    it('Add Tap Changer inserts a TapChanger node', () => {
+      const doc = bayDoc(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>
+      `);
+      const winding = doc.querySelector('TransformerWinding')!;
+      const [event] = invoke(winding, 'Add Tap Changer') as CustomEvent[];
+      expect(event.type).to.equal('oscd-edit-v2');
+      const insert = event.detail.edit as { node: Element };
+      expect(insert.node.tagName).to.equal('TapChanger');
+    });
   });
 
   describe('Bay (busbar)', () => {
@@ -311,6 +547,25 @@ describe('sld-context-menu-factory', () => {
       expect(labels).to.include('Edit');
       expect(labels).to.include('Delete');
       expect(labels).to.not.include('Copy');
+    });
+
+    it('dispatches the correct event from every action handler', () => {
+      const doc = bayDoc(
+        `
+          <Text>Bus</Text>
+          <ConnectivityNode name="L1" pathName="S1/V1/BB1/L1">
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:Section smth:bus="true">
+                <smth:Vertex smth:x="1" smth:y="1"/>
+                <smth:Vertex smth:x="5" smth:y="1"/>
+              </smth:Section>
+            </Private>
+          </ConnectivityNode>
+        `,
+        'BB1',
+      );
+      const bay = doc.querySelector('Bay')!;
+      expectHandlerSignatures(bay);
     });
   });
 
@@ -345,6 +600,38 @@ describe('sld-context-menu-factory', () => {
       expect(labels).to.include('Copy');
       expect(labels).to.include('Move');
       expect(labels).to.include('Delete');
+    });
+
+    it('dispatches the correct event from every action handler', () => {
+      const doc = createSCLDoc(`
+        <Substation name="S1">
+          <VoltageLevel name="V1">
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="20" smth:h="15"/>
+            </Private>
+            <Text>VL</Text>
+          </VoltageLevel>
+        </Substation>
+      `);
+      const vl = doc.querySelector('VoltageLevel')!;
+      expectHandlerSignatures(vl);
+    });
+
+    it('Copy dispatches a copy placement intent with offset', () => {
+      const doc = createSCLDoc(`
+        <Substation name="S1">
+          <VoltageLevel name="V1">
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="1" smth:y="1" smth:w="20" smth:h="15"/>
+            </Private>
+          </VoltageLevel>
+        </Substation>
+      `);
+      const vl = doc.querySelector('VoltageLevel')!;
+      const [event] = invoke(vl, 'Copy') as CustomEvent[];
+      expect(event.type).to.equal('oscd-sld-start-interaction');
+      expect(event.detail.copy).to.be.true;
+      expect(event.detail.offset).to.be.an('array');
     });
   });
 
@@ -389,6 +676,23 @@ describe('sld-context-menu-factory', () => {
       expect(labels).to.include('Remove from SLD');
       expect(labels).to.not.include('Edit');
       expect(labels).to.not.include('Delete IED');
+    });
+
+    it('dispatches the correct event from every action handler', () => {
+      const doc = createSCLDoc(`
+        <Substation name="S1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="0" smth:y="0" smth:w="50" smth:h="25"/>
+            <smth:Reference smth:type="IED" smth:id="IED1" smth:iedName="IED1">
+              <smth:SLDAttributes smth:x="5" smth:y="5" smth:w="1" smth:h="1"/>
+            </smth:Reference>
+          </Private>
+        </Substation>
+        <IED name="IED1"/>
+      `);
+      const ref = doc.getElementsByTagNameNS(sldNs, 'Reference')[0];
+      // An IED's "Edit" opens the IED editor, not the generic SCL edit dialog.
+      expectHandlerSignatures(ref, {}, { Edit: 'oscd-sld-edit-ied' });
     });
   });
 
@@ -495,6 +799,47 @@ describe('sld-context-menu-factory', () => {
       const labels = headlines(items);
       expect(labels).to.include('Remove Formatting');
       expect(labels).to.not.include('Bold');
+    });
+
+    it('dispatches the correct event from every action handler (default weight/color)', () => {
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
+      `);
+      const text = doc.querySelector('Text')!;
+      // A Text element's "Move" repositions the label itself (placingLabel).
+      expectHandlerSignatures(text, {}, {
+        Move: 'oscd-sld-start-interaction/placingLabel',
+      });
+    });
+
+    it('dispatches the correct event from every action handler (bold + coloured)', () => {
+      const doc = bayDoc(`
+        <ConductingEquipment name="Q1" type="CBR">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1"/>
+          </Private>
+          <Text>
+            <Private type="OpenSCD-SLD-Layout">
+              <smth:SLDAttributes smth:x="3" smth:y="3" smth:w="1" smth:h="1" smth:weight="500" smth:color="#BB1326"/>
+            </Private>
+            Label
+          </Text>
+        </ConductingEquipment>
+      `);
+      const text = doc.querySelector('Text')!;
+      expectHandlerSignatures(text, {}, {
+        Move: 'oscd-sld-start-interaction/placingLabel',
+      });
     });
   });
 });

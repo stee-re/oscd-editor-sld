@@ -159,5 +159,79 @@ describe('renderVoltageLevel / renderBay', () => {
         host.querySelectorAll('g.voltagelevel > svg.handle'),
       ).to.have.lengthOf(0);
     });
+
+    it('starts a top-left resize when the first handle is clicked', () => {
+      const context = makeArtifactContext({ substation });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      const handles = host.querySelectorAll('g.voltagelevel > svg.handle');
+      handles[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-interaction',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.mode).to.equal('resizingTL');
+      expect(event.detail.element).to.equal(voltageLevel);
+    });
+
+    it('starts a bottom-right resize when the second handle is clicked', () => {
+      const context = makeArtifactContext({ substation });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      const handles = host.querySelectorAll('g.voltagelevel > svg.handle');
+      handles[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-interaction',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.mode).to.equal('resizingBR');
+      expect(event.detail.element).to.equal(voltageLevel);
+    });
+  });
+
+  describe('interaction guards', () => {
+    it('prevents default on a middle-click mousedown', () => {
+      const context = makeArtifactContext({ substation });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      const event = new MouseEvent('mousedown', {
+        button: 1,
+        bubbles: true,
+        cancelable: true,
+      });
+      host.querySelector('g.voltagelevel > rect')!.dispatchEvent(event);
+      expect(event.defaultPrevented).to.be.true;
+    });
+
+    it('renders a highlight rect when the container is highlighted', () => {
+      const context = makeArtifactContext({
+        highlight: [{ id: `${identity(voltageLevel)}`, style: { fill: 'red' } }],
+        substation,
+      });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      expect(host.querySelector('rect[pointer-events="none"]')).to.not.be.null;
+    });
+
+    it('ignores a right-click while an interaction is in progress', () => {
+      const context = makeArtifactContext({
+        interaction: placing(equipment, [0, 0]),
+        substation,
+      });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      host
+        .querySelector('g.voltagelevel > rect')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),
+      ).to.be.false;
+    });
+
+    it('ignores an auxclick that is not the middle button', () => {
+      const context = makeArtifactContext({ substation });
+      const host = renderToSvg(renderVoltageLevel(voltageLevel, context));
+      host
+        .querySelector('g.voltagelevel > rect')!
+        .dispatchEvent(new MouseEvent('auxclick', { button: 0, bubbles: true }));
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-start-interaction'),
+      ).to.be.false;
+    });
   });
 });

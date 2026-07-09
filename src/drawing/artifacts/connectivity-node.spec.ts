@@ -77,6 +77,16 @@ describe('renderConnectivityNode', () => {
       expect(event.detail.offset).to.deep.equal([8, 9]);
     });
 
+    it('prevents default on a middle-click mousedown', () => {
+      const event = new MouseEvent('mousedown', {
+        button: 1,
+        bubbles: true,
+        cancelable: true,
+      });
+      interactiveLine().dispatchEvent(event);
+      expect(event.defaultPrevented).to.be.true;
+    });
+
     it('starts a bottom-right resize on middle-button auxclick', () => {
       const context = makeArtifactContext({ substation });
       interactiveLine(context).dispatchEvent(

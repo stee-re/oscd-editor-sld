@@ -117,6 +117,30 @@ describe('iedReferenceArtifact', () => {
         context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),
       ).to.equal(false);
     });
+
+    it('selects on click when disabled and selectable', () => {
+      const context = makeArtifactContext({ disabled: true, substation });
+      const state = iedReferenceArtifact.state(reference, context, {
+        preview: true,
+      })!;
+      const actions = iedReferenceArtifact.actions(reference, context, {
+        ...state,
+        selectable: true,
+      });
+      actions.onClick(new MouseEvent('click'));
+      expect(context.dispatched.map(e => e.type)).to.include(
+        'oscd-sld-selected',
+      );
+    });
+
+    it('prevents default on a middle-click mousedown', () => {
+      const event = new MouseEvent('mousedown', {
+        button: 1,
+        cancelable: true,
+      });
+      actionsFor().onMouseDown(event);
+      expect(event.defaultPrevented).to.be.true;
+    });
   });
 
   describe('render', () => {

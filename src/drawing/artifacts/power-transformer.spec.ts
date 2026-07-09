@@ -183,5 +183,254 @@ describe('powerTransformerArtifact', () => {
       expect(host.querySelectorAll('g.winding')).to.have.lengthOf(2);
       expect(host.querySelector('g.winding circle')).to.not.be.null;
     });
+
+    it('renders the preview label group when previewing', () => {
+      const context = makeArtifactContext({ substation });
+      const state = powerTransformerArtifact.state(transformer, context, {
+        preview: true,
+      })!;
+      const actions = powerTransformerArtifact.actions(
+        transformer,
+        context,
+        state,
+      );
+      const host = renderToSvg(
+        powerTransformerArtifact.render(transformer, state, actions, context, {
+          preview: true,
+        }),
+      );
+      expect(host.querySelector('g.preview')).to.not.be.null;
+    });
+  });
+
+  describe('winding rendering', () => {
+    function renderWinding(
+      children: string,
+      overrides: Parameters<typeof makeArtifactContext>[0] = {},
+    ) {
+      const localDoc = sldFixture({ children });
+      const pt = localDoc.querySelector('PowerTransformer')!;
+      const context = makeArtifactContext({
+        substation: localDoc.querySelector('Substation')!,
+        ...overrides,
+      });
+      const state = powerTransformerArtifact.state(pt, context)!;
+      const actions = powerTransformerArtifact.actions(pt, context, state);
+      return {
+        host: renderToSvg(
+          powerTransformerArtifact.render(pt, state, actions, context),
+        ),
+        context,
+        transformer: pt,
+      };
+    }
+
+    const earthingSingle = (extra = '', kindOverride = 'earthing') => `
+      <PowerTransformer name="T1">
+        <Private type="OpenSCD-SLD-Layout">
+          <smth:SLDAttributes smth:x="4" smth:y="4" smth:kind="${kindOverride}"/>
+        </Private>
+        <TransformerWinding name="W1">${extra}</TransformerWinding>
+      </PowerTransformer>`;
+
+    it('renders connect ports whose click starts a connecting interaction', () => {
+      const { host, context } = renderWinding(earthingSingle());
+      const port = host.querySelector('circle.port')!;
+      expect(port).to.not.be.null;
+      port.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const event = context.dispatched.find(
+        e => e.type === 'oscd-sld-start-interaction',
+      ) as CustomEvent;
+      expect(event).to.not.be.undefined;
+      expect(event.detail.mode).to.equal('connecting');
+    });
+
+    it('grounds a neutral terminal on port right-click', () => {
+      const { host, context } = renderWinding(earthingSingle());
+      // the neutral (N) port is the groundable one
+      const ports = Array.from(host.querySelectorAll('circle.port'));
+      ports.forEach(p =>
+        p.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })),
+      );
+      expect(context.grounded.length).to.be.greaterThan(0);
+      expect(context.grounded[0].terminal).to.match(/^N/);
+    });
+
+    it('renders a grounded-neutral marker line', () => {
+      const { host } = renderWinding(
+        earthingSingle('<NeutralPoint name="N1" cNodeName="grounded"/>'),
+      );
+      expect(host.querySelector('line[marker-start="url(#grounded)"]')).to.not
+        .be.null;
+    });
+
+    it('renders the zig-zag earthing symbol', () => {
+      const { host } = renderWinding(earthingSingle());
+      expect(host.querySelector('g[transform*="rotate"]')).to.not.be.null;
+    });
+
+    it('renders an LTC arrow when the winding has a TapChanger', () => {
+      const { host } = renderWinding(
+        earthingSingle('<TapChanger name="LTC" type="LTC"/>'),
+      );
+      expect(host.querySelector('line[marker-end="url(#arrow)"]')).to.not.be
+        .null;
+    });
+
+    it('opens the context menu on winding right-click', () => {
+      const { host, context } = renderWinding(earthingSingle());
+      host
+        .querySelector('g.winding')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),
+      ).to.be.true;
+    });
+
+    it('hides connect ports while disabled', () => {
+      const { host } = renderWinding(earthingSingle(), { disabled: true });
+      expect(host.querySelector('circle.port')).to.be.null;
+    });
+  });
+
+  describe('highlight winding counts', () => {
+    function highlightHost(children: string): SVGSVGElement {
+      const localDoc = sldFixture({ children });
+      const pt = localDoc.querySelector('PowerTransformer')!;
+      const context = makeArtifactContext({
+        substation: localDoc.querySelector('Substation')!,
+        highlight: [{ id: `${identity(pt)}`, style: { fill: 'red' } }],
+      });
+      const state = powerTransformerArtifact.state(pt, context)!;
+      const actions = powerTransformerArtifact.actions(pt, context, state);
+      return renderToSvg(
+        powerTransformerArtifact.render(pt, state, actions, context),
+      );
+    }
+
+    it('highlights a single-winding transformer', () => {
+      const host = highlightHost(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="4" smth:y="4"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+        </PowerTransformer>`);
+      expect(host.querySelector('rect[pointer-events="none"]')).to.not.be.null;
+    });
+
+    it('highlights a three-winding transformer', () => {
+      const host = highlightHost(`
+        <PowerTransformer name="T1">
+          <Private type="OpenSCD-SLD-Layout">
+            <smth:SLDAttributes smth:x="4" smth:y="4"/>
+          </Private>
+          <TransformerWinding name="W1"/>
+          <TransformerWinding name="W2"/>
+          <TransformerWinding name="W3"/>
+        </PowerTransformer>`);
+      expect(host.querySelector('rect[pointer-events="none"]')).to.not.be.null;
+    });
+  });
+
+  describe('interaction edge cases', () => {
+    function renderFull(
+      context = makeArtifactContext({ substation }),
+      options: { preview?: boolean } = {},
+    ) {
+      const state = powerTransformerArtifact.state(transformer, context, options)!;
+      const actions = powerTransformerArtifact.actions(
+        transformer,
+        context,
+        state,
+      );
+      return renderToSvg(
+        powerTransformerArtifact.render(
+          transformer,
+          state,
+          actions,
+          context,
+          options,
+        ),
+      );
+    }
+
+    it('prevents default on a middle-click mousedown', () => {
+      const host = renderFull();
+      const event = new MouseEvent('mousedown', {
+        button: 1,
+        bubbles: true,
+        cancelable: true,
+      });
+      host.querySelector('g.transformer')!.dispatchEvent(event);
+      expect(event.defaultPrevented).to.be.true;
+    });
+
+    it('ignores a T terminal port right-click', () => {
+      const context = makeArtifactContext({ substation });
+      const state = powerTransformerArtifact.state(transformer, context)!;
+      const actions = powerTransformerArtifact.actions(
+        transformer,
+        context,
+        state,
+      );
+      const host = renderToSvg(
+        powerTransformerArtifact.render(transformer, state, actions, context),
+      );
+      const terminalPorts = Array.from(
+        host.querySelectorAll('circle.port'),
+      ).filter(p =>
+        (p.getAttribute('style') ?? '').includes('--oscd-sld-terminal-color)'),
+      );
+      expect(terminalPorts.length, 'a terminal port should render').to.be.above(
+        0,
+      );
+      terminalPorts.forEach(port =>
+        port.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })),
+      );
+      // right-clicking a T terminal must never ground it
+      expect(context.grounded).to.have.lengthOf(0);
+    });
+
+    it('ignores a port click while an interaction is in progress', () => {
+      const context = makeArtifactContext({
+        interaction: placing(transformer, [0, 0]),
+        substation,
+      });
+      const host = renderFull(context, { preview: true });
+      host
+        .querySelector('circle.port')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-start-interaction'),
+      ).to.be.false;
+    });
+
+    it('ignores a winding right-click while an interaction is in progress', () => {
+      const context = makeArtifactContext({
+        interaction: placing(transformer, [0, 0]),
+        substation,
+      });
+      const host = renderFull(context, { preview: true });
+      host
+        .querySelector('g.winding')!
+        .dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+      expect(
+        context.dispatched.some(e => e.type === 'oscd-sld-open-context-menu'),
+      ).to.be.false;
+    });
+
+    it('renders the placement click target while placing itself', () => {
+      const context = makeArtifactContext({
+        interaction: placing(transformer, [0, 0]),
+        substation,
+        mouseX: 5,
+        mouseY: 6,
+      });
+      const host = renderFull(context, { preview: true });
+      expect(
+        host.querySelector('g.transformer > rect[fill="none"]'),
+      ).to.not.be.null;
+    });
   });
 });
