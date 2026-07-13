@@ -66,6 +66,13 @@ const equipmentPaths: Record<EqType, TemplateResult<2>> = {
   `,
   CAP: svg`
   <path
+    d="M 6.5,10.1 H 18.5"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    />
+  <path
     d="M 12.5,4 V 10.1"
     fill="none"
     stroke="currentColor"
