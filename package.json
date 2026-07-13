@@ -20,13 +20,42 @@
   ],
   "license": "Apache-2.0",
   "exports": {
-    ".": "./dist/oscd-editor-sld.js",
-    "./oscd-editor-sld.js": "./dist/oscd-editor-sld.js"
+    ".": {
+      "types": "./dist/oscd-editor-sld.d.ts",
+      "default": "./dist/oscd-editor-sld.js"
+    },
+    "./oscd-editor-sld.js": {
+      "types": "./dist/oscd-editor-sld.d.ts",
+      "default": "./dist/oscd-editor-sld.js"
+    },
+    "./sld-editor.js": {
+      "types": "./dist/sld-editor.d.ts",
+      "default": "./dist/sld-editor.js"
+    },
+    "./sld-substation-viewer.js": {
+      "types": "./dist/sld-substation-viewer.d.ts",
+      "default": "./dist/sld-substation-viewer.js"
+    },
+    "./foundations.js": {
+      "types": "./dist/foundations.d.ts",
+      "default": "./dist/foundations.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
-    "/dist/",
-    "!/dist/*.spec.*",
-    "!/dist/*.test.*"
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/about.html",
+    "!dist/**/*.spec.js",
+    "!dist/**/*.spec.d.ts",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/__snapshots__/**",
+    "!dist/demo/**",
+    "!dist/assets/**",
+    "!dist/__lintprobe.*"
   ],
   "scripts": {
     "lint": "oscd lint",
