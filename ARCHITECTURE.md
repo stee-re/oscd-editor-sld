@@ -1,19 +1,15 @@
 # Architecture
 
-Editing a Single Line Diagram is complex. It sits at the intersection of IEC 61850 SCL semantics, SVG rendering, live user interaction, and OpenSCD's edit model. The goal of this document is to make understanding it a little less tough — to give a clear picture of how the SLD viewer/editor is structured, how its pieces communicate, and what each fundamental piece is responsible for.
-
----
-
 ## 1. The big picture
 
-### Interactions are the central nervous system
+### Two reciprocal types
 
 The whole editor/viewer is organised around a pair of reciprocal types that flow in opposite directions:
 
 - **`InteractionIntent`** — flows **viewer → editor** ("the user wants to _start_ placing this element"). Dispatched by the viewer, it carries no document edit; it is a _request_.
 - **`InteractionState`** — flows **editor → viewer** ("you are now in `placing` mode"). Owned by the editor, projected down to the viewer so the viewer can render the in-progress gesture.
 
-The viewer **dispatches intents** and **reacts to state**. The editor is the state machine in the middle: it consumes intents, decides the next state, and — when an interaction completes — translates it into a document edit. Hold onto this shape; §2 makes it concrete.
+The viewer **dispatches intents** and **reacts to state**. The editor is the state machine in the middle: it consumes intents, decides the next state, and — when an interaction completes — translates it into a document edit.
 
 ### The three building blocks
 
@@ -65,7 +61,7 @@ graph TD
 
 ## 2. The interaction boundary
 
-This is the seam between the viewer and the editor, and the most important thing to understand about how they cooperate. It is deliberately asymmetric:
+This is the seam between the viewer and the editor. It is deliberately asymmetric:
 
 - **Intents flow up** (viewer → editor) as plain `CustomEvent`s. **None of them carry an `EditV2`.**
 - **State flows down** (editor → viewer) as the single `interaction` value.
@@ -73,7 +69,7 @@ This is the seam between the viewer and the editor, and the most important thing
 
 ### Design principle: exactly one state at a time
 
-`InteractionState` is a discriminated union keyed on `mode`, so **the editor can only ever be in one interaction state at a time**. Placing _and_ resizing simultaneously is not an inexpressible bug to guard against — it is _unrepresentable_. `idle` is the editor's resting state; every gesture begins from it and resolves back to it. The union also carries a second, gesture-less resting state — `locked` — which the editor never enters: it is the viewer's read-only default (below), where even the `idle` affordances are suppressed.
+`InteractionState` is a discriminated union keyed on `mode`, so **the editor can only ever be in one interaction state at a time**. Placing _and_ resizing simultaneously is not an inexpressible bug to guard against — it is _unrepresentable_. `idle` is the editor's resting state; every gesture begins from it and resolves back to it. The union also carries `locked` — the viewer's read-only default, covered in §3.
 
 ```mermaid
 stateDiagram-v2
@@ -133,7 +129,7 @@ The reciprocal pair lives in two files on purpose: `InteractionState` (controlle
 
 ### `locked` ⇒ a truly read-only viewer
 
-The viewer has **two** gesture-less resting states, and the distinction is the whole point of its read-only story:
+The viewer has **two** gesture-less resting states:
 
 - **`locked`** (the viewer's **default**) — a completely static diagram. Every interaction overlay _and_ every editing affordance is suppressed: no connect ports, no resize handles, no context menus, no click-to-place targets, nothing dispatches. A bare `<sld-substation-viewer>` is read-only by nature; you have to opt _into_ editing.
 - **`idle`** — the editor's _ready_ resting state. The in-progress-gesture overlays (placing preview, connection preview, resize handles, hover highlights, label-reposition preview) render `nothing`, but the affordances that _begin_ a gesture (ports, click-to-place, context menu) are live, because the editor needs them to start the next interaction.
@@ -158,7 +154,7 @@ showLabels?: boolean;
 showIeds?: boolean;
 ```
 
-Another plugin (e.g. a communications editor that overlays its own SVG on the diagram) can drive this renderer read-only and layer its own content on top — which is exactly the future-packaging goal (§7).
+Another plugin (e.g. a communications editor that overlays its own SVG on the diagram) can drive this renderer read-only and layer its own content on top — the future-packaging goal (§7).
 
 ### The dependency rule
 
@@ -260,7 +256,7 @@ Beyond driving the viewers, the editor renders the singletons that must exist on
 | `events.ts` | Intent-event factories & types; `InteractionIntent` | any |
 | `export.ts` | XML pretty-print & download | any |
 
-The convention: a `foo.ts` holds queries/primitives (viewer-safe); a sibling `foo-edits.ts` holds the `EditV2` builders (editor-only). This is what keeps the §3 dependency rule provable rather than aspirational.
+The convention: a `foo.ts` holds queries/primitives (viewer-safe); a sibling `foo-edits.ts` holds the `EditV2` builders (editor-only). This is what keeps the §3 dependency rule enforceable.
 
 ---
 
@@ -273,7 +269,7 @@ The tiers already have a clean, one-directional dependency, which is the prerequ
 
 Today the viewer tier physically lives as `src/sld-substation-viewer.ts` + `src/drawing/**` (plus the viewer-safe foundations). The planned evolution is to introduce an `sld-viewer` shell that starts as a thin delegator to `sld-substation-viewer` and progressively absorbs the general (non-substation) rendering concerns, until it is a self-contained package.
 
-Two things make this a _mechanical_ rather than _architectural_ task, and both are already in place:
+Two things, both already in place, make this mechanical:
 
 1. **The dependency rule holds** (§3): nothing in the viewer tier imports edit types, edit builders, or the editor.
 2. **The interaction boundary is intents-only** (§2): the viewer already speaks a vocabulary (`oscd-sld-*` + `InteractionIntent` / `InteractionState`) that a host other than `SldEditor` can consume.
