@@ -9,6 +9,12 @@ import { OscdIconButton } from '@omicronenergy/oscd-ui/iconbutton/OscdIconButton
 import { resizePath } from './drawing/diagram-symbols.js';
 import { sldThemeStyles } from './theme.js';
 import { svgNs } from './foundations.js';
+import {
+  newSclEditDialogEvent,
+  newSubstationDeleteEvent,
+  newSubstationExportEvent,
+  newSubstationResizeEvent,
+} from './foundations/events.js';
 
 /**
  * Editor-owned chrome for a single substation: its name plus the
@@ -29,24 +35,21 @@ export class SldSubstationHeader extends ScopedElementsMixin(LitElement) {
   @property({ type: Boolean })
   disabled = false;
 
-  private triggerEvent(type: string): void {
-    this.dispatchEvent(new CustomEvent(type, { bubbles: true, composed: true }));
-  }
-
   render() {
     return html`<h2 class="${classMap({ disabled: this.disabled })}">
       ${this.substation.getAttribute('name')}
       <oscd-icon-button
         label="Edit Substation"
         title="Edit Substation"
-        @click=${() => this.triggerEvent('sld-header-edit')}
+        @click=${() => this.dispatchEvent(newSclEditDialogEvent(this.substation))}
       >
         <oscd-icon>edit</oscd-icon>
       </oscd-icon-button>
       <oscd-icon-button
         label="Resize Substation"
         title="Resize Substation"
-        @click=${() => this.triggerEvent('sld-header-resize')}
+        @click=${() =>
+          this.dispatchEvent(newSubstationResizeEvent(this.substation))}
       >
         <svg
           xmlns="${svgNs}"
@@ -62,14 +65,16 @@ export class SldSubstationHeader extends ScopedElementsMixin(LitElement) {
       <oscd-icon-button
         label="Delete Substation"
         title="Delete Substation"
-        @click=${() => this.triggerEvent('sld-header-delete')}
+        @click=${() =>
+          this.dispatchEvent(newSubstationDeleteEvent(this.substation))}
       >
         <oscd-icon>delete</oscd-icon>
       </oscd-icon-button>
       <oscd-icon-button
         label="Export Single Line Diagram SVG"
         title="Export Single Line Diagram SVG"
-        @click=${() => this.triggerEvent('sld-header-export')}
+        @click=${() =>
+          this.dispatchEvent(newSubstationExportEvent(this.substation))}
       >
         <oscd-icon>file_download</oscd-icon>
       </oscd-icon-button>

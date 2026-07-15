@@ -298,7 +298,7 @@ describe('sld-context-menu-factory', () => {
         createContextMenuItems(makeContext(eq)),
       ).find(l => l.startsWith('Ground'))!;
       const [event] = invoke(eq, ground);
-      expect(event.type).to.equal('sld-ground-hint');
+      expect(event.type).to.equal('oscd-sld-ground-hint');
     });
   });
 

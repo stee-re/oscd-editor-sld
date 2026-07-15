@@ -868,7 +868,7 @@ describe('SLD Editor', () => {
       const bayTypical = element.doc.createElement('Bay');
       const ied = element.doc.createElement('IED');
       ied.setAttribute('name', 'IED_A');
-      element.sldEditor!.startInteraction = () =>
+      element.sldEditor!.handleStartInteraction = () =>
         Promise.resolve({} as PlacementResult);
 
       const edits: EditEventV2[] = [];
@@ -886,7 +886,7 @@ describe('SLD Editor', () => {
       const bayTypical = element.doc.createElement('Bay');
       const ied = element.doc.createElement('IED');
       ied.setAttribute('name', 'IED_B');
-      element.sldEditor!.startInteraction = () => Promise.resolve(undefined);
+      element.sldEditor!.handleStartInteraction = () => Promise.resolve(undefined);
 
       const edits: EditEventV2[] = [];
       element.addEventListener('oscd-edit-v2', e =>

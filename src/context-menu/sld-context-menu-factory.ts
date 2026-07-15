@@ -31,6 +31,7 @@ import {
 import { updateSLDAttributes } from '../foundations/sld-attribute-edits.js';
 import {
   newEditIedEvent,
+  newGroundHintEvent,
   newRotateEvent,
   newSclEditDialogEvent,
   newStartInteractionEvent,
@@ -77,9 +78,7 @@ function groundTerminal(
   const edits = createGroundTerminalEdits(equipment, name);
 
   if (!edits) {
-    context.dispatch(
-      new CustomEvent('sld-ground-hint', { bubbles: true, composed: true }),
-    );
+    context.dispatch(newGroundHintEvent());
     return;
   }
 
