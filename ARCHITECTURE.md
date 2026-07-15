@@ -110,16 +110,16 @@ Every viewer intent is an `oscd-sld-*` event (bubbling + composed). They fall in
 
 | Intent event | Editor handler | Effect |
 | --- | --- | --- |
-| `oscd-sld-place` | `placeElement` | insert/move `EditV2` → `idle` |
-| `oscd-sld-place-label` | `placeLabelElement` | label-move `EditV2` → `idle` |
-| `oscd-sld-resize` | `handleSubstationResize` | resize `EditV2` → `idle` |
-| `oscd-sld-resize-tl` | `resizeTLElement` | top-left resize `EditV2` → `idle` |
-| `oscd-sld-rotate` | `rotateElement` | rotate `EditV2` |
-| `oscd-sld-connect` | `connectEquipment` | connectivity `EditV2` |
-| `oscd-sld-ground-terminal` | `handleGroundTerminalRequest` | ground `EditV2`, or a warning if not groundable |
-| `oscd-sld-extend-connect-point` | `extendConnectPoint` | appends a point; stays in `connectingFrom` |
-| `oscd-sld-edit-scl` | `handleEditSclRequest` | opens SCL dialog → `EditV2` |
-| `oscd-sld-edit-ied` | `handleEditIedRequest` | opens IED dialog → `EditV2` (+ SLD reference sync) |
+| `oscd-sld-place` | `handlePlace` | insert/move `EditV2` → `idle` |
+| `oscd-sld-place-label` | `handlePlaceLabel` | label-move `EditV2` → `idle` |
+| `oscd-sld-resize` | `handleResize` | resize `EditV2` → `idle` |
+| `oscd-sld-resize-tl` | `handleResizeTL` | top-left resize `EditV2` → `idle` |
+| `oscd-sld-rotate` | `handleRotate` | rotate `EditV2` |
+| `oscd-sld-connect` | `handleConnect` | connectivity `EditV2` |
+| `oscd-sld-ground-terminal` | `handleGroundTerminal` | ground `EditV2`, or a warning if not groundable |
+| `oscd-sld-extend-connect-point` | `handleExtendConnectPoint` | appends a point; stays in `connectingFrom` |
+| `oscd-sld-edit-scl` | `handleEditScl` | opens SCL dialog → `EditV2` |
+| `oscd-sld-edit-ied` | `handleEditIed` | opens IED dialog → `EditV2` (+ SLD reference sync) |
 
 **Group C — pure notifications.** `oscd-sld-open-context-menu` opens the editor's context-menu overlay (no edit). `oscd-sld-selected` is _not_ consumed by the editor at all — it bubbles out (composed) as a selection signal a host may react to or ignore.
 
@@ -209,7 +209,7 @@ The static base layers are wrapped in Lit's `guard` so that cursor-driven re-ren
 Two consequences of a transition are driven **reactively** off the `interaction` state in `updated()`, rather than hand-orchestrated at every assignment site:
 
 1. leaving `placing` resolves any still-pending placement promise, and
-2. the derived `sld-editor-in-action` boolean is emitted only when the active/idle status actually flips.
+2. the derived `oscd-sld-in-action` boolean is emitted only when the active/idle status actually flips.
 
 `Escape` returns to `idle` from anywhere.
 
@@ -221,7 +221,7 @@ This is the heart of the editor: the **one place** where a completed interaction
 viewer intent  →  editor handler  →  edit builder (foundations)  →  newEditEventV2(...)  →  host
 ```
 
-For example `oscd-sld-connect` → `connectEquipment` → a connectivity edit builder → `newEditEventV2`. The editor never mutates the document itself; it only _describes_ the change as an `EditV2` and lets the host apply it. This is what keeps every change undoable and bumps `docVersion` — the signal the whole render pipeline relies on to notice the document has changed. Some handlers are async (the SCL / IED dialogs resolve an edit before dispatch).
+For example `oscd-sld-connect` → `handleConnect` → a connectivity edit builder → `newEditEventV2`. The editor never mutates the document itself; it only _describes_ the change as an `EditV2` and lets the host apply it. This is what keeps every change undoable and bumps `docVersion` — the signal the whole render pipeline relies on to notice the document has changed. Some handlers are async (the SCL / IED dialogs resolve an edit before dispatch).
 
 ### Singleton overlays
 

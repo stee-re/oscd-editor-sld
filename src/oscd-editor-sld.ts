@@ -18,7 +18,10 @@ import { SldToolbar } from './toolbar/sld-toolbar.js';
 import { sldThemeStyles } from './theme.js';
 import SldMigrationNotice from './sld-migration-notice.js';
 
-import type { StartInteractionEvent } from './foundations/events.js';
+import type {
+  InActionEvent,
+  StartInteractionEvent,
+} from './foundations/events.js';
 
 export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
   static scopedElements = {
@@ -80,7 +83,7 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     bayTypical: Element;
     ieds: Element[];
   }) {
-    const result = await this.sldEditor?.startInteraction({
+    const result = await this.sldEditor?.handleStartInteraction({
       mode: 'placing',
       element: bayTypical,
     });
@@ -144,6 +147,10 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
     );
   };
 
+  private handleInAction(active: boolean) {
+    this.inAction = active;
+  }
+
   render() {
     if (!this.doc) {
       return html`<p>Please open an SCL document</p>`;
@@ -163,7 +170,7 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         .gridSize=${this.gridSize}
         @oscd-edit-v2=${this.normalizeEditsWithSldNS}
         @oscd-sld-start-interaction=${({ detail }: StartInteractionEvent) => {
-          this.sldEditor?.startInteraction(detail);
+          this.sldEditor?.handleStartInteraction(detail);
         }}
         @start-placing-typical=${({ detail }: CustomEvent) => {
           this.startBayTypicalPlacing(detail);
@@ -192,8 +199,8 @@ export default class OscdEditorSld extends ScopedElementsMixin(LitElement) {
         .showLabels=${this.showLabels}
         .showIeds=${this.showIeds}
         @oscd-edit-v2=${this.normalizeEditsWithSldNS}
-        @sld-editor-in-action=${({ detail }: CustomEvent) => {
-          this.inAction = detail;
+        @oscd-sld-in-action=${({ detail }: InActionEvent) => {
+          this.handleInAction(detail);
         }}
       >
       </sld-editor>

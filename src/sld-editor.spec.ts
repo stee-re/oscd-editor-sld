@@ -574,7 +574,7 @@ describe('SLD Editor', () => {
     });
 
     it('enters placing and returns the placement promise for a placing intent', () => {
-      const result = element.startInteraction({
+      const result = element.handleStartInteraction({
         mode: 'placing',
         element: voltageLevel,
       });
@@ -583,7 +583,7 @@ describe('SLD Editor', () => {
     });
 
     it('clones the source before placing a copy intent', () => {
-      element.startInteraction({
+      element.handleStartInteraction({
         mode: 'placing',
         element: voltageLevel,
         copy: true,
@@ -595,7 +595,7 @@ describe('SLD Editor', () => {
     });
 
     it('places the source itself when copy is not set', () => {
-      element.startInteraction({
+      element.handleStartInteraction({
         mode: 'placing',
         element: voltageLevel,
       });
@@ -605,7 +605,7 @@ describe('SLD Editor', () => {
     });
 
     it('resolves the placing intent promise when the mode is escaped', async () => {
-      const result = element.startInteraction({
+      const result = element.handleStartInteraction({
         mode: 'placing',
         element: voltageLevel,
       }) as Promise<unknown>;
@@ -615,7 +615,7 @@ describe('SLD Editor', () => {
     });
 
     it('enters a non-placing mode and returns void', () => {
-      const result = element.startInteraction({
+      const result = element.handleStartInteraction({
         mode: 'resizingBR',
         element: bay,
       });
@@ -624,7 +624,7 @@ describe('SLD Editor', () => {
     });
 
     it('returns to idle on cancelInteraction', () => {
-      element.startInteraction({ mode: 'resizingBR', element: bay });
+      element.handleStartInteraction({ mode: 'resizingBR', element: bay });
       expectActiveMode('resizingBR');
       element.cancelInteraction();
       expectActiveMode(undefined);

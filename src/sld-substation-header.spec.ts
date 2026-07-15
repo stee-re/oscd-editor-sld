@@ -52,22 +52,25 @@ describe('sld-substation-header', () => {
     expect(buttons(element)).to.have.lengthOf(4);
   });
 
-  it('emits sld-header-edit when the edit button is clicked', async () => {
-    const element = await headerFixture();
-    let fired = false;
-    element.addEventListener('sld-header-edit', () => {
-      fired = true;
+  it('emits oscd-sld-edit-scl for the substation when the edit button is clicked', async () => {
+    const substation = substationElement();
+    const element = await fixture<SldSubstationHeader>(html`<sld-substation-header
+      .substation=${substation}
+    ></sld-substation-header>`);
+    let detail: Element | undefined;
+    element.addEventListener('oscd-sld-edit-scl', (event) => {
+      detail = (event as CustomEvent<{ element: Element }>).detail.element;
     });
 
     click(buttons(element)[0]);
 
-    expect(fired).to.be.true;
+    expect(detail).to.equal(substation);
   });
 
-  it('emits sld-header-resize when the resize button is clicked', async () => {
+  it('emits oscd-sld-substation-resize when the resize button is clicked', async () => {
     const element = await headerFixture();
     let fired = false;
-    element.addEventListener('sld-header-resize', () => {
+    element.addEventListener('oscd-sld-substation-resize', () => {
       fired = true;
     });
 
@@ -76,10 +79,10 @@ describe('sld-substation-header', () => {
     expect(fired).to.be.true;
   });
 
-  it('emits sld-header-delete when the delete button is clicked', async () => {
+  it('emits oscd-sld-substation-delete when the delete button is clicked', async () => {
     const element = await headerFixture();
     let fired = false;
-    element.addEventListener('sld-header-delete', () => {
+    element.addEventListener('oscd-sld-substation-delete', () => {
       fired = true;
     });
 
@@ -88,10 +91,10 @@ describe('sld-substation-header', () => {
     expect(fired).to.be.true;
   });
 
-  it('emits sld-header-export when the export button is clicked', async () => {
+  it('emits oscd-sld-substation-export when the export button is clicked', async () => {
     const element = await headerFixture();
     let fired = false;
-    element.addEventListener('sld-header-export', () => {
+    element.addEventListener('oscd-sld-substation-export', () => {
       fired = true;
     });
 
@@ -103,7 +106,7 @@ describe('sld-substation-header', () => {
   it('emits header events that bubble and cross shadow boundaries', async () => {
     const element = await headerFixture();
     const event = await new Promise<Event>((resolve) => {
-      element.addEventListener('sld-header-edit', resolve, { once: true });
+      element.addEventListener('oscd-sld-edit-scl', resolve, { once: true });
       click(buttons(element)[0]);
     });
 

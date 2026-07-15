@@ -229,6 +229,63 @@ export function newEditIedEvent(element: Element): EditIedEvent {
   });
 }
 
+/**
+ * Substation-chrome commands requested from the header affordances. Each
+ * carries the substation it targets, so the editor can act without relying on a
+ * render-time closure. `resize` opens the resize *dialog* — distinct from the
+ * gesture-completion `oscd-sld-resize`, which commits a drag.
+ */
+export type SubstationCommandEvent = CustomEvent<Element>;
+
+export function newSubstationResizeEvent(
+  substation: Element,
+): SubstationCommandEvent {
+  return new CustomEvent('oscd-sld-substation-resize', {
+    bubbles: true,
+    composed: true,
+    detail: substation,
+  });
+}
+
+export function newSubstationDeleteEvent(
+  substation: Element,
+): SubstationCommandEvent {
+  return new CustomEvent('oscd-sld-substation-delete', {
+    bubbles: true,
+    composed: true,
+    detail: substation,
+  });
+}
+
+export function newSubstationExportEvent(
+  substation: Element,
+): SubstationCommandEvent {
+  return new CustomEvent('oscd-sld-substation-export', {
+    bubbles: true,
+    composed: true,
+    detail: substation,
+  });
+}
+
+export type GroundHintEvent = CustomEvent<undefined>;
+
+export function newGroundHintEvent(): GroundHintEvent {
+  return new CustomEvent('oscd-sld-ground-hint', {
+    bubbles: true,
+    composed: true,
+  });
+}
+
+export type InActionEvent = CustomEvent<boolean>;
+
+export function newInActionEvent(active: boolean): InActionEvent {
+  return new CustomEvent('oscd-sld-in-action', {
+    bubbles: true,
+    composed: true,
+    detail: active,
+  });
+}
+
 declare global {
   interface ElementEventMap {
     ['oscd-sld-resize']: ResizeEvent;
@@ -244,5 +301,10 @@ declare global {
     ['oscd-sld-edit-ied']: EditIedEvent;
     ['oscd-sld-ground-terminal']: GroundTerminalEvent;
     ['oscd-sld-open-context-menu']: OpenContextMenuEvent;
+    ['oscd-sld-substation-resize']: SubstationCommandEvent;
+    ['oscd-sld-substation-delete']: SubstationCommandEvent;
+    ['oscd-sld-substation-export']: SubstationCommandEvent;
+    ['oscd-sld-ground-hint']: GroundHintEvent;
+    ['oscd-sld-in-action']: InActionEvent;
   }
 }

@@ -50,9 +50,11 @@ import type {
   ResizeEvent,
   ResizeTLEvent,
   StartEvent,
+  SubstationCommandEvent,
   InteractionIntent,
   StartInteractionEvent,
 } from './foundations/events.js';
+import { newInActionEvent } from './foundations/events.js';
 import type { Point } from './foundations/geometry.js';
 import * as interactions from './foundations/interaction-mode.js';
 import type { InteractionState } from './foundations/interaction-mode.js';
@@ -130,56 +132,44 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
 
   @state() showLabels: boolean = true;
 
-  /**
-   * Resolves a coordinate surface to its SCL `Substation`. A surface is the root
-   * `svg#sld` of a substation viewer; its shadow host is the viewer, which
-   * carries the substation. Passed to the single coordinate tooltip so it can
-   * identify which substation the cursor is over without the editor tracking
-   * pointer movement itself.
-   */
-  private substationOf = (surface: Element): Element | undefined => {
-    if (!(surface instanceof SVGSVGElement) || surface.id !== 'sld') {
-      return undefined;
-    }
-    const root = surface.getRootNode();
-    const host = root instanceof ShadowRoot ? root.host : undefined;
-    return host instanceof SldSubstationViewer ? host.substation : undefined;
-  };
-
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('keydown', this.handleKeydown);
-    this.addEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
-    this.addEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
+    this.addEventListener('oscd-sld-edit-scl', this.handleEditScl);
+    this.addEventListener('oscd-sld-edit-ied', this.handleEditIed);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('keydown', this.handleKeydown);
-    this.removeEventListener('oscd-sld-edit-scl', this.handleEditSclRequest);
-    this.removeEventListener('oscd-sld-edit-ied', this.handleEditIedRequest);
+    this.removeEventListener('oscd-sld-edit-scl', this.handleEditScl);
+    this.removeEventListener('oscd-sld-edit-ied', this.handleEditIed);
   }
 
-  private handleGroundTerminalRequest = (event: GroundTerminalEvent) => {
-    const { equipment, terminal } = event.detail;
-    const edits = createGroundTerminalEdits(equipment, terminal);
-    if (!edits) {
-      this.showGroundHint();
+  /**
+   * The two genuine consequences of an interaction transition, driven reactively
+   * off the `interaction` `@state` rather than hand-orchestrated at every
+   * assignment site: (1) resolve a still-pending placement promise when leaving
+   * `placing` (a successful place opts out by clearing `_resolvePlacement`
+   * first); (2) emit the derived `oscd-sld-in-action` boolean, but only when
+   * the active/idle state actually flips — no more start-then-reset flap.
+   */
+  updated(changed: Map<PropertyKey, unknown>) {
+    if (!changed.has('interaction')) {
       return;
     }
+    const previous = changed.get('interaction') as InteractionState | undefined;
 
-    this.dispatchEvent(newEditEventV2(edits));
-  };
+    if (previous?.mode === 'placing' && this.interaction.mode !== 'placing') {
+      this._resolvePlacement?.(undefined);
+      this._resolvePlacement = undefined;
+    }
 
-  private handleOpenContextMenuRequest = (event: OpenContextMenuEvent) => {
-    this.contextMenu.open(event.detail);
-  };
-
-  private showGroundHint() {
-    this.snackbar.show({
-      message: 'Only transformers within a bay may be grounded directly.',
-      variant: 'warning',
-    });
+    const wasActive = !!previous && previous.mode !== 'idle';
+    const isActive = this.interaction.mode !== 'idle';
+    if (wasActive !== isActive) {
+      this.dispatchEvent(newInActionEvent(isActive));
+    }
   }
 
   private handleKeydown = ({ key }: KeyboardEvent) => {
@@ -188,18 +178,176 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     }
   };
 
-  private async editScl(element: Element) {
-    const edits = await this.sclDialogs.edit({ element });
-
-    this.dispatchEvent(newEditEventV2(edits));
+  /**
+   * The single public entry for interaction *intents* — from the editor's own
+   * views (via bubbling `oscd-sld-start-interaction`) and, bridged by the host,
+   * from the sibling toolbar. Keeping every begin-transition behind this one
+   * method (rather than letting callers assign `interaction` or call
+   * `startPlacing` directly) makes the editor the sole owner of its interaction
+   * state. Returns the placement promise for the `placing` case so a caller
+   * orchestrating a follow-up (e.g. the host inserting IEDs after a bay-typical
+   * placement) can await the result; other modes return `void`.
+   */
+  handleStartInteraction(
+    intent: InteractionIntent,
+  ): Promise<PlacementResult | undefined> | void {
+    switch (intent.mode) {
+      case 'placing':
+        return this.startPlacing(
+          intent.copy
+            ? copyElementForPlacement(intent.element, this.nsp)
+            : intent.element,
+          intent.offset,
+        );
+      case 'placingLabel':
+        this.interaction = interactions.placingLabel(
+          intent.element,
+          intent.offset ?? [0, 0],
+        );
+        break;
+      case 'resizingBR':
+        this.interaction = interactions.resizingBR(intent.element);
+        break;
+      case 'resizingTL':
+        this.interaction = interactions.resizingTL(intent.element);
+        break;
+      case 'connecting':
+        this.interaction = interactions.connectingFrom(
+          intent.from,
+          intent.fromTerminal,
+          intent.path,
+        );
+        break;
+    }
+    return undefined;
   }
 
-  private handleEditSclRequest = (event: Event) => {
+  handlePlace(element: Element, parent: Element, x: number, y: number) {
+    const {
+      pos: [oldX, oldY],
+    } = attributes(element);
+    const dx = x - oldX;
+    const dy = y - oldY;
+
+    const edits: EditV2[] = [];
+
+    if (element.parentElement !== parent && !isIedReferenceElement(element)) {
+      edits.push(...reparentElement(element, parent));
+    }
+
+    edits.push(...shiftElementEdits(element, x, y, this.nsp));
+    edits.push(...shiftTextEdits(element, dx, dy, this.nsp));
+    edits.push(...shiftDescendantEdits(element, dx, dy, this.nsp));
+    edits.push(...rewireTerminalEdits(element, parent, this.doc));
+    edits.push(...disconnectExternalEdits(element, this.doc));
+    edits.push(...busBarVertexEdits(element, x, y, this.nsp));
+    edits.push(...wrapIedReferenceEdits(element, parent, this.doc));
+
+    this.dispatchEvent(newEditEventV2(edits));
+
+    const resolve = this._resolvePlacement;
+    this._resolvePlacement = undefined;
+
+    if (this.isNewBayOrVL(element)) {
+      this.interaction = interactions.resizingBR(element);
+    } else {
+      this.interaction = interactions.idle();
+    }
+
+    resolve?.({ element, parent, x, y });
+  }
+
+  handlePlaceLabel(element: Element, x: number, y: number) {
+    this.dispatchEvent(
+      newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)),
+    );
+    this.interaction = interactions.idle();
+  }
+
+  handleResize(element: Element, w: number, h: number) {
+    this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
+    this.interaction = interactions.idle();
+  }
+
+  handleResizeTL(element: Element, x: number, y: number, w: number, h: number) {
+    this.dispatchEvent(
+      newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)),
+    );
+    this.interaction = interactions.idle();
+  }
+
+  handleRotate(element: Element) {
+    this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
+  }
+
+  handleConnect(detail: ConnectDetail) {
+    const edits = createConnectEdits(detail, this.doc, this.nsp);
+    if (edits.length) {
+      this.dispatchEvent(newEditEventV2(edits));
+    }
+    this.interaction = interactions.idle();
+  }
+
+  /**
+   * Grow the in-progress connection path. The view reports the next path
+   * (computed from the click + live cursor) and the controller — the single
+   * owner of the interaction state — reassigns `interaction` immutably so Lit
+   * reactivity is automatic and the value is never mutated behind its back.
+   */
+  handleExtendConnectPoint(path: Point[]) {
+    if (this.interaction.mode !== 'connectingFrom') {
+      return;
+    }
+    this.interaction = interactions.connectingFrom(
+      this.interaction.element,
+      this.interaction.terminal,
+      path,
+    );
+  }
+
+  private handleGroundTerminal = (event: GroundTerminalEvent) => {
+    const { equipment, terminal } = event.detail;
+    const edits = createGroundTerminalEdits(equipment, terminal);
+    if (!edits) {
+      this.handleGroundHint();
+      return;
+    }
+
+    this.dispatchEvent(newEditEventV2(edits));
+  };
+
+  private handleGroundHint() {
+    this.snackbar.show({
+      message: 'Only transformers within a bay may be grounded directly.',
+      variant: 'warning',
+    });
+  }
+
+  handleSubstationResize(substation: Element) {
+    this.resizeDialog.show(substation);
+  }
+
+  handleSubstationDelete(substation: Element) {
+    this.dispatchEvent(newEditEventV2({ node: substation }));
+  }
+
+  handleSubstationExport(event: SubstationCommandEvent) {
+    downloadSvg(
+      (event.currentTarget as SldSubstationViewer).exportableSvg(),
+      `${event.detail.getAttribute('name')}.svg`,
+    );
+  }
+
+  private handleOpenContextMenu = (event: OpenContextMenuEvent) => {
+    this.contextMenu.open(event.detail);
+  };
+
+  private handleEditScl = (event: Event) => {
     const detail = (event as CustomEvent<EditSclDetail>).detail;
     return this.editScl(detail.element);
   };
 
-  private handleEditIedRequest = async (event: Event) => {
+  private handleEditIed = async (event: Event) => {
     const { element: sclIed } = (event as CustomEvent<EditIedDetail>).detail;
     const edits = await this.sclDialogs.edit({ element: sclIed });
 
@@ -247,6 +395,22 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     );
   };
 
+  /**
+   * Resolves a coordinate surface to its SCL `Substation`. A surface is the root
+   * `svg#sld` of a substation viewer; its shadow host is the viewer, which
+   * carries the substation. Passed to the single coordinate tooltip so it can
+   * identify which substation the cursor is over without the editor tracking
+   * pointer movement itself.
+   */
+  private substationOf = (surface: Element): Element | undefined => {
+    if (!(surface instanceof SVGSVGElement) || surface.id !== 'sld') {
+      return undefined;
+    }
+    const root = surface.getRootNode();
+    const host = root instanceof ShadowRoot ? root.host : undefined;
+    return host instanceof SldSubstationViewer ? host.substation : undefined;
+  };
+
   private _resolvePlacement?: (result: PlacementResult | undefined) => void;
 
   /**
@@ -279,82 +443,6 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
   }
 
   /**
-   * The two genuine consequences of an interaction transition, driven reactively
-   * off the `interaction` `@state` rather than hand-orchestrated at every
-   * assignment site: (1) resolve a still-pending placement promise when leaving
-   * `placing` (a successful place opts out by clearing `_resolvePlacement`
-   * first); (2) emit the derived `sld-editor-in-action` boolean, but only when
-   * the active/idle state actually flips — no more start-then-reset flap.
-   */
-  updated(changed: Map<PropertyKey, unknown>) {
-    if (!changed.has('interaction')) {
-      return;
-    }
-    const previous = changed.get('interaction') as InteractionState | undefined;
-
-    if (previous?.mode === 'placing' && this.interaction.mode !== 'placing') {
-      this._resolvePlacement?.(undefined);
-      this._resolvePlacement = undefined;
-    }
-
-    const wasActive = !!previous && previous.mode !== 'idle';
-    const isActive = this.interaction.mode !== 'idle';
-    if (wasActive !== isActive) {
-      this.dispatchEvent(
-        new CustomEvent('sld-editor-in-action', { detail: isActive }),
-      );
-    }
-  }
-
-  rotateElement(element: Element) {
-    this.dispatchEvent(newEditEventV2(createRotateEdits(element, this.nsp)));
-  }
-
-  /**
-   * The single public entry for interaction *intents* — from the editor's own
-   * views (via bubbling `oscd-sld-start-interaction`) and, bridged by the host,
-   * from the sibling toolbar. Keeping every begin-transition behind this one
-   * method (rather than letting callers assign `interaction` or call
-   * `startPlacing` directly) makes the editor the sole owner of its interaction
-   * state. Returns the placement promise for the `placing` case so a caller
-   * orchestrating a follow-up (e.g. the host inserting IEDs after a bay-typical
-   * placement) can await the result; other modes return `void`.
-   */
-  startInteraction(
-    intent: InteractionIntent,
-  ): Promise<PlacementResult | undefined> | void {
-    switch (intent.mode) {
-      case 'placing':
-        return this.startPlacing(
-          intent.copy
-            ? copyElementForPlacement(intent.element, this.nsp)
-            : intent.element,
-          intent.offset,
-        );
-      case 'placingLabel':
-        this.interaction = interactions.placingLabel(
-          intent.element,
-          intent.offset ?? [0, 0],
-        );
-        break;
-      case 'resizingBR':
-        this.interaction = interactions.resizingBR(intent.element);
-        break;
-      case 'resizingTL':
-        this.interaction = interactions.resizingTL(intent.element);
-        break;
-      case 'connecting':
-        this.interaction = interactions.connectingFrom(
-          intent.from,
-          intent.fromTerminal,
-          intent.path,
-        );
-        break;
-    }
-    return undefined;
-  }
-
-  /**
    * Abort the current interaction, returning the editor to its idle resting
    * state. The host's toolbar cancel affordance requests this rather than
    * assigning `interaction` directly, keeping the editor the sole owner of its
@@ -364,89 +452,16 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     this.interaction = interactions.idle();
   }
 
-  handleSubstationResize(element: Element, w: number, h: number) {
-    this.dispatchEvent(newEditEventV2(createResizeEdits(element, this.nsp, w, h)));
-    this.interaction = interactions.idle();
-  }
+  private async editScl(element: Element) {
+    const edits = await this.sclDialogs.edit({ element });
 
-  resizeTLElement(element: Element, x: number, y: number, w: number, h: number) {
-    this.dispatchEvent(
-      newEditEventV2(createResizeTLEdits(element, this.nsp, x, y, w, h)),
-    );
-    this.interaction = interactions.idle();
+    this.dispatchEvent(newEditEventV2(edits));
   }
 
   isNewBayOrVL(element: Element) : boolean {
     return ['Bay', 'VoltageLevel'].includes(element.tagName) &&
       (!getSLDAttributes(element, 'w') || !getSLDAttributes(element, 'h'));
 
-  }
-
-  placeElement(element: Element, parent: Element, x: number, y: number) {
-    const {
-      pos: [oldX, oldY],
-    } = attributes(element);
-    const dx = x - oldX;
-    const dy = y - oldY;
-
-    const edits: EditV2[] = [];
-
-    if (element.parentElement !== parent && !isIedReferenceElement(element)) {
-      edits.push(...reparentElement(element, parent));
-    }
-
-    edits.push(...shiftElementEdits(element, x, y, this.nsp));
-    edits.push(...shiftTextEdits(element, dx, dy, this.nsp));
-    edits.push(...shiftDescendantEdits(element, dx, dy, this.nsp));
-    edits.push(...rewireTerminalEdits(element, parent, this.doc));
-    edits.push(...disconnectExternalEdits(element, this.doc));
-    edits.push(...busBarVertexEdits(element, x, y, this.nsp));
-    edits.push(...wrapIedReferenceEdits(element, parent, this.doc));
-
-    this.dispatchEvent(newEditEventV2(edits));
-
-    const resolve = this._resolvePlacement;
-    this._resolvePlacement = undefined;
-
-    if (this.isNewBayOrVL(element)) {
-      this.interaction = interactions.resizingBR(element);
-    } else {
-      this.interaction = interactions.idle();
-    }
-
-    resolve?.({ element, parent, x, y });
-  }
-
-  placeLabelElement(element: Element, x: number, y: number) {
-    this.dispatchEvent(
-      newEditEventV2(createPlaceLabelEdit(element, this.nsp, x, y)),
-    );
-    this.interaction = interactions.idle();
-  }
-
-  connectEquipment(detail: ConnectDetail) {
-    const edits = createConnectEdits(detail, this.doc, this.nsp);
-    if (edits.length) {
-      this.dispatchEvent(newEditEventV2(edits));
-    }
-    this.interaction = interactions.idle();
-  }
-
-  /**
-   * Grow the in-progress connection path. The view reports the next path
-   * (computed from the click + live cursor) and the controller — the single
-   * owner of the interaction state — reassigns `interaction` immutably so Lit
-   * reactivity is automatic and the value is never mutated behind its back.
-   */
-  extendConnectPoint(path: Point[]) {
-    if (this.interaction.mode !== 'connectingFrom') {
-      return;
-    }
-    this.interaction = interactions.connectingFrom(
-      this.interaction.element,
-      this.interaction.terminal,
-      path,
-    );
   }
 
   render() {
@@ -465,55 +480,54 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
             .disabled=${this.disabled}
             .selectable=${this.selectable}
             .highlight=${this.highlight}
-            @sld-header-export=${(event: Event) =>
-              downloadSvg(
-                (event.currentTarget as SldSubstationViewer).exportableSvg(),
-                `${substation.getAttribute('name')}.svg`,
-              )}
+            @oscd-sld-substation-export=${(event: SubstationCommandEvent) =>
+              this.handleSubstationExport(event)}
             @oscd-sld-start-interaction=${({
               detail,
-            }: StartInteractionEvent) => this.startInteraction(detail)}
+            }: StartInteractionEvent) => this.handleStartInteraction(detail)}
             @oscd-sld-ground-terminal=${(event: GroundTerminalEvent) => {
-              this.handleGroundTerminalRequest(event);
+              this.handleGroundTerminal(event);
             }}
-            @sld-ground-hint=${() => {
-              this.showGroundHint();
+            @oscd-sld-ground-hint=${() => {
+              this.handleGroundHint();
             }}
             @oscd-sld-open-context-menu=${(event: OpenContextMenuEvent) => {
-              this.handleOpenContextMenuRequest(event);
+              this.handleOpenContextMenu(event);
             }}
             @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-              this.handleSubstationResize(element, w, h);
+              this.handleResize(element, w, h);
             }}
             @oscd-sld-resize-tl=${({
               detail: { element, x, y, w, h },
             }: ResizeTLEvent) => {
-              this.resizeTLElement(element, x, y, w, h);
+              this.handleResizeTL(element, x, y, w, h);
             }}
             @oscd-sld-place=${({
               detail: { element, parent, x, y },
-            }: PlaceEvent) => this.placeElement(element, parent, x, y)}
+            }: PlaceEvent) => this.handlePlace(element, parent, x, y)}
             @oscd-sld-place-label=${({
               detail: { element, x, y },
             }: PlaceLabelEvent) => {
-              this.placeLabelElement(element, x, y);
+              this.handlePlaceLabel(element, x, y);
             }}
             @oscd-sld-connect=${({ detail }: ConnectEvent) =>
-              this.connectEquipment(detail)}
+              this.handleConnect(detail)}
             @oscd-sld-extend-connect-point=${({
               detail,
-            }: ExtendConnectPointEvent) => this.extendConnectPoint(detail.path)}
+            }: ExtendConnectPointEvent) => this.handleExtendConnectPoint(detail.path)}
             @oscd-sld-rotate=${({ detail }: StartEvent) =>
-              this.rotateElement(detail)}
+              this.handleRotate(detail)}
           >
             <sld-substation-header
               slot="header"
               .substation=${substation}
               ?disabled=${this.disabled}
-              @sld-header-edit=${() => this.editScl(substation)}
-              @sld-header-resize=${() => this.resizeDialog.show(substation)}
-              @sld-header-delete=${() =>
-                this.dispatchEvent(newEditEventV2({ node: substation }))}
+              @oscd-sld-substation-resize=${({
+                detail,
+              }: SubstationCommandEvent) => this.handleSubstationResize(detail)}
+              @oscd-sld-substation-delete=${({
+                detail,
+              }: SubstationCommandEvent) => this.handleSubstationDelete(detail)}
             ></sld-substation-header>
           </sld-substation-viewer>`,
     )}
@@ -523,18 +537,18 @@ export class SldEditor extends ScopedElementsMixin(LitElement) {
     ></sld-coordinate-tooltip>
     <sld-resize-substation-dialog
       @oscd-sld-resize=${({ detail: { element, w, h } }: ResizeEvent) => {
-        this.handleSubstationResize(element, w, h);
+        this.handleResize(element, w, h);
       }}
     ></sld-resize-substation-dialog>
     <sld-context-menu
       .doc=${this.doc}
       .nsp=${this.nsp}
       @oscd-sld-start-interaction=${({ detail }: StartInteractionEvent) =>
-        this.startInteraction(detail)}
+        this.handleStartInteraction(detail)}
       @oscd-sld-rotate=${({ detail }: StartEvent) =>
-        this.rotateElement(detail)}
-      @sld-ground-hint=${() => {
-        this.showGroundHint();
+        this.handleRotate(detail)}
+      @oscd-sld-ground-hint=${() => {
+        this.handleGroundHint();
       }}
     ></sld-context-menu>
     <oscd-snackbar></oscd-snackbar>
