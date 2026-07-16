@@ -275,3 +275,71 @@ Two things, both already in place, make this mechanical:
 2. **The interaction boundary is intents-only** (§2): the viewer already speaks a vocabulary (`oscd-sld-*` + `InteractionIntent` / `InteractionState`) that a host other than `SldEditor` can consume.
 
 **Remaining caveat for packaging:** `src/foundations.ts` is a barrel that currently re-exports both viewer-safe and editor-only surfaces. It will need curation at packaging time so the `sld-viewer` package does not transitively re-export editor-tier edit builders. This is a bundling concern, not a structural one — the underlying modules are already correctly partitioned.
+
+## 8. File map
+
+Where each responsibility physically lives.
+
+### Root & editor
+
+- `src/oscd-editor-sld.ts` — Thin plugin orchestrator: lifecycle, namespace detection, event wiring between toolbar and editor.
+- `src/sld-editor.ts` — Editing kernel: placement state machine, resize, connect, rotate. Promise-based `startPlacing()` API. Owns the single `<sld-resize-substation-dialog>` instance.
+- `src/sld-substation-viewer.ts` — SVG rendering orchestration + context menu delegation. `render()` is a paint-order layer stack of `render*` sub-methods. Emits only diagram-gesture intents; renders a `<slot name="header">` for editor-owned chrome. Future split target for viewer extraction.
+- `src/sld-substation-header.ts` — Editor-owned substation chrome (name + Edit/Resize/Delete/Export buttons), slotted into the viewer's `header` slot. Reports intent only via `oscd-sld-edit-scl` (Edit) and `oscd-sld-substation-{resize,delete,export}`; the editor decides what each command means.
+- `src/sld-resize-substation-dialog.ts` — Self-contained substation resize dialog (width/height form + `canResizeTo` validation). Input: `.substation`; output: a single `oscd-sld-resize` event. Owned by `SldEditor`.
+
+### Toolbar (`src/toolbar/`)
+
+- `sld-toolbar.ts` — Layout compositor with data-driven FAB groups. Equipment, structural, transformer, and view-control sections. Owns the about dialog and `insertSubstation` logic.
+- `sld-ied-importer.ts` — FAB + hidden file input for bay typical import. Parses SCL, converts layout, emits placement event with IEDs.
+- `sld-ied-menu.ts` — IED selection menu with 3 sections (unmatched refs, available IEDs, used IEDs). Emits `start-placing`.
+
+### Context menu (`src/context-menu/`)
+
+- `sld-context-menu.ts` — `SldContextMenu` component, discriminated union types, `MenuContext`, `MenuItemContext`.
+- `sld-context-menu-factory.ts` — all menu builder functions, `createContextMenuItems()` entry point.
+
+### Foundations (`src/foundations/`)
+
+- `geometry.ts` — pure rectangle/point math (Rect, Point tuples, no DOM).
+- `element-geometry.ts` — Element-aware geometry bridge (`containsRect`, `overlapsRect`).
+- `sld-placement.ts` — SLD placement/resize validation rules (`canPlaceAt`, `canResizeTo`, `canResizeToTL`). Pure, read-only, **viewer-tier safe** — no clone construction, no `EditV2`.
+- `placement-clone.ts` — `copyElementForPlacement` (pure preview-clone: strips foreign connectivity/IED refs and re-UUIDs terminals). Returns `Element`, never `EditV2`, but is **editor tier**: invoked only by `SldEditor.startInteraction` when a `placing` intent carries `copy: true`.
+- `equipment.ts` — Type constants & guards.
+- `transformer.ts` — Rendering geometry for windings.
+- `sld-attributes.ts` — Read SLD namespace attributes + imperative mutation primitives (`getSLDAttributes`, `setSLDAttributes`, `sldAttributes`, `attributes`). **No `EditV2` — viewer-tier safe.**
+- `sld-attribute-edits.ts` — SLD-attribute `EditV2` builder (`updateSLDAttributes`). **Editor tier.**
+- `events.ts` — Custom event factories & types.
+- `export.ts` — XML pretty-print & download.
+- `ied.ts` — IED resolution/queries (`iedReferences`, `resolveIed`, `unresolvedIedReferences`). **No `EditV2` — viewer-tier safe.**
+- `ied-edits.ts` — IED reference `EditV2` builder (`createRemoveIedReferenceEdit`). **Editor tier.**
+- `connectivity.ts` — Queries (`isBusBar`, `busSections`, `connectionStartPoints`, `connectivityPath`, `makeBusBar`).
+- `connectivity-edits.ts` — Connectivity edit builders (`removeNode`, `removeTerminal`, `reparentElement`, `uniqueName`).
+- `edits.ts` — Editor-tier `EditV2` builders (ground, flip, delete, connect, resize, rotate, text).
+
+### Drawing (`src/drawing/`)
+
+- `diagram-symbols.ts` — Diagram SVG defs, grid patterns, markers, resize paths, transformer paths, and equipment symbol paths.
+- `artifacts/artifact.ts` — Shared functional artifact descriptor/context types.
+- `artifacts/conducting-equipment.ts` — ConductingEquipment artifact descriptor: state, actions, preview labels, SVG rendering.
+- `artifacts/ied-reference.ts` — IED reference artifact descriptor: state, actions, preview label, SVG rendering.
+- `artifacts/bus-bar.ts` — BusBar artifact descriptor: state, placement action, labels, direct connectivity-node composition (`ConnectivityNodeContext`).
+- `artifacts/connectivity-node.ts` — Connectivity-node renderer (`renderConnectivityNode(cNode, context)`): busbar section geometry, intersection circles, place/resize/connect/context-menu handlers.
+- `artifacts/equipment-container.ts` — Equipment-container renderers for `VoltageLevel`/`Bay` (`renderVoltageLevel`, `renderBay`), delegating to a shared module-private `render` parameterised by a `ContainerKind`.
+- `artifacts/power-transformer.ts` — PowerTransformer artifact descriptor: state, actions, transformer-winding rendering, `transformerHighlight` helper.
+- `artifacts/label.ts` — Label renderer helper: label text, label events, unresolved-IED label colour, label selection.
+- `artifacts/highlight.ts` — Shared `isSelectable`, `isToBeHighlighted`, `getHighlightStyle` helpers.
+- `artifacts/test-context.ts` — Shared spy `makeArtifactContext` builder + `renderToSvg` helper for artifact specs.
+
+### Other
+
+- `src/oscd-sld-icon.ts` — `OscdSldIcon` component with `SLD_ICONS` map.
+- `src/converter.ts` — SLD namespace conversion (old ↔ new format).
+
+Every component file has a co-located `.spec.ts` in the same directory (see the Test Co-location convention).
+
+## 9. Verifying changes
+
+- After each change, run `npm run format` and `npm run test`; both should pass without complaints.
+- `npx tsc --noEmit` type-checks and `npm run lint` runs the project lint.
+- If DOM snapshots intentionally change, update them with `--update-snapshots`, then rerun normally.
