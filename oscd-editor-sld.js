@@ -68834,7 +68834,40 @@ function isTransformerKind(kind) {
 function xmlBoolean(value) {
     return ['true', '1'].includes(value?.trim() ?? 'false');
 }
+/** Finds the parent's `Private[@type="OpenSCD-SLD-Layout"]`, if any. */
+function layoutPrivate(parent) {
+    return (Array.from(parent.children).find(child => child.localName === 'Private' &&
+        child.getAttribute('type') === privType) ?? null);
+}
+/**
+ * Finds (or, given a prefix, creates) the `TextLayout` that describes the
+ * single direct `Text` child of `parent`. It lives in the parent's layout
+ * `Private`, as SCL does not permit a `Private` inside `Text`.
+ */
+function textLayout(parent, nsPrefix) {
+    const priv = layoutPrivate(parent);
+    const existing = priv
+        ? Array.from(priv.children).find(child => child.localName === 'TextLayout' && child.namespaceURI === sldNs) ?? null
+        : null;
+    if (existing || !nsPrefix) {
+        return existing;
+    }
+    const doc = parent.ownerDocument;
+    const privEl = priv ?? doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+    if (!priv) {
+        privEl.setAttribute('type', privType);
+        parent.insertBefore(privEl, getReference(parent, 'Private'));
+    }
+    const layout = doc.createElementNS(sldNs, `${nsPrefix}:TextLayout`);
+    privEl.appendChild(layout);
+    return layout;
+}
 function sldAttributes(element, nsPrefix) {
+    if (element.localName === 'Text') {
+        return element.parentElement
+            ? textLayout(element.parentElement, nsPrefix)
+            : null;
+    }
     if (isIedReferenceElement(element)) {
         const referenceSldAttrs = Array.from(element.children).find(child => child.localName === 'SLDAttributes' && child.namespaceURI === sldNs);
         if (referenceSldAttrs) {
@@ -69782,7 +69815,7 @@ function iedReferenceState(referencedIed, context, { preview = false } = {}) {
     };
 }
 function iedReferenceActions(referencedIed, context, state) {
-    let handleClick = () => { };
+    let handleClick;
     const [x, y] = state.position;
     if (targetInMode(context.interaction, 'placing') === referencedIed &&
         canPlaceAt(context.substation, referencedIed, x, y, 1, 1)) {
@@ -70228,7 +70261,7 @@ function powerTransformerState(transformer, context, { preview = false } = {}) {
 }
 function powerTransformerActions(transformer, context, state) {
     const [x, y] = state.position;
-    let handleClick = A;
+    let handleClick;
     if (targetInMode(context.interaction, 'placing') === transformer) {
         handleClick = (e) => {
             if (targetInMode(context.interaction, 'placing') === transformer) {
@@ -74872,6 +74905,14 @@ OscdOutlinedTextField.scopedElements = {
     'oscd-outlined-field': OscdOutlinedField,
 };
 
+/** Whole number ≥ 1, or NaN for empty, fractional, non-finite or \< 1 input. */
+function parseDimension(raw) {
+    if (raw === undefined || raw.trim() === '') {
+        return NaN;
+    }
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 1 ? n : NaN;
+}
 /**
  * A self-contained dialog for resizing a `Substation`. Owned by the editor
  * controller (`SldEditor`) so there is exactly one instance regardless of how
@@ -74885,23 +74926,25 @@ OscdOutlinedTextField.scopedElements = {
 class SldResizeSubstationDialog extends ScopedElementsMixin(i$4) {
     async show(substation) {
         this.substation = substation;
+        this.requestUpdate(); // SCL doc may have changed, safest to update.
         await this.updateComplete;
+        this.resetFields();
         this.dialog.open = true;
     }
-    confirm() {
-        if (!this.substation) {
-            return;
-        }
-        // Surface validity through the standard constraint-validation API; if
-        // either field is invalid, report it and keep the dialog open.
+    validateAll() {
+        // No short-circuit: revalidate both so neither keeps a stale error.
         const widthOk = this.validate(this.widthTextField);
         const heightOk = this.validate(this.heightTextField);
-        if (!widthOk || !heightOk) {
+        return widthOk && heightOk;
+    }
+    confirm() {
+        if (!this.substation || !this.validateAll()) {
             return;
         }
         const { dim: [oldW, oldH], } = attributes$1(this.substation);
-        const [newW, newH] = [this.widthTextField, this.heightTextField].map(ui => parseInt(ui.value ?? '1', 10));
-        this.dialog.open = false;
+        const newW = parseDimension(this.widthTextField.value);
+        const newH = parseDimension(this.heightTextField.value);
+        this.closeDialog();
         if (newW === oldW && newH === oldH) {
             return;
         }
@@ -74912,26 +74955,62 @@ class SldResizeSubstationDialog extends ScopedElementsMixin(i$4) {
      * validation via `setCustomValidity`, then `reportValidity()` to surface (or
      * clear) the inline error — Material suppresses the native popup. Each field
      * is checked against the other dimension's committed value so the error is
-     * attributed to the dimension the user undersized. Returns the field validity.
+     * attributed to the dimension the user undersized. The host's
+     * `validateSubstationResize` callback, by contrast, receives both proposed
+     * dimensions and takes precedence over that built-in check. Returns the field
+     * validity.
      */
     validate(field) {
         if (!this.substation) {
             return true;
         }
+        const width = parseDimension(this.widthTextField.value);
+        const height = parseDimension(this.heightTextField.value);
+        const value = field === this.widthTextField ? width : height;
+        if (Number.isNaN(value)) {
+            field.setCustomValidity('Enter a whole number of at least 1');
+            return field.reportValidity();
+        }
+        // The other field may be invalid mid-edit; skip the host callback until both parse.
+        const message = Number.isNaN(width) || Number.isNaN(height)
+            ? undefined
+            : this.runHostValidator(width, height, field === this.widthTextField ? 'width' : 'height');
         const { dim: [oldW, oldH], } = attributes$1(this.substation);
-        const value = parseInt(field.value ?? '', 10);
         const fits = field === this.widthTextField
             ? canResizeTo(this.substation, this.substation, value, oldH)
             : canResizeTo(this.substation, this.substation, oldW, value);
-        field.setCustomValidity(fits ? '' : 'Too small to contain the substation’s voltage levels');
+        field.setCustomValidity(message || (fits ? '' : 'Too small to contain the substation’s voltage levels'));
         return field.reportValidity();
+    }
+    /**
+     * Calls the host's validator. A throwing callback must not break the dialog,
+     * so the error is logged and treated as "no custom message" (fail open): the
+     * built-in validation still applies.
+     */
+    runHostValidator(width, height, dimension) {
+        try {
+            return this.validateSubstationResize?.(this.substation, width, height, dimension);
+        }
+        catch (error) {
+            console.error('validateSubstationResize threw', error);
+            return undefined;
+        }
+    }
+    resetFields() {
+        for (const field of [this.widthTextField, this.heightTextField]) {
+            field.reset();
+            field.setCustomValidity('');
+        }
+    }
+    closeDialog() {
+        this.dialog.open = false;
     }
     render() {
         if (!this.substation) {
             return b `<oscd-dialog></oscd-dialog>`;
         }
         const { dim: [w, h], } = attributes$1(this.substation);
-        return b `<oscd-dialog>
+        return b `<oscd-dialog @cancel=${this.closeDialog}>
       <div slot="headline">Resize ${this.substation.getAttribute('name')}</div>
       <form
         slot="content"
@@ -74946,7 +75025,7 @@ class SldResizeSubstationDialog extends ScopedElementsMixin(i$4) {
           value="${w}"
           supporting-text="Must stay large enough to contain all voltage levels"
           dialogInitialFocus
-          @input=${() => this.validate(this.widthTextField)}
+          @input=${() => this.validateAll()}
         ></oscd-outlined-text-field>
         <oscd-outlined-text-field
           id="substationHeight"
@@ -74956,11 +75035,11 @@ class SldResizeSubstationDialog extends ScopedElementsMixin(i$4) {
           label="Height"
           value="${h}"
           supporting-text="Must stay large enough to contain all voltage levels"
-          @input=${() => this.validate(this.heightTextField)}
+          @input=${() => this.validateAll()}
         ></oscd-outlined-text-field>
       </form>
       <div slot="actions">
-        <oscd-text-button @click=${() => (this.dialog.open = false)}
+        <oscd-text-button @click=${this.closeDialog}
           >Cancel</oscd-text-button
         >
         <oscd-filled-button @click=${() => this.confirm()}
@@ -74979,6 +75058,9 @@ SldResizeSubstationDialog.scopedElements = {
 __decorate([
     n$3()
 ], SldResizeSubstationDialog.prototype, "substation", void 0);
+__decorate([
+    n$3({ attribute: false })
+], SldResizeSubstationDialog.prototype, "validateSubstationResize", void 0);
 __decorate([
     e$5('oscd-dialog')
 ], SldResizeSubstationDialog.prototype, "dialog", void 0);
@@ -78232,16 +78314,62 @@ function createFlipElementEdits(element, nsp) {
 }
 function createAddTextEdit(element, nsp) {
     const { pos: [x, y], } = attributes$1(element);
-    const text = element.ownerDocument.createElementNS(element.ownerDocument.documentElement.namespaceURI, 'Text');
-    setSLDAttributes(text, nsp, {
+    const doc = element.ownerDocument;
+    const text = doc.createElementNS(doc.documentElement.namespaceURI, 'Text');
+    const values = {
         lx: x.toString(),
         ly: (y < 2 ? y + 1 : y - 1).toString(),
-    });
-    return {
-        node: text,
-        parent: element,
-        reference: getReference(element, 'Text'),
     };
+    const edits = [
+        { node: text, parent: element, reference: getReference(element, 'Text') },
+    ];
+    const existing = textLayout(element);
+    if (existing) {
+        edits.push(updateTextLayoutEdit(existing, nsp, values));
+        return edits;
+    }
+    const layout = doc.createElementNS(sldNs, `${nsp}:TextLayout`);
+    Object.entries(values).forEach(([key, value]) => layout.setAttributeNS(sldNs, `${nsp}:${key}`, value));
+    const priv = layoutPrivate(element);
+    if (priv) {
+        edits.push({ node: layout, parent: priv, reference: null });
+    }
+    else {
+        const newPriv = doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+        newPriv.setAttribute('type', privType);
+        newPriv.appendChild(layout);
+        edits.push({
+            node: newPriv,
+            parent: element,
+            reference: getReference(element, 'Private'),
+        });
+    }
+    return edits;
+}
+function updateTextLayoutEdit(layout, nsp, values) {
+    return {
+        element: layout,
+        attributesNS: {
+            [sldNs]: Object.fromEntries(Object.entries(values).map(([key, value]) => [`${nsp}:${key}`, value])),
+        },
+    };
+}
+/**
+ * Removes a `Text` together with its `TextLayout`, which is stored in the
+ * parent's layout `Private` rather than in the `Text` itself. A layout
+ * `Private` left empty by this is removed as well.
+ */
+function createRemoveTextEdits(text) {
+    const parent = text.parentElement;
+    const layout = parent ? textLayout(parent) : null;
+    if (!layout) {
+        return [{ node: text }];
+    }
+    const priv = layout.parentElement;
+    return [
+        { node: text },
+        { node: priv.children.length === 1 ? priv : layout },
+    ];
 }
 function createDeleteBusBarEdits(busBar) {
     const node = busBar.querySelector('ConnectivityNode');
@@ -78482,7 +78610,11 @@ function shiftElementEdits(element, x, y, nsp) {
     ];
 }
 function shiftTextEdits(element, dx, dy, nsp) {
-    return Array.from(element.querySelectorAll('Text')).map((text) => {
+    // Each parent has one TextLayout, so shift once per parent, not per Text.
+    const seen = new Set();
+    return Array.from(element.querySelectorAll('Text'))
+        .filter(text => !seen.has(text.parentElement) && seen.add(text.parentElement))
+        .map((text) => {
         const { label: [textLX, textLY], } = attributes$1(text);
         return updateSLDAttributes(text, nsp, {
             lx: (textLX + dx).toString(),
@@ -78768,7 +78900,7 @@ function transformerMenuItems(transformer, context) {
             ? {
                 headline: 'Delete Text',
                 icon: 'format_strikethrough',
-                handler: () => context.dispatch(newEditEventV2({ node: text })),
+                handler: () => context.dispatch(newEditEventV2(createRemoveTextEdits(text))),
             }
             : {
                 headline: 'Add Text',
@@ -78838,7 +78970,7 @@ function equipmentMenuItems(equipment, context) {
             ? {
                 headline: 'Remove Text',
                 icon: 'format_strikethrough',
-                handler: () => context.dispatch(newEditEventV2({ node: textElement })),
+                handler: () => context.dispatch(newEditEventV2(createRemoveTextEdits(textElement))),
             }
             : {
                 headline: 'Add Text',
@@ -78976,7 +79108,7 @@ function busBarMenuItems(busBar, context) {
             ? {
                 headline: 'Remove Text',
                 icon: 'format_strikethrough',
-                handler: () => context.dispatch(newEditEventV2({ node: text })),
+                handler: () => context.dispatch(newEditEventV2(createRemoveTextEdits(text))),
             }
             : {
                 headline: 'Add Text',
@@ -79029,7 +79161,7 @@ function containerMenuItems(bayOrVL, context) {
             ? {
                 headline: 'Remove Text',
                 icon: 'format_strikethrough',
-                handler: () => context.dispatch(newEditEventV2({ node: text })),
+                handler: () => context.dispatch(newEditEventV2(createRemoveTextEdits(text))),
             }
             : {
                 headline: 'Add Text',
@@ -79069,7 +79201,7 @@ function textMenuItems(text, context) {
         {
             headline: 'Delete',
             icon: 'delete',
-            handler: () => context.dispatch(newEditEventV2({ node: text })),
+            handler: () => context.dispatch(newEditEventV2(createRemoveTextEdits(text))),
         },
     ];
     if (weight !== 500) {
@@ -79922,6 +80054,7 @@ class SldEditor extends ScopedElementsMixin(i$4) {
       .substationOf=${this.substationOf}
     ></sld-coordinate-tooltip>
     <sld-resize-substation-dialog
+      .validateSubstationResize=${this.validateSubstationResize}
       @oscd-sld-resize=${({ detail: { element, w, h } }) => {
             this.handleResize(element, w, h);
         }}
@@ -79982,6 +80115,9 @@ __decorate([
     n$3({ type: Boolean })
 ], SldEditor.prototype, "showIeds", void 0);
 __decorate([
+    n$3({ attribute: false })
+], SldEditor.prototype, "validateSubstationResize", void 0);
+__decorate([
     r$2()
 ], SldEditor.prototype, "gridSize", void 0);
 __decorate([
@@ -79994,6 +80130,22 @@ __decorate([
 const oldNs = 'https://transpower.co.nz/SCL/SSD/SLD/v0';
 const newNs = 'https://openscd.org/SCL/SSD/SLD/v0';
 const oldPrefix = 'esld';
+// SLDv1 element layout attributes migrated here, not the complete SLDv1 format.
+const legacyLayoutAttributeNames = [
+    'x',
+    'y',
+    'w',
+    'h',
+    'rot',
+    'lx',
+    'ly',
+    'kind',
+    'flip',
+    'color',
+    'weight',
+    'uuid',
+];
+const coordinateNames = ['x', 'y', 'w', 'h', 'lx', 'ly'];
 const nulledAttributes = {
     [`${oldPrefix}:x`]: null,
     [`${oldPrefix}:y`]: null,
@@ -80009,20 +80161,60 @@ const nulledAttributes = {
     [`${oldPrefix}:uuid`]: null,
 };
 function attributes(element) {
-    return [
-        'x',
-        'y',
-        'w',
-        'h',
-        'rot',
-        'lx',
-        'ly',
-        'kind',
-        'flip',
-        'color',
-        'weight',
-        'uuid',
-    ].map(name => element.getAttributeNS(oldNs, name));
+    return legacyLayoutAttributeNames.map(name => element.getAttributeNS(oldNs, name));
+}
+// Plans one conversion before edits are applied. Substation coordinates and
+// IED references can both need the same Private, even when it does not exist yet.
+function conversionContext() {
+    const edits = [];
+    const privates = new Map();
+    const layouts = new Map();
+    // Returns the Private; if new, adds its Insert to edits before child inserts.
+    function privateFor(parent) {
+        const planned = privates.get(parent);
+        if (planned) {
+            return planned;
+        }
+        const existing = layoutPrivate(parent);
+        if (existing) {
+            privates.set(parent, existing);
+            return existing;
+        }
+        const created = createElement$1(parent.ownerDocument, 'Private', {
+            type: privType,
+        });
+        privates.set(parent, created);
+        edits.push({
+            parent,
+            node: created,
+            reference: getReference(parent, created.tagName),
+        });
+        return created;
+    }
+    function addToPrivate(parent, node) {
+        edits.push({ parent: privateFor(parent), node, reference: null });
+    }
+    // Returns the layout child; if new, adds its Insert to edits.
+    function layoutFor(parent, name, nsd) {
+        const priv = privateFor(parent);
+        let children = layouts.get(priv);
+        if (!children) {
+            children = new Map();
+            layouts.set(priv, children);
+        }
+        const planned = children.get(name);
+        if (planned) {
+            return planned;
+        }
+        const existing = Array.from(priv.children).find(child => child.localName === name && child.namespaceURI === sldNs);
+        const layout = existing ?? parent.ownerDocument.createElementNS(sldNs, `${nsd}:${name}`);
+        children.set(name, layout);
+        if (!existing) {
+            edits.push({ parent: priv, node: layout, reference: null });
+        }
+        return layout;
+    }
+    return { edits, addToPrivate, layoutFor };
 }
 function addVertexes(parentSection, vertex, nsd) {
     const newVertex = vertex.ownerDocument.createElementNS(newNs, `${nsd}:Vertex`);
@@ -80040,36 +80232,25 @@ function addVertexes(parentSection, vertex, nsd) {
         newVertex.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
     }
 }
-function copySection(newPrivate, section, nsd) {
+function copySection(section, nsd) {
     const newSection = section.ownerDocument.createElementNS(newNs, `${nsd}:Section`);
-    newPrivate.appendChild(newSection);
     const bus = section.getAttribute('bus');
     if (bus) {
         newSection.setAttributeNS(newNs, `${nsd}:bus`, bus);
     }
     const vertices = Array.from(section.querySelectorAll(':scope > Vertex'));
     vertices.forEach(vertex => addVertexes(newSection, vertex, nsd));
+    return newSection;
 }
-function copyConnNodePrivate(connNode, nsd) {
+function copyConnNodePrivate(context, connNode, nsd) {
     const oldPrivate = connNode.querySelector(':scope > Private[type="Transpower-SLD-Vertices"]');
     if (!oldPrivate) {
-        return [];
+        return;
     }
-    const newPrivate = createElement$1(connNode.ownerDocument, 'Private', {
-        type: 'OpenSCD-SLD-Layout',
-    });
     oldPrivate
         .querySelectorAll(':scope > Section')
-        .forEach(section => copySection(newPrivate, section, nsd));
-    const removeOldPrivate = {
-        node: oldPrivate,
-    };
-    const insertPrivate = {
-        parent: connNode,
-        node: newPrivate,
-        reference: getReference(connNode, newPrivate.tagName),
-    };
-    return [insertPrivate, removeOldPrivate];
+        .forEach(section => context.addToPrivate(connNode, copySection(section, nsd)));
+    context.edits.push({ node: oldPrivate });
 }
 /**
  * Second-generation migration for legacy linked IED layout.
@@ -80078,16 +80259,9 @@ function copyConnNodePrivate(connNode, nsd) {
  * `Private[type="OpenSCD-SLD-Layout"]` containers under the Substation section,
  * using `Reference` elements with nested `SLDAttributes`.
  */
-function migrateOldIEDNames(substation, nsd) {
+function migrateOldIEDNames(context, substation, nsd) {
     const oldIedPrivates = Array.from(substation.querySelectorAll(':scope Private[type="OpenSCD-Linked-IEDs"]'));
-    if (!oldIedPrivates) {
-        return [];
-    }
-    const edits = [];
     oldIedPrivates.forEach((oldIedPrivate) => {
-        const sldPrivateWithIEDs = createElement$1(oldIedPrivate.ownerDocument, 'Private', {
-            type: 'OpenSCD-SLD-Layout',
-        });
         const oldIedNames = Array.from(oldIedPrivate.querySelectorAll(':scope > *')).filter(el => el.localName === 'IEDName' &&
             (el.getAttributeNS(oldNs, 'x') !== null ||
                 el.getAttributeNS(oldNs, 'y') !== null ||
@@ -80127,17 +80301,10 @@ function migrateOldIEDNames(substation, nsd) {
                 sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
             }
             iedReference.appendChild(sldAttributes);
-            sldPrivateWithIEDs.appendChild(iedReference);
+            context.addToPrivate(oldIedPrivate.parentElement, iedReference);
         });
-        const insertNewIeds = {
-            parent: oldIedPrivate.parentElement,
-            node: sldPrivateWithIEDs,
-            reference: getReference(oldIedPrivate, sldPrivateWithIEDs.tagName),
-        };
-        const removeOldIeds = { node: oldIedPrivate };
-        edits.push(insertNewIeds, removeOldIeds);
+        context.edits.push({ node: oldIedPrivate });
     });
-    return edits;
 }
 /**
  * Legacy migration for IED coordinates that were written directly on `IED`.
@@ -80148,10 +80315,10 @@ function migrateOldIEDNames(substation, nsd) {
  * This migration moves those coordinates into Substation layout Private data by
  * creating `Reference` + nested `SLDAttributes` and clearing the old IED attrs.
  */
-function migrateLegacyIedCoordinates(doc, nsd) {
+function migrateLegacyIedCoordinates(context, doc, nsd) {
     const substation = doc.querySelector(':root > Substation');
     if (!substation) {
-        return [];
+        return;
     }
     const oldLinkedIedNames = new Set(Array.from(substation.querySelectorAll(':scope Private[type="OpenSCD-Linked-IEDs"] > IEDName'))
         .map(iedName => iedName.getAttributeNS(oldNs, 'name'))
@@ -80161,20 +80328,7 @@ function migrateLegacyIedCoordinates(doc, nsd) {
         ied.getAttributeNS(oldNs, 'lx') !== null ||
         ied.getAttributeNS(oldNs, 'ly') !== null);
     if (legacyIeds.length === 0) {
-        return [];
-    }
-    const edits = [];
-    let targetPrivate = substation.querySelector(':scope > Private[type="OpenSCD-SLD-Layout"]');
-    if (!targetPrivate) {
-        targetPrivate = createElement$1(substation.ownerDocument, 'Private', {
-            type: 'OpenSCD-SLD-Layout',
-        });
-        const insertPrivate = {
-            parent: substation,
-            node: targetPrivate,
-            reference: getReference(substation, targetPrivate.tagName),
-        };
-        edits.push(insertPrivate);
+        return;
     }
     legacyIeds.forEach((ied) => {
         const iedName = ied.getAttribute('name');
@@ -80203,12 +80357,7 @@ function migrateLegacyIedCoordinates(doc, nsd) {
                 sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
             }
             iedReference.appendChild(sldAttributes);
-            const insertIedReference = {
-                parent: targetPrivate,
-                node: iedReference,
-                reference: getReference(targetPrivate, iedReference.tagName),
-            };
-            edits.push(insertIedReference);
+            context.addToPrivate(substation, iedReference);
         }
         const resetIedLegacyCoordinates = {
             element: ied,
@@ -80222,72 +80371,60 @@ function migrateLegacyIedCoordinates(doc, nsd) {
                 },
             },
         };
-        edits.push(resetIedLegacyCoordinates);
+        context.edits.push(resetIedLegacyCoordinates);
     });
-    return edits;
 }
 function noLayoutAttributes(element) {
     return attributes(element).some(attr => attr !== null);
 }
-function pushToPrivate(element, nsd) {
-    if (!noLayoutAttributes(element)) {
-        return [];
+const textLayoutNames$1 = ['lx', 'ly', 'rot', 'color', 'weight'];
+function copyLayoutAttributes(context, target, element, nsd, only) {
+    const values = attributes(element);
+    const updates = {};
+    legacyLayoutAttributeNames.forEach((name, i) => {
+        if (values[i] &&
+            (!only || only.includes(name)) &&
+            !target.hasAttributeNS(newNs, name)) {
+            updates[`${nsd}:${name}`] = values[i];
+        }
+    });
+    if (Object.keys(updates).length > 0) {
+        context.edits.push({
+            element: target,
+            attributesNS: { [newNs]: updates },
+        });
     }
-    const resetOldAttributes = {
+}
+function resetOldAttributes(element) {
+    return {
         element,
         attributes: {},
         attributesNS: {
             [`${oldNs}`]: nulledAttributes,
         },
     };
-    const sldPrivate = createElement$1(element.ownerDocument, 'Private', {
-        type: 'OpenSCD-SLD-Layout',
-    });
-    const sldAttributes = element.ownerDocument.createElementNS(newNs, `${nsd}:SLDAttributes`);
-    sldPrivate.insertBefore(sldAttributes, null);
-    const [x, y, w, h, rot, lx, ly, kind, flip, color, weight, uuid] = attributes(element);
-    if (x) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:x`, x);
+}
+function pushToPrivate(context, element, nsd) {
+    // The SCL Text element cannot hold a Private, so its layout is stored as a
+    // TextLayout in the parent's Private.
+    const text = element.querySelector(':scope > Text');
+    const hasOwnLayout = noLayoutAttributes(element);
+    const hasTextLayout = !!text && noLayoutAttributes(text);
+    if (!hasOwnLayout && !hasTextLayout) {
+        return;
     }
-    if (y) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:y`, y);
+    if (hasOwnLayout) {
+        context.edits.push(resetOldAttributes(element));
     }
-    if (w) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:w`, w);
+    if (hasTextLayout) {
+        context.edits.push(resetOldAttributes(text));
     }
-    if (h) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:h`, h);
+    if (hasOwnLayout) {
+        copyLayoutAttributes(context, context.layoutFor(element, 'SLDAttributes', nsd), element, nsd);
     }
-    if (rot) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:rot`, rot);
+    if (hasTextLayout) {
+        copyLayoutAttributes(context, context.layoutFor(element, 'TextLayout', nsd), text, nsd, textLayoutNames$1);
     }
-    if (lx) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:lx`, lx);
-    }
-    if (ly) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:ly`, ly);
-    }
-    if (kind) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:kind`, kind);
-    }
-    if (flip) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:flip`, flip);
-    }
-    if (color) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:color`, color);
-    }
-    if (weight) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:weight`, weight);
-    }
-    if (uuid) {
-        sldAttributes.setAttributeNS(newNs, `${nsd}:uuid`, uuid);
-    }
-    const insertPrivate = {
-        parent: element,
-        node: sldPrivate,
-        reference: getReference(element, sldPrivate.tagName),
-    };
-    return [resetOldAttributes, insertPrivate];
 }
 function replaceNamespace(doc, nsd) {
     const scl = doc.querySelector(':root');
@@ -80308,24 +80445,85 @@ function replaceNamespace(doc, nsd) {
     return [removeOldXmlNS, setNewXmlNS];
 }
 function convertSldLayout(doc, nsd) {
-    const processElements = doc.querySelectorAll(':root > Substation, :root > Substation :not(Section, Vertex)');
-    const privateEdits = Array.from(processElements).flatMap(el => pushToPrivate(el, nsd));
+    const context = conversionContext();
+    const processElements = doc.querySelectorAll(':root > Substation, :root > Substation :not(Section, Vertex, Text)');
+    processElements.forEach(el => pushToPrivate(context, el, nsd));
     const connNodes = doc.querySelectorAll(':root > Substation ConnectivityNode');
-    const sectionCopy = Array.from(connNodes).flatMap(connNode => copyConnNodePrivate(connNode, nsd));
+    connNodes.forEach(connNode => copyConnNodePrivate(context, connNode, nsd));
     const substations = doc.querySelectorAll(':root > Substation');
-    const iedMigration = Array.from(substations).flatMap(substation => migrateOldIEDNames(substation, nsd));
-    const legacyIedCoordinateMigration = migrateLegacyIedCoordinates(doc, nsd);
-    const namespaceEdits = replaceNamespace(doc, nsd);
-    return [
-        ...privateEdits,
-        ...sectionCopy,
-        ...iedMigration,
-        ...legacyIedCoordinateMigration,
-        ...namespaceEdits,
-    ];
+    substations.forEach(substation => migrateOldIEDNames(context, substation, nsd));
+    migrateLegacyIedCoordinates(context, doc, nsd);
+    return [...context.edits, ...replaceNamespace(doc, nsd)];
 }
-function hasOldNamespace(doc) {
-    return !!doc.documentElement.lookupPrefix(oldNs);
+function hasPrivateLayout(doc) {
+    const privates = doc.querySelectorAll(`:root > Substation Private[type="${privType}"]`);
+    for (const priv of Array.from(privates)) {
+        const layout = Array.from(priv.querySelectorAll('SLDAttributes, TextLayout, Vertex'));
+        for (const element of layout) {
+            if (element.namespaceURI === sldNs &&
+                coordinateNames.some(name => element.hasAttributeNS(sldNs, name))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+function hasLegacyLayout(doc) {
+    const elements = doc.querySelectorAll(':root > Substation, :root > Substation *');
+    if (elements.length === 0) {
+        return false;
+    }
+    if (Array.from(elements).some(element => coordinateNames.some(name => element.hasAttributeNS(oldNs, name)))) {
+        return true;
+    }
+    return Array.from(doc.querySelectorAll(':root > IED')).some(ied => ['x', 'y', 'lx', 'ly'].some(name => ied.hasAttributeNS(oldNs, name)));
+}
+
+const legacySelector = `Substation Text > Private[type="${privType}"]`;
+const textLayoutNames = ['lx', 'ly', 'rot', 'color', 'weight'];
+/**
+ * Whether the document still stores Text layout in a `Private` inside `Text`,
+ * which SCL does not permit. The layout now lives in a `TextLayout` in the
+ * parent's own layout `Private`.
+ */
+function hasLegacyTextLayout(doc) {
+    return !!doc.querySelector(legacySelector);
+}
+/**
+ * Moves legacy `Text/Private` layout into the parent's `TextLayout`. Where the
+ * parent already has a `TextLayout`, the legacy values are discarded.
+ */
+function migrateTextLayoutEdits(doc, nsp) {
+    const edits = [];
+    const migrated = new Set();
+    doc.querySelectorAll(legacySelector).forEach((legacy) => {
+        const parent = legacy.parentElement.parentElement;
+        edits.push({ node: legacy });
+        const source = Array.from(legacy.children).find(child => child.localName === 'SLDAttributes' && child.namespaceURI === sldNs);
+        const values = textLayoutNames
+            .map(name => [name, source?.getAttributeNS(sldNs, name)])
+            .filter(([, value]) => !!value);
+        if (!values.length || textLayout(parent) || migrated.has(parent)) {
+            return;
+        }
+        migrated.add(parent);
+        const layout = doc.createElementNS(sldNs, `${nsp}:TextLayout`);
+        values.forEach(([name, value]) => layout.setAttributeNS(sldNs, `${nsp}:${name}`, value));
+        const priv = layoutPrivate(parent);
+        if (priv) {
+            edits.push({ node: layout, parent: priv, reference: null });
+            return;
+        }
+        const newPriv = doc.createElementNS(doc.documentElement.namespaceURI, 'Private');
+        newPriv.setAttribute('type', privType);
+        newPriv.appendChild(layout);
+        edits.push({
+            node: newPriv,
+            parent,
+            reference: getReference(parent, 'Private'),
+        });
+    });
+    return edits;
 }
 
 /**
@@ -81159,6 +81357,11 @@ __decorate([
 class SldMigrationNotice extends ScopedElementsMixin(i$4) {
     constructor() {
         super(...arguments);
+        /**
+         * `namespace` is the legacy attribute-based layout format; `text-layout` is
+         * layout stored in a `Private` inside `Text`, which SCL does not permit.
+         */
+        this.kind = 'namespace';
         this.converting = false;
     }
     async handleConvert() {
@@ -81181,7 +81384,36 @@ class SldMigrationNotice extends ScopedElementsMixin(i$4) {
             this.converting = false;
         }
     }
+    renderTextLayoutNotice() {
+        return b `<div
+      class="migration"
+      role="region"
+      aria-label="SLD text layout update required"
+    >
+      <oscd-icon class="migration-icon">shield</oscd-icon>
+      <h2>SLD text layout update required</h2>
+      <p class="migration-lead">
+        This file stores the position and formatting of some text labels inside
+        the <code>Text</code> elements themselves. The SCL schema does not allow
+        that, so it can make the file invalid. To keep working on this diagram
+        here, the label layout must be moved to the parent element's SLD layout
+        data. Only <em>where</em> the layout is stored changes; your text and
+        electrical model are untouched. You can undo the change.
+      </p>
+      <oscd-filled-button
+        class="migration-action"
+        ?disabled=${this.converting}
+        @click="${() => this.handleConvert()}"
+        >${this.converting
+            ? 'Updating…'
+            : 'Update Text Layout'}</oscd-filled-button
+      >
+    </div>`;
+    }
     render() {
+        if (this.kind === 'text-layout') {
+            return this.renderTextLayoutNotice();
+        }
         return b `<div
       class="migration"
       role="region"
@@ -81317,6 +81549,9 @@ SldMigrationNotice.styles = [
     `,
 ];
 __decorate([
+    n$3({ type: String })
+], SldMigrationNotice.prototype, "kind", void 0);
+__decorate([
     r$2()
 ], SldMigrationNotice.prototype, "converting", void 0);
 
@@ -81329,6 +81564,7 @@ class OscdEditorSld extends ScopedElementsMixin(i$4) {
         this.inAction = false;
         this._showLabels = true;
         this._showIeds = true;
+        this.showLegacyLayoutNotice = false;
         /**
          * Intercepts `oscd-edit-v2` events bubbling up from the editor and toolbar and,
          * when the edit writes SLD-layout content to a document that does not yet
@@ -81382,6 +81618,11 @@ class OscdEditorSld extends ScopedElementsMixin(i$4) {
         }
     }
     willUpdate(changedProperties) {
+        if (this.doc &&
+            (changedProperties.has('doc') || changedProperties.has('docVersion'))) {
+            this.showLegacyLayoutNotice =
+                !hasPrivateLayout(this.doc) && hasLegacyLayout(this.doc);
+        }
         if (!changedProperties.has('doc')) {
             return;
         }
@@ -81401,6 +81642,12 @@ class OscdEditorSld extends ScopedElementsMixin(i$4) {
         const convertEdits = convertSldLayout(this.doc, this.nsp);
         this.dispatchEvent(newEditEventV2(withSldNamespace(this.doc, convertEdits)));
     }
+    migrateTextLayout() {
+        const edits = migrateTextLayoutEdits(this.doc, this.nsp);
+        this.dispatchEvent(newEditEventV2(withSldNamespace(this.doc, edits), {
+            title: 'Migrate SLD text layout',
+        }));
+    }
     handleInAction(active) {
         this.inAction = active;
     }
@@ -81408,9 +81655,15 @@ class OscdEditorSld extends ScopedElementsMixin(i$4) {
         if (!this.doc) {
             return b `<p>Please open an SCL document</p>`;
         }
-        if (hasOldNamespace(this.doc)) {
+        if (this.showLegacyLayoutNotice) {
             return b `<sld-migration-notice
         @sld-convert=${() => this.convertSldAttributes()}
+      ></sld-migration-notice>`;
+        }
+        if (hasLegacyTextLayout(this.doc)) {
+            return b `<sld-migration-notice
+        kind="text-layout"
+        @sld-convert=${() => this.migrateTextLayout()}
       ></sld-migration-notice>`;
         }
         return b `<main>
